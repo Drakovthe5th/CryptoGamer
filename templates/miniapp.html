@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CryptoGameBot MiniApp</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <style>
+        :root {
+            --primary: #6a11cb;
+            --secondary: #2575fc;
+            --accent: #ff512f;
+            --background: #f5f7fa;
+            --card: #ffffff;
+            --text: #333333;
+            --text-light: #777777;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            padding: 15px;
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .balance-card {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .balance-label {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .balance-amount {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        
+        .balance-subtext {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .section {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+        
+        .quest-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .quest-item:last-child {
+            border-bottom: none;
+        }
+        
+        .quest-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .quest-details {
+            flex-grow: 1;
+        }
+        
+        .quest-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .quest-reward {
+            font-size: 14px;
+            color: var(--text-light);
+        }
+        
+        .quest-status {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #e8f4ff;
+            color: var(--primary);
+        }
+        
+        .quest-status.completed {
+            background: #e6f7ee;
+            color: #0a9c4d;
+        }
+        
+        .ad-container {
+            background: var(--card);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .ad-label {
+            font-size: 12px;
+            color: var(--text-light);
+            text-align: center;
+            padding: 8px;
+            background: rgba(0,0,0,0.02);
+        }
+        
+        .ad-content {
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .ad-image {
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            max-height: 150px;
+            object-fit: cover;
+        }
+        
+        .ad-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .ad-button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .ad-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        
+        .boost-button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        
+        .boost-button.weekend {
+            background: linear-gradient(135deg, #FF512F, #F09819);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-light);
+        }
+        
+        .error {
+            color: #e74c3c;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>CryptoGame Miner</h1>
+        </div>
+        
+        <div class="balance-card">
+            <div class="balance-label">Your Balance</div>
+            <div class="balance-amount" id="balance">0.000000 XNO</div>
+            <div class="balance-subtext">Minimum withdrawal: {{ config.MIN_WITHDRAWAL }} XNO</div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Active Quests</div>
+            <div id="quests-container" class="loading">
+                Loading quests...
+            </div>
+        </div>
+        
+        <button id="boost-earnings" class="boost-button">
+            🚀 Boost Earnings
+        </button>
+        
+        <div class="ad-container">
+            <div class="ad-label">Advertisement</div>
+            <div class="ad-content" id="ad-container">
+                Loading ad...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Telegram WebApp
+        const webApp = Telegram.WebApp;
+        webApp.ready();
+        webApp.expand();
+        
+        // Get user ID from Telegram
+        const userId = webApp.initDataUnsafe.user?.id;
+        if (!userId) {
+            document.getElementById('app').innerHTML = 
+                '<div class="error">Error: User authentication failed</div>';
+            throw new Error("User ID not available");
+        }
+
+        // DOM elements
+        const balanceDisplay = document.getElementById('balance');
+        const questsContainer = document.getElementById('quests-container');
+        const adContainer = document.getElementById('ad-container');
+        const boostButton = document.getElementById('boost-earnings');
+        
+        // Add weekend styling
+        const today = new Date();
+        if (today.getDay() === 0 || today.getDay() === 6) {
+            boostButton.classList.add('weekend');
+            boostButton.innerHTML = '🚀 Weekend Boost! +50% Earnings';
+        }
+        
+        // Format balance display
+        function formatBalance(balance) {
+            return balance.toFixed(6) + ' XNO';
+        }
+        
+        // Load user data
+        async function loadUserData() {
+            try {
+                questsContainer.innerHTML = '<div class="loading">Loading quests...</div>';
+                
+                const response = await fetch(`/api/user/data?user_id=${userId}`, {
+                    headers: {
+                        'X-Telegram-User-ID': userId.toString(),
+                        'X-Telegram-Hash': webApp.initData
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Update balance
+                balanceDisplay.textContent = formatBalance(data.balance);
+                
+                // Update quests
+                if (data.quests && data.quests.length > 0) {
+                    questsContainer.innerHTML = data.quests.map(quest => `
+                        <div class="quest-item">
+                            <div class="quest-icon">🎯</div>
+                            <div class="quest-details">
+                                <div class="quest-title">${quest.title}</div>
+                                <div class="quest-reward">Reward: ${quest.reward.toFixed(6)} XNO</div>
+                            </div>
+                            <div class="quest-status ${quest.completed ? 'completed' : ''}">
+                                ${quest.completed ? '✅ Completed' : '🔄 Active'}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    questsContainer.innerHTML = '<div class="loading">No active quests available</div>';
+                }
+                
+                // Update ads
+                if (data.ads && data.ads.length > 0) {
+                    const ad = data.ads[0];
+                    adContainer.innerHTML = `
+                        <img src="${ad.image_url}" class="ad-image" alt="${ad.title}">
+                        <div class="ad-title">${ad.title}</div>
+                        <button class="ad-button" onclick="claimAdReward('${ad.id}')">
+                            View Ad (+${ad.reward.toFixed(6)} XNO)
+                        </button>
+                    `;
+                } else {
+                    adContainer.innerHTML = '<div class="loading">No ads available</div>';
+                }
+            } catch (error) {
+                console.error("Failed to load user data:", error);
+                balanceDisplay.textContent = '0.000000 XNO';
+                questsContainer.innerHTML = `<div class="error">${error.message || 'Error loading data'}</div>`;
+            }
+        }
+        
+        // Claim ad reward
+        window.claimAdReward = async (adId) => {
+            try {
+                const response = await fetch('/api/ads/reward', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-User-ID': userId.toString(),
+                        'X-Telegram-Hash': webApp.initData
+                    },
+                    body: JSON.stringify({ ad_id: adId })
+                });
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                alert(`🎉 You earned ${result.reward.toFixed(6)} XNO!`);
+                loadUserData(); // Refresh data
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        };
+        
+        // Boost Earnings button handler
+        boostButton.addEventListener('click', () => {
+            if (document.querySelector('.ad-button')) {
+                document.querySelector('.ad-button').click();
+            } else {
+                alert("No ads available at the moment. Try again later.");
+            }
+        });
+        
+        // Initial data load
+        loadUserData();
+        
+        // Refresh data every 60 seconds
+        setInterval(loadUserData, 60000);
+    </script>
+</body>
+</html>

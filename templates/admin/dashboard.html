@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Advertiser Dashboard</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <h1>Campaign Performance</h1>
+    <div class="campaign-stats">
+        <div class="metric">
+            <h3>Impressions</h3>
+            <p>{{ impressions }}</p>
+        </div>
+        <div class="metric">
+            <h3>Completions</h3>
+            <p>{{ completions }}</p>
+        </div>
+        <div class="metric">
+            <h3>Conversion Rate</h3>
+            <p>{{ conversion_rate }}%</p>
+        </div>
+    </div>
+    
+    <h2>Create New Quest</h2>
+    <form action="/admin/create_quest" method="POST">
+        <!-- Quest creation form -->
+    </form>
+</body>
+</html>
