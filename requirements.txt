@@ -3,7 +3,7 @@ flask==3.0.3
 python-telegram-bot==21.1.1
 python-dotenv==1.0.1
 requests==2.31.0
-nanopy==29.0.0
+nanopy==28.0.1
 firebase-admin==6.2.0
 google-cloud-firestore==2.15.0
 waitress==3.0.1
