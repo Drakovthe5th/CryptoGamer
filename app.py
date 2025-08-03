@@ -7,7 +7,6 @@ from src.database.firebase import (
     track_ad_reward
 )
 from src.utils.security import validate_telegram_hash
-from src.utils.conversions import to_xno
 from config import Config
 import datetime
 import logging
@@ -46,7 +45,7 @@ def create_app():
                 for quest in get_active_quests()
             ]
 
-            # Get available ads (simplified example)
+            # Get available ads
             ads = [{
                 'id': 'ad1',
                 'title': 'Special Offer',
@@ -88,11 +87,31 @@ def create_app():
             return jsonify({
                 'success': True,
                 'reward': reward,
-                'new_balance': new_balance
+                'new_balance': new_balance,
+                'weekend_boost': is_weekend
             })
         except Exception as e:
             logging.error(f"Ad reward error: {str(e)}")
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/campaign-stats')
+    def campaign_stats():
+        """Provide campaign statistics for charts"""
+        return jsonify({
+            "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+            "datasets": [
+                {
+                    "label": "Impressions",
+                    "data": [65, 59, 80, 81, 56, 55],
+                    "backgroundColor": "rgba(52, 152, 219, 0.7)"
+                },
+                {
+                    "label": "Conversions",
+                    "data": [28, 48, 40, 19, 86, 27],
+                    "backgroundColor": "rgba(46, 204, 113, 0.7)"
+                }
+            ]
+        })
 
     return app
 

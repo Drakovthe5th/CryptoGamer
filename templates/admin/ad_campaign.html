@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ad Campaign Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <h1>Ad Campaign Management</h1>
+        
+        <div class="campaign-controls">
+            <button id="create-campaign">+ Create New Campaign</button>
+        </div>
+        
+        <div class="campaign-list">
+            {% for campaign in campaigns %}
+            <div class="campaign-item" 
+                 data-impressions="{{ campaign.impressions }}"
+                 data-clicks="{{ campaign.clicks }}"
+                 data-conversions="{{ campaign.conversions }}">
+                <div class="campaign-header">
+                    <h2>{{ campaign.name }}</h2>
+                    <span class="campaign-status {% if campaign.active %}active{% else %}paused{% endif %}">
+                        {% if campaign.active %}Active{% else %}Paused{% endif %}
+                    </span>
+                </div>
+                
+                <div class="campaign-metrics">
+                    <div class="metric">
+                        <span class="value">{{ campaign.impressions }}</span>
+                        <span class="label">Impressions</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ campaign.clicks }}</span>
+                        <span class="label">Clicks</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ campaign.ctr }}%</span>
+                        <span class="label">CTR</span>
+                    </div>
+                    <div class="metric">
+                        <span class="value">{{ campaign.conversions }}</span>
+                        <span class="label">Conversions</span>
+                    </div>
+                </div>
+                
+                <div class="campaign-actions">
+                    <button class="edit-campaign" data-id="{{ campaign.id }}">Edit</button>
+                    <button class="toggle-campaign" data-id="{{ campaign.id }}">
+                        {% if campaign.active %}Pause{% else %}Activate{% endif %}
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script>
+        // Initialize charts for each campaign
+        document.querySelectorAll('.campaign-item').forEach(item => {
+            const canvas = document.createElement('canvas');
+            item.querySelector('.campaign-metrics').appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Impressions', 'Clicks', 'Conversions'],
+                    datasets: [{
+                        label: 'Performance',
+                        data: [
+                            parseInt(item.dataset.impressions),
+                            parseInt(item.dataset.clicks),
+                            parseInt(item.dataset.conversions)
+                        ],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.5)',
+                            'rgba(75, 192, 192, 0.5)',
+                            'rgba(153, 102, 255, 0.5)'
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

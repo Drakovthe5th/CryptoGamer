@@ -1,7 +1,8 @@
 class AdManager {
-    constructor({ userId, country }) {
-        this.userId = userId;
-        this.country = country;
+    constructor(config) {
+        this.userId = config.userId;
+        this.country = config.country;
+        this.config = config;
         this.adBlockDetected = false;
         this.adScriptsLoaded = {};
         this.checkAdBlock();
@@ -89,14 +90,14 @@ class AdManager {
         
         const adContainer = document.getElementById('ad-container');
         adContainer.innerHTML = `
-            <div id="coinzilla-ad" data-zone="${config.COINZILLA_ZONE_ID}"></div>
+            <div id="coinzilla-ad" data-zone="${this.config.coinzillaZoneId}"></div>
         `;
     }
     
     loadPropellerAd() {
         if (!this.adScriptsLoaded.propeller) {
             const script = document.createElement('script');
-            script.src = `https://ads.propellerads.com/v5/${config.PROPELLER_ZONE_ID}`;
+            script.src = `https://ads.propellerads.com/v5/${this.config.propellerZoneId}`;
             script.async = true;
             document.head.appendChild(script);
             this.adScriptsLoaded.propeller = true;
@@ -109,107 +110,61 @@ class AdManager {
     }
     
     loadAAdsAd() {
-        if (!this.adScriptsLoaded.aads) {
-            const script = document.createElement('script');
-            script.src = `https://a-ads.com/${config.A_ADS_ZONE_ID}`;
-            script.async = true;
-            document.head.appendChild(script);
-            this.adScriptsLoaded.aads = true;
-        }
-        
         const adContainer = document.getElementById('ad-container');
         adContainer.innerHTML = `
-            <div id="a-ads-ad"></div>
+            <div id="frame" style="width: 100%; height: 100%;">
+                <iframe data-aa='${this.config.aAdsZoneId}' 
+                        src='//acceptable.a-ads.com/${this.config.aAdsZoneId}' 
+                        style='border:0px; padding:0; width:100%; height:100%; overflow:hidden; background-color: transparent;'>
+                </iframe>
+                <a style="display: block; text-align: right; font-size: 12px" 
+                   href="https://aads.com/campaigns/new/?source_id=${this.config.aAdsZoneId}&source_type=ad_unit&partner=${this.config.aAdsZoneId}">
+                   Advertise here
+                </a>
+            </div>
         `;
     }
     
     // Rewarded ad flow
     showRewardedAd() {
-        const platform = this.selectAdPlatform();
-        
-        // Show loading indicator
         const boostButton = document.getElementById('boost-earnings');
         const originalText = boostButton.innerHTML;
         boostButton.innerHTML = 'Loading ad...';
         boostButton.disabled = true;
         
-        switch(platform) {
-            case 'coinzilla':
-                return this.showCoinzillaRewarded(originalText);
-                
-            case 'propeller':
-                return this.showPropellerRewarded(originalText);
-                
-            case 'a-ads':
-                return this.showAAdsRewarded(originalText);
-        }
-    }
-    
-    showCoinzillaRewarded(originalText) {
-        return new Promise((resolve, reject) => {
-            // Simulated rewarded ad flow
-            Telegram.WebApp.showAlert('Watch a short video to earn rewards!');
-            
-            // Simulate ad loading time
-            setTimeout(() => {
-                // Simulate ad completion
-                setTimeout(() => {
-                    this.grantReward('coinzilla');
-                    resolve();
-                    
-                    // Reset button
-                    const boostButton = document.getElementById('boost-earnings');
-                    boostButton.innerHTML = originalText;
-                    boostButton.disabled = false;
-                }, 3000);
-            }, 1500);
+        // Show Monetag rewarded ad
+        show_9644715('pop').then(() => {
+            // User watched ad till the end
+            this.grantReward('monetag');
+            boostButton.innerHTML = originalText;
+            boostButton.disabled = false;
+        }).catch(error => {
+            console.error('Ad error:', error);
+            boostButton.innerHTML = originalText;
+            boostButton.disabled = false;
         });
     }
     
-    showPropellerRewarded(originalText) {
-        return new Promise((resolve, reject) => {
-            // Simulated rewarded ad flow
-            Telegram.WebApp.showAlert('Complete the ad to earn rewards!');
-            
-            setTimeout(() => {
-                setTimeout(() => {
-                    this.grantReward('propeller');
-                    resolve();
-                    
-                    // Reset button
-                    const boostButton = document.getElementById('boost-earnings');
-                    boostButton.innerHTML = originalText;
-                    boostButton.disabled = false;
-                }, 3000);
-            }, 1500);
-        });
-    }
-    
-    showAAdsRewarded(originalText) {
-        return new Promise((resolve, reject) => {
-            // Simulated rewarded ad flow
-            Telegram.WebApp.showAlert('Watch the full ad to earn crypto!');
-            
-            setTimeout(() => {
-                setTimeout(() => {
-                    this.grantReward('a-ads');
-                    resolve();
-                    
-                    // Reset button
-                    const boostButton = document.getElementById('boost-earnings');
-                    boostButton.innerHTML = originalText;
-                    boostButton.disabled = false;
-                }, 3000);
-            }, 1500);
+    // Show interstitial ad
+    showInterstitialAd() {
+        show_9644715({
+            type: 'inApp',
+            inAppSettings: {
+                frequency: 2,
+                capping: 0.1,
+                interval: 30,
+                timeout: 5,
+                everyPage: false
+            }
         });
     }
     
     grantReward(platform) {
-        fetch('/miniapp/ad-reward', {
+        fetch('/api/ads/reward', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Telegram-User': this.userId
+                'X-Telegram-User-ID': this.userId.toString()
             },
             body: JSON.stringify({ 
                 platform: platform,

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Available Quests</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Available Quests</h1>
+        <div class="quests-list">
+            {% for quest in quests %}
+            <div class="quest-item">
+                <div class="quest-header">
+                    <h2>{{ quest.title }}</h2>
+                    <span class="quest-reward">{{ quest.reward }} XNO</span>
+                </div>
+                <p class="quest-description">{{ quest.description }}</p>
+                <div class="quest-meta">
+                    <span class="quest-status {% if quest.completed %}completed{% else %}active{% endif %}">
+                        {% if quest.completed %}✅ Completed{% else %}🔄 Active{% endif %}
+                    </span>
+                    <span class="quest-points">{{ quest.points }} XP</span>
+                </div>
+                {% if not quest.completed %}
+                <button class="start-quest" data-quest-id="{{ quest.id }}">Start Quest</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        document.querySelectorAll('.start-quest').forEach(button => {
+            button.addEventListener('click', async () => {
+                const questId = button.dataset.questId;
+                try {
+                    const response = await fetch('/api/quests/start', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Telegram-User-ID': '{{ user_id }}'
+                        },
+                        body: JSON.stringify({ quest_id: questId })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        alert('Quest started! Complete the tasks to earn rewards.');
+                    } else {
+                        alert(`Error: ${result.error}`);
+                    }
+                } catch (error) {
+                    console.error('Quest start error:', error);
+                    alert('Failed to start quest. Please try again.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
