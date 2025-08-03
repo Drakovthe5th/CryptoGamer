@@ -20,6 +20,14 @@ def configure_routes(app):
     def miniapp_route():
         return render_template('miniapp.html')
     
+        @app.errorhandler(404)
+    def page_not_found(e):
+        return render_template('404.html'), 404
+
+    @app.errorhandler(500)
+    def internal_error(e):
+        return render_template('500.html'), 500
+    
     # Telegram webhook endpoint - FIXED: Removed duplicate definition
     @app.route('/webhook', methods=['POST'], endpoint='telegram_webhook')
     def telegram_webhook():
