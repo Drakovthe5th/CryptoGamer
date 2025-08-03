@@ -20,7 +20,7 @@ def configure_routes(app):
     def miniapp_route():
         return render_template('miniapp.html')
     
-        @app.errorhandler(404)
+    @app.errorhandler(404)
     def page_not_found(e):
         return render_template('404.html'), 404
 
