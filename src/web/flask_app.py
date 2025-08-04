@@ -1,23 +1,21 @@
-from flask import Flask
-from src.web.routes import configure_routes
-import os
+from flask import Flask, jsonify
 
 def create_app():
-    # Get absolute paths to templates and static directories
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    template_dir = os.path.join(base_dir, '../../templates')
-    static_dir = os.path.join(base_dir, '../../static')
+    app = Flask(__name__)
     
-    app = Flask(__name__, 
-                template_folder=template_dir,
-                static_folder=static_dir)
+    # Health check endpoint
+    @app.route('/')
+    def health_check():
+        return jsonify({
+            "status": "running",
+            "service": "CryptoGameMiner",
+            "version": "1.0.0"
+        }), 200
     
-    configure_routes(app)
-    
-    # Add security header for Telegram Mini Apps
-    @app.after_request
-    def add_header(response):
-        response.headers['Content-Security-Policy'] = "frame-src 'self' https://telegram.org;"
-        return response
+    # Webhook endpoint for Telegram
+    @app.route('/webhook', methods=['POST'])
+    def webhook():
+        # Telegram will send updates here in production
+        return jsonify({"status": "webhook received"}), 200
     
     return app

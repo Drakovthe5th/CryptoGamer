@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+from google.cloud.firestore_v1.base_query import FieldFilter
 from config import config
 import logging
 
@@ -31,7 +32,6 @@ def initialize_firebase(creds_dict):
         logging.error(f"Firebase initialization error: {e}")
         return False
 
-# Add to firebase.py
 def track_ad_impression(platform: str, ad_type: str, user_id: int, country: str):
     try:
         db.collection('ad_impressions').add({
@@ -123,6 +123,44 @@ def update_leaderboard_points(user_id: int, points: int):
     except FirebaseError as e:
         logging.error(f"Error updating leaderboard points: {e}")
 
+def get_leaderboard(limit: int = 10) -> list:
+    """Get top users by points"""
+    try:
+        collection_ref = users_ref if users_ref else db.collection('users')
+        query = collection_ref.order_by('points', direction=firestore.Query.DESCENDING).limit(limit)
+        results = query.stream()
+        
+        leaderboard = []
+        for doc in results:
+            user_data = doc.to_dict()
+            leaderboard.append(user_data)
+            
+        return leaderboard
+    except Exception as e:
+        logging.error(f"Error getting leaderboard: {e}")
+        return []
+
+def get_user_rank(user_id: int) -> int:
+    """Get user's rank based on points"""
+    try:
+        # Get user points
+        user_doc = get_user_ref(user_id).get()
+        if not user_doc.exists:
+            return 0
+        user_data = user_doc.to_dict()
+        user_points = user_data.get('points', 0)
+        
+        # Count users with more points
+        collection_ref = users_ref if users_ref else db.collection('users')
+        count_query = collection_ref.where(filter=FieldFilter('points', '>', user_points))
+        count = count_query.count().get()[0][0].value
+        
+        # Rank is count + 1
+        return count + 1
+    except Exception as e:
+        logging.error(f"Error getting user rank: {e}")
+        return 0
+
 # Withdrawal operations
 def process_withdrawal(user_id: int, method: str, amount: float, details: dict):
     try:
@@ -147,22 +185,3 @@ def process_withdrawal(user_id: int, method: str, amount: float, details: dict):
             'status': 'error',
             'error': str(e)
         }
-    
-def get_user_ref(user_id: int):
-    return users_ref.document(str(user_id))
-
-def update_leaderboard_points(user_id: int, points: int):
-    try:
-        user_ref = get_user_ref(user_id)
-        user_ref.update({
-            'points': firestore.Increment(points),
-            'last_active': SERVER_TIMESTAMP
-        })
-    except FirebaseError as e:
-        logging.error(f"Error updating leaderboard points: {e}")
-
-def update_user(user_id: int, update_data: dict):
-    try:
-        get_user_ref(user_id).update(update_data)
-    except FirebaseError as e:
-        logging.error(f"Error updating user: {e}")
