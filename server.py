@@ -55,29 +55,34 @@ async def set_webhook():
         except Exception as fallback_error:
             logger.error(f"Failed to delete webhook: {fallback_error}")
 
-
-def run_bot():
-    global telegram_application
-    
-    logger.info("🤖 Initializing Telegram bot services...")
+def initialize_firebase(creds_dict):
+    global db, users_ref, transactions_ref, withdrawals_ref, quests_ref
     
     try:
-        # Initialize Firebase - FIXED CREDENTIALS HANDLING
-        creds_str = os.environ.get('FIREBASE_CREDS', Config.FIREBASE_CREDS)
-        try:
-            # Parse JSON if it's a string
-            if isinstance(creds_str, str):
-                firebase_creds = json.loads(creds_str)
+        if not firebase_admin._apps:
+            # Handle both file paths and credential dictionaries
+            if isinstance(creds_dict, dict):
+                cred = credentials.Certificate(creds_dict)
+            elif isinstance(creds_dict, str) and os.path.isfile(creds_dict):
+                cred = credentials.Certificate(creds_dict)
             else:
-                firebase_creds = creds_str
-        except json.JSONDecodeError:
-            logger.error("❌ Failed to parse FIREBASE_CREDS JSON")
-            firebase_creds = None
+                logging.error("Invalid Firebase credentials format")
+                return False
+            
+            firebase_admin.initialize_app(cred)
         
-        if firebase_creds and initialize_firebase(firebase_creds):
-            logger.info("🔥 Firebase initialized")
-        else:
-            raise RuntimeError("Firebase initialization failed")
+        db = firestore.client()
+        users_ref = db.collection('users')
+        transactions_ref = db.collection('transactions')
+        withdrawals_ref = db.collection('withdrawals')
+        quests_ref = db.collection('quests')
+        logging.info("Firebase initialized successfully")
+        return True
+    except Exception as e:
+        logging.error(f"Firebase initialization error: {e}")
+        return False
+        # Propagate error for visibility
+        raise
 
 if __name__ == '__main__':
     # Start bot in background thread
