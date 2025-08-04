@@ -1,42 +1,62 @@
 import logging
-from nanopy import Account
-from config import config
-import requests
+import nanopy
 
 logger = logging.getLogger(__name__)
 
 class NanoWallet:
     def __init__(self, seed, representative):
-        # Create account using seed as first parameter
-        self.account = Account(seed, 0)  # Remove keyword arguments
-        self.account.representative = representative
-        logger.info(f"Nano wallet initialized. Address: {self.account.address}")
-
-    def get_address(self) -> str:
-        return self.account.address
-
-    def send_transaction(self, destination: str, amount: float) -> str:
+        self.seed = seed
+        self.representative = representative
+        self.rpc = nanopy.rpc(host='https://mynano.ninja/api/node')
+        
         try:
-            # Convert amount to raw (1 XNO = 10^30 raw)
-            raw_amount = int(amount * (10**30))
+            # Create account from seed
+            self.account = nanopy.Account(seed=seed)
             
-            # Create and publish send block
-            block = self.account.send(destination, raw_amount)
-            return block.hash
+            # Get account address
+            self.address = nanopy.account_key(account_key=self.account.key)
+            
+            logger.info(f"Nano wallet initialized. Address: {self.address}")
         except Exception as e:
-            logger.error(f"Error sending transaction: {e}")
-            raise
+            logger.error(f"Failed to initialize Nano wallet: {e}")
+            self.account = None
+            self.address = None
 
-# Singleton wallet instance
+    def get_balance(self):
+        if not self.account:
+            return 0.0
+        try:
+            balance = self.rpc.account_balance(account=self.address)
+            return float(balance['balance']) / 10**30
+        except Exception as e:
+            logger.error(f"Failed to get Nano balance: {e}")
+            return 0.0
+
+    def send_transaction(self, to_address, amount):
+        if not self.account:
+            return False
+        try:
+            wallet = nanopy.Wallet(seed=self.seed)
+            amount_raw = int(amount * 10**30)
+            
+            # Create and process block
+            block = self.account.send(
+                wallet=wallet,
+                to_addr=to_address,
+                amount=amount_raw,
+                representative=self.representative
+            )
+            logger.info(f"Sent {amount} NANO to {to_address}. Block: {block['hash']}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to send Nano transaction: {e}")
+            return False
+
+# Global wallet instance
 nano_wallet = None
 
 def initialize_nano_wallet(seed, representative):
     global nano_wallet
-    if not nano_wallet:
+    if seed and representative:
         nano_wallet = NanoWallet(seed, representative)
-
-def get_wallet_address() -> str:
-    return nano_wallet.get_address() if nano_wallet else ""
-
-def send_transaction(destination: str, amount: float) -> str:
-    return nano_wallet.send_transaction(destination, amount) if nano_wallet else ""
+    return nano_wallet

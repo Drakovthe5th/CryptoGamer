@@ -21,9 +21,9 @@ class Config:
 
     # Load environment variables
     TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-    NANO_SEED = os.getenv('NANO_SEED')
+    NANO_SEED = os.getenv('NANO_SEED', None)
     CMC_API_KEY = os.getenv('CMC_API_KEY')
-    REPRESENTATIVE = "nano_3ur1a7tsboowmxokmhfppfpcctoiuuwhhgyhzf6oux8edzhp61nqkoyzb3os"  # Default representative
+    REPRESENTATIVE = os.getenv("REPRESENTATIVE", None)  # Default representative
     FAUCET_COOLDOWN = int(os.getenv('FAUCET_COOLDOWN', 24))  # hours
     
     # M-Pesa configuration
