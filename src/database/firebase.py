@@ -18,14 +18,22 @@ def initialize_firebase(creds_dict):
     
     try:
         if not firebase_admin._apps:
-            cred = credentials.Certificate(creds_dict)
+            # Handle both file paths and credential dictionaries
+            if isinstance(creds_dict, dict):
+                cred = credentials.Certificate(creds_dict)
+            elif isinstance(creds_dict, str) and os.path.isfile(creds_dict):
+                cred = credentials.Certificate(creds_dict)
+            else:
+                logging.error("Invalid Firebase credentials format")
+                return False
+            
             firebase_admin.initialize_app(cred)
         
         db = firestore.client()
         users_ref = db.collection('users')
         transactions_ref = db.collection('transactions')
         withdrawals_ref = db.collection('withdrawals')
-        quests_ref = db.collection('quests')  # Initialize quests reference
+        quests_ref = db.collection('quests')
         logging.info("Firebase initialized successfully")
         return True
     except Exception as e:
