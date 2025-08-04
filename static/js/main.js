@@ -1,19 +1,3 @@
-// Initialize Telegram WebApp
-const tg = window.Telegram.WebApp;
-
-// Check user authentication
-if (!tg.initDataUnsafe.user || !tg.initDataUnsafe.user.id) {
-    document.getElementById('app').innerHTML = 
-        '<div class="error">Error: User authentication failed</div>';
-    throw new Error("User ID not available");
-}
-
-// DOM elements
-const balanceDisplay = document.getElementById('balance');
-const minWithdrawalDisplay = document.getElementById('min-withdrawal');
-const questsContainer = document.getElementById('quests-container');
-const adContainer = document.getElementById('ad-container');
-
 // Basic HTML escaping for security
 function escapeHtml(str) {
     if (!str) return '';
@@ -33,14 +17,20 @@ function formatBalance(balance) {
 }
 
 // Load user data
-async function loadUserData() {
+async function loadUserData(userId, initData) {
+    const balanceDisplay = document.getElementById('balance');
+    const minWithdrawalDisplay = document.getElementById('min-withdrawal');
+    const questsContainer = document.getElementById('quests-container');
+    const adContainer = document.getElementById('ad-container');
+    
     try {
         questsContainer.innerHTML = '<div class="loading">Loading quests...</div>';
+        adContainer.innerHTML = '<div class="loading">Loading ads...</div>';
         
         const response = await fetch('/api/user/data', {
             headers: {
-                'X-Telegram-User-ID': tg.initDataUnsafe.user.id.toString(),
-                'X-Telegram-Hash': tg.initData
+                'X-Telegram-User-ID': userId.toString(),
+                'X-Telegram-Hash': initData
             }
         });
         
@@ -65,12 +55,14 @@ async function loadUserData() {
     } catch (error) {
         console.error("Failed to load user data:", error);
         balanceDisplay.textContent = '0.000000 XNO';
-        questsContainer.innerHTML = `<div class="error">${error.message || 'Error loading data'}</div>`;
+        questsContainer.innerHTML = `<div class="error">${escapeHtml(error.message || 'Error loading data')}</div>`;
+        adContainer.innerHTML = `<div class="error">${escapeHtml(error.message || 'Error loading ads')}</div>`;
     }
 }
 
 // Render quests
 function renderQuests(quests) {
+    const questsContainer = document.getElementById('quests-container');
     questsContainer.innerHTML = '';
     
     if (!quests || quests.length === 0) {
@@ -97,6 +89,8 @@ function renderQuests(quests) {
 
 // Render ad
 function renderAd(ad) {
+    const adContainer = document.getElementById('ad-container');
+    
     if (!ad) {
         adContainer.innerHTML = '<div class="loading">No ads available</div>';
         return;
@@ -114,12 +108,15 @@ function renderAd(ad) {
 // Claim ad reward
 window.claimAdReward = async (adId) => {
     try {
+        const userId = Telegram.WebApp.initDataUnsafe.user.id;
+        const initData = Telegram.WebApp.initData;
+        
         const response = await fetch('/api/ads/reward', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Telegram-User-ID': tg.initDataUnsafe.user.id.toString(),
-                'X-Telegram-Hash': tg.initData
+                'X-Telegram-User-ID': userId.toString(),
+                'X-Telegram-Hash': initData
             },
             body: JSON.stringify({ ad_id: adId })
         });
@@ -131,12 +128,8 @@ window.claimAdReward = async (adId) => {
         }
         
         alert(`🎉 You earned ${result.reward.toFixed(6)} XNO!`);
-        loadUserData(); // Refresh data
+        loadUserData(userId, initData); // Refresh data
     } catch (error) {
         alert(`Error: ${error.message}`);
     }
 };
-
-// Initialize
-tg.ready();
-tg.expand();

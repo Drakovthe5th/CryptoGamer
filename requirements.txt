@@ -11,3 +11,5 @@ schedule==1.2.1
 paypalrestsdk==1.13.1
 gunicorn==21.2.0
 python-pesa  # Add pypesa package
+# Add to requirements.txt
+firebase-admin

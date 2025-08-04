@@ -1,13 +1,18 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.database.firebase import create_user, get_user_balance, update_balance, get_user_data
-from src.features.leaderboard import get_leaderboard, get_user_rank
+from firebase_admin import firestore  # Fixed import
+from src.database.firebase import (
+    create_user, get_user_balance, update_balance, get_user_data,
+    users_ref, update_leaderboard_points, get_leaderboard, get_user_rank
+)
 from src.features.quests import get_active_quests
 from src.utils.conversions import to_xno
 from config import Config
 import datetime
 import random
+import logging  # Added missing import
 
+logger = logging.getLogger(__name__)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -27,7 +32,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 update_leaderboard_points(referrer_id, 50)
                 
                 # Update referral count
-                user_ref = get_user_ref(referrer_id)
+                user_ref = users_ref.document(str(referrer_id))
                 user_ref.update({'referral_count': firestore.Increment(1)})
                 
                 # Notify referrer
@@ -116,8 +121,8 @@ async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     await update.message.reply_text(
         "💸 Select withdrawal method:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        reply_markup=InlineKeyboardMarkup(keyboard))
+    
 
 async def miniapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     miniapp_url = f"https://{Config.RENDER_URL}/miniapp"
@@ -157,36 +162,50 @@ async def show_quests(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         "🎯 Available Quests:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        reply_markup=InlineKeyboardMarkup(keyboard))
     
-async def miniapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    miniapp_url = "https://crptgameminer.onrender.com/miniapp"
-    text = (
-        "📲 Open the CryptoGameBot MiniApp for a better gaming experience!\n\n"
-        f"👉 [Launch MiniApp]({miniapp_url})\n\n"
-        "Play games, check balance, and withdraw directly in-app!"
-    )
+
+async def faucet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /faucet command"""
+    user_id = update.effective_user.id
+    now = datetime.datetime.now()
+    user_data = get_user_data(user_id)
     
-    await update.message.reply_text(
-        text, 
-        parse_mode='Markdown',
-        disable_web_page_preview=True
-    )
+    # Check last claim time
+    last_claim = user_data.get('faucet_claimed')
+    if last_claim and (now - last_claim).seconds < Config.FAUCET_COOLDOWN * 3600:
+        hours_left = Config.FAUCET_COOLDOWN - (now - last_claim).seconds // 3600
+        await update.message.reply_text(
+            f"⏳ You can claim again in {hours_left} hours!"
+        )
+        return
     
     # Award faucet
-    reward = config.REWARDS['faucet']
+    reward = Config.REWARDS['faucet']
     new_balance = update_balance(user_id, reward)
     
     # Update last claim time
-    update_user(user_id, {'faucet_claimed': now})
+    user_ref = users_ref.document(str(user_id))
+    user_ref.update({'faucet_claimed': now})
     
     await update.message.reply_text(
         f"💧 You claimed {reward:.6f} XNO!\n"
         f"💰 New balance: {to_xno(new_balance):.6f} XNO"
     )
 
-# Add new command
+async def set_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /set_withdrawal command"""
+    keyboard = [
+        [InlineKeyboardButton("🌐 Set Nano Address", callback_data="set_nano")],
+        [InlineKeyboardButton("📱 Set M-Pesa Number", callback_data="set_mpesa")],
+        [InlineKeyboardButton("💳 Set PayPal Email", callback_data="set_paypal")]
+    ]
+    
+    await update.message.reply_text(
+        "🔐 Select a withdrawal method to set up:",
+        reply_markup=InlineKeyboardMarkup(keyboard))
+    
+
 async def weekend_promotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     today = datetime.datetime.now()
     is_weekend = today.weekday() in [5, 6]  # Saturday or Sunday
@@ -206,10 +225,9 @@ async def weekend_promotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     keyboard = [
-        [InlineKeyboardButton("🚀 Open MiniApp", url=f"https://{config.RENDER_URL}/miniapp")]
+        [InlineKeyboardButton("🚀 Open MiniApp", url=f"https://{Config.RENDER_URL}/miniapp")]
     ]
     
     await update.message.reply_text(
         text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        reply_markup=InlineKeyboardMarkup(keyboard))

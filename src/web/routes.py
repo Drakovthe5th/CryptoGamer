@@ -62,7 +62,8 @@ def configure_routes(app):
             
             # Use raw query string for validation
             query_string = request.query_string.decode('utf-8')
-            if not validate_telegram_hash(init_data, query_string):
+            if not validate_telegram_hash(init_data):  # Remove 2nd param
+                logger.error("Hash validation failed")
                 return jsonify({'error': 'Invalid hash'}), 401
 
             # Get user data
@@ -108,13 +109,14 @@ def configure_routes(app):
     def ad_reward():
         """Handle ad rewards"""
         try:
-            # Validate Telegram hash
+            # Get Telegram headers
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
-            raw_data = request.get_data(as_text=True)
             
-            if not validate_telegram_hash(init_data, raw_data):
-                return jsonify({'error': 'Invalid hash'}), 401
+            # Validate Telegram hash
+            if not validate_telegram_hash(init_data):
+                logger.error("Hash validation failed for ad reward")
+                return jsonify({'error': 'Invalid Telegram hash'}), 401
 
             # Calculate reward with weekend boost
             now = datetime.datetime.now()
@@ -142,13 +144,14 @@ def configure_routes(app):
     def miniapp_withdraw():
         """Handle withdrawal requests from mini-app"""
         try:
-            # Validate Telegram hash
+            # Get Telegram headers
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
-            raw_data = request.get_data(as_text=True)
             
-            if not validate_telegram_hash(init_data, raw_data):
-                return jsonify({'error': 'Invalid hash'}), 401
+            # Validate Telegram hash
+            if not validate_telegram_hash(init_data):
+                logger.error("Hash validation failed for withdrawal")
+                return jsonify({'error': 'Invalid Telegram hash'}), 401
                 
             data = request.get_json()
             method = data['method']

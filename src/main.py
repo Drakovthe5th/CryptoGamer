@@ -2,12 +2,13 @@ import os
 import threading
 import asyncio
 import logging
+from telegram import Update
 from telegram.ext import Application
 from src.database.firebase import initialize_firebase
 from src.integrations.nano import initialize_nano_wallet
 from src.features.faucets import start_faucet_scheduler
 from src.telegram.setup import setup_handlers
-from config import config
+from config import Config  # Fixed import
 
 # Configure logging
 logging.basicConfig(
@@ -23,12 +24,12 @@ async def set_webhook():
     """Properly configure webhook in production environment"""
     try:
         # Construct secure webhook URL with token
-        webhook_url = f"https://{config.RENDER_EXTERNAL_URL}{config.WEBHOOK_PATH}"
+        webhook_url = f"https://{Config.RENDER_EXTERNAL_URL}{Config.WEBHOOK_PATH}"
         
         # Set webhook with secret token for verification
         await application.bot.set_webhook(
             webhook_url,
-            secret_token=config.TELEGRAM_TOKEN,
+            secret_token=Config.TELEGRAM_TOKEN,
             drop_pending_updates=True
         )
         logger.info(f"Webhook configured successfully: {webhook_url}")
@@ -48,12 +49,12 @@ def run_bot():
     
     try:
         # Initialize Firebase
-        initialize_firebase(config.FIREBASE_CREDS)
+        initialize_firebase(Config.FIREBASE_CREDS)
         logger.info("Firebase initialized")
         
         # Initialize Nano wallet if seed exists
-        if config.NANO_SEED:
-            initialize_nano_wallet(config.NANO_SEED, config.REPRESENTATIVE)
+        if Config.NANO_SEED:
+            initialize_nano_wallet(Config.NANO_SEED, Config.REPRESENTATIVE)
             logger.info("Nano wallet initialized")
         else:
             logger.warning("NANO_SEED not found - Nano functions disabled")
@@ -63,20 +64,18 @@ def run_bot():
         logger.info("Background services started")
         
         # Set up Telegram bot
-        application = Application.builder().token(config.TELEGRAM_TOKEN).build()
+        application = Application.builder().token(Config.TELEGRAM_TOKEN).build()
         setup_handlers(application)
         logger.info("Telegram handlers configured")
         
         # Configure based on environment
-        if config.ENV == 'production':
+        if Config.ENV == 'production':
             logger.info("Starting in PRODUCTION mode with webhook")
             
             # Create event loop for async webhook setup
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(set_webhook())
-            
-            # Start web server (handled separately by Render)
         else:
             logger.info("Starting in DEVELOPMENT mode with polling")
             application.run_polling(

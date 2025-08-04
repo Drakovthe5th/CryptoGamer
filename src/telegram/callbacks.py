@@ -1,5 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from firebase_admin import firestore  # Fixed import
 from src.database.firebase import (
     get_user_data, update_balance, update_leaderboard_points, 
     quests_ref, users_ref, SERVER_TIMESTAMP
@@ -95,6 +96,7 @@ async def trivia_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Select random question
     question = random.choice(questions)
+    context.user_data['trivia_question'] = question  # Store for answer handling
     context.user_data['trivia_answer'] = question['correct']
     
     # Build options keyboard
@@ -115,6 +117,7 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = query.from_user.id
     selected = int(query.data.split('_')[1])
     correct_idx = context.user_data.get('trivia_answer')
+    question = context.user_data.get('trivia_question')  # Get stored question
     
     # Update last played time
     users_ref.document(str(user_id)).update({
@@ -136,7 +139,8 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
         reward = Config.REWARDS.get('trivia_incorrect', 0.001)
         new_balance = update_balance(user_id, reward)
         
-        correct_answer = context.user_data['trivia_question']['options'][correct_idx]
+        # Use stored question for correct answer
+        correct_answer = question['options'][correct_idx]
         await query.edit_message_text(
             f"❌ Wrong! The correct answer was: {correct_answer}\n"
             f"💡 You still earned {reward:.6f} XNO for playing!\n"
@@ -150,6 +154,7 @@ async def clicker_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = query.from_user.id
     context.user_data['clicker_score'] = 0
+    context.user_data['clicker_start'] = datetime.datetime.now()
     
     keyboard = [
         [InlineKeyboardButton("💥 CLICK ME!", callback_data="clicker_click")],
@@ -168,13 +173,7 @@ async def handle_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    user_id = query.from_user.id
     clicker_data = context.user_data
-    
-    # Initialize if first click
-    if 'clicker_score' not in clicker_data:
-        clicker_data['clicker_score'] = 0
-        clicker_data['clicker_start'] = datetime.datetime.now()
     
     # Increment score
     clicker_data['clicker_score'] += 1
@@ -444,7 +443,7 @@ async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ================
-# ERROR HANDLER
+# ERROR HANDLERS
 # ================
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
