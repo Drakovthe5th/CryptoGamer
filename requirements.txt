@@ -1,15 +1,33 @@
-# Remove previous M-Pesa packages
+# Core
 flask==3.0.3
 python-telegram-bot==21.1.1
 python-dotenv==1.0.1
 requests==2.31.0
-nanopy==28.0.1
+
+# Firebase
 firebase-admin==6.2.0
 google-cloud-firestore==2.15.0
+
+# Production Server
 waitress==3.0.1
+
+# Background Tasks
 schedule==1.2.1
++flask-socketio==5.3.6
+
+# Payment Processors
 paypalrestsdk==1.13.1
-gunicorn==21.2.0
-python-pesa  # Add pypesa package
-# Add to requirements.txt
-firebase-admin
+pypesa==0.1.7  # Correct M-Pesa package
+
+# TON Blockchain
+pytoniq==0.1.41
+pytoniq-core==0.1.4
+
+# Utilities
+cryptography==42.0.8
+pytz==2024.1
+
+# Real-time Communication
+flask-socketio==5.3.6
+celery==5.4.0
+redis==5.0.3
