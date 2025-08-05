@@ -1,3 +1,4 @@
+import logging
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -6,9 +7,9 @@ from firebase_admin import firestore
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from google.cloud.firestore_v1.base_query import FieldFilter
 import datetime  # Add this import
-from src.utils.logger import logger  # Import logger
+import logger  # Import logger
 from config import Config
-import logging
+
 
 # Global database references
 db = None
