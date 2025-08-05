@@ -6,9 +6,15 @@ import base64
 import asyncio
 from datetime import datetime, timedelta
 from pytoniq import LiteClient, Address
-from pytoniq.wallet import WalletV4R2, WalletV4Contract, Mnemonic
 from pytoniq_core import Cell, begin_cell
 from config import config
+
+# Try to import wallet components from the root module
+try:
+    from pytoniq import WalletV4R2, Mnemonic
+except ImportError:
+    # Fallback to liteclient.wallet if needed
+    from pytoniq.liteclient.wallet import WalletV4R2, Mnemonic
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +41,7 @@ class TONWallet:
             
             # Initialize wallet
             if config.TON_WALLET_MNEMONIC:
-                mnemonic = Mnemonic.from_mnemonic(config.TON_WALLET_MNEMONIC.split())
+                mnemonic = Mnemonic(config.TON_WALLET_MNEMONIC.split())
                 self.wallet = await WalletV4R2.from_mnemonic(provider=self.client, mnemonics=mnemonic)
             elif config.TON_PRIVATE_KEY:
                 private_key = base64.b64decode(config.TON_PRIVATE_KEY)
