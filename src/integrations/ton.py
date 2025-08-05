@@ -5,8 +5,8 @@ import requests
 import base64
 import asyncio
 from datetime import datetime, timedelta
-from pytoniq import LiteClient, WalletV4R2, Mnemonic
-from pytoniq_core import Cell, begin_cell, Address
+from pytoniq import LiteClient, WalletV4R2
+from pytoniq.crypto.mnemonic import Mnemonic
 from config import config
 
 logger = logging.getLogger(__name__)
