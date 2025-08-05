@@ -3,13 +3,10 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
-from firebase_admin import firestore
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from google.cloud.firestore_v1.base_query import FieldFilter
-import datetime  # Add this import
-import logger  # Import logger
+import datetime
 from config import Config
-
 
 # Global database references
 db = None
@@ -86,19 +83,19 @@ def complete_quest(user_id: int, quest_id: str) -> bool:
             
         # Update quest completions
         quests_ref.document(quest_id).update({
-            'completions': firestore.Increment(1)  # Fixed
+            'completions': firestore.Increment(1)
         })
         
         # Update user data
         user_ref.update({
-            f'completed_quests.{quest_id}': datetime.now(),
-            'balance': firestore.Increment(quest_data['reward_ton']),  # Fixed
-            'points': firestore.Increment(quest_data['reward_points'])  # Fixed
+            f'completed_quests.{quest_id}': datetime.datetime.now(),
+            'balance': firestore.Increment(quest_data['reward_ton']),
+            'points': firestore.Increment(quest_data['reward_points'])
         })
         
         return True
     except Exception as e:
-        logger.error(f"Failed to complete quest: {e}")
+        logging.error(f"Failed to complete quest: {e}")
         return False
 
 # User operations
