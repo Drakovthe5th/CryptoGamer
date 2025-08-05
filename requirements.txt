@@ -14,8 +14,8 @@ waitress==3.0.1
 # Background Tasks
 schedule==1.2.1
 flask-socketio==5.3.6
-+celery==5.4.0
-+redis==5.0.3
+celery==5.4.0
+redis==5.0.3
 
 # Payment Processors
 paypalrestsdk==1.13.1
