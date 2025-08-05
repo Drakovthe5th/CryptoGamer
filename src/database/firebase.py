@@ -9,6 +9,40 @@ from config import config
 logger = logging.getLogger(__name__)
 
 # Initialize Firebase
+# Global database instance
+db = None
+
+def initialize_firebase():
+    global db
+    try:
+        # Load Firebase credentials from config
+        if config.FIREBASE_CREDS:
+            cred_dict = json.loads(config.FIREBASE_CREDS)
+            cred = credentials.Certificate(cred_dict)
+        else:
+            raise ValueError("Firebase credentials not configured")
+        
+        # Initialize Firebase app
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        
+        # Create Firestore client
+        db = firestore.client()
+        logger.info("Firebase initialized successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Firebase initialization failed: {e}")
+        return False
+
+def get_firestore_db():
+    """Get the Firestore database instance"""
+    if db is None:
+        initialize_firebase()
+    return db
+
+# Initialize Firebase on import
+initialize_firebase()
+
 try:
     if not firebase_admin._apps:
         # Use credentials from config
