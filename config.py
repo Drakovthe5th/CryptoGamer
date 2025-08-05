@@ -14,7 +14,7 @@ load_dotenv()
 class Config:
     def __init__(self):
         # Load Firebase credentials first
-        self.FIREBASE_CREDS = self.load_FIREBASE_CREDS()
+        self.FIREBASE_CREDS = self.load_firebase_creds()
         
         # Core configuration
         self.TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -104,7 +104,7 @@ class Config:
     def load_firebase_creds(self):
         """Load Firebase credentials with multiple fallback strategies"""
         # Strategy 1: Load from file if specified
-        creds_path = os.getenv('FIREBASE_CREDS_FILE')
+        creds_path = os.getenv('FIREBASE_CREDS')
         if creds_path and os.path.exists(creds_path):
             try:
                 with open(creds_path, 'r') as f:

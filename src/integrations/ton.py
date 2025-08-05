@@ -7,7 +7,7 @@ import asyncio
 from datetime import datetime, timedelta
 from pytoniq import LiteClient, Address
 from pytoniq_core import Cell, begin_cell
-from config import config
+from config import Config
 
 # Import wallet components with fallbacks
 try:
