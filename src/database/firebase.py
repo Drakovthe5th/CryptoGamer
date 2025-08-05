@@ -1,219 +1,94 @@
-import logging
-import os
 import firebase_admin
 from firebase_admin import credentials, firestore
-from firebase_admin.exceptions import FirebaseError
-from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-from google.cloud.firestore_v1.base_query import FieldFilter
-import datetime
-from config import Config
+from datetime import datetime
+import logging
+from config import config
 
-# Global database references
-db = None
-users_ref = None
-transactions_ref = None
-withdrawals_ref = None
-quests_ref = None
-otc_deals_ref = None
+logger = logging.getLogger(__name__)
 
-def initialize_firebase(creds_dict):
-    global db, users_ref, transactions_ref, withdrawals_ref, quests_ref, otc_deals_ref
-    
+# Initialize Firebase
+try:
+    if not firebase_admin._apps:
+        cred = credentials.Certificate(config.FIREBASE_CREDS)
+        firebase_admin.initialize_app(cred)
+    db = firestore.client()
+    logger.info("Firebase initialized successfully")
+except Exception as e:
+    logger.error(f"Firebase initialization failed: {e}")
+    db = None
+
+def add_whitelist(user_id: str, address: str):
+    """Add address to user's whitelist"""
+    if not db:
+        return
     try:
-        if not firebase_admin._apps:
-            if isinstance(creds_dict, dict):
-                cred = credentials.Certificate(creds_dict)
-            elif isinstance(creds_dict, str) and os.path.isfile(creds_dict):
-                cred = credentials.Certificate(creds_dict)
-            else:
-                logging.error("Invalid Firebase credentials format")
-                return False
-            
-            firebase_admin.initialize_app(cred)
+        doc_ref = db.collection('users').document(user_id)
+        doc_ref.update({
+            'whitelist': firestore.ArrayUnion([address])
+        })
+        logger.info(f"Added {address} to whitelist for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to add to whitelist: {e}")
+
+def enable_2fa(user_id: str):
+    """Enable 2FA for user"""
+    if not db:
+        return
+    try:
+        doc_ref = db.collection('users').document(user_id)
+        doc_ref.update({'2fa_enabled': True})
+        logger.info(f"Enabled 2FA for user {user_id}")
+    except Exception as e:
+        logger.error(f"Failed to enable 2FA: {e}")
+
+def flag_user(user_id: str, reason: str):
+    """Flag user for suspicious activity"""
+    if not db:
+        return
+    try:
+        doc_ref = db.collection('users').document(user_id)
+        doc_ref.update({
+            'flagged': True,
+            'flag_reason': reason,
+            'flagged_at': datetime.now()
+        })
+        logger.warning(f"Flagged user {user_id}: {reason}")
+    except Exception as e:
+        logger.error(f"Failed to flag user: {e}")
+
+def get_recent_withdrawals(user_id: str) -> list:
+    """Get recent withdrawals for user"""
+    if not db:
+        return []
+    try:
+        # Get withdrawals from last 24 hours
+        now = datetime.now()
+        one_day_ago = now - timedelta(days=1)
         
-        db = firestore.client()
-        users_ref = db.collection('users')
-        transactions_ref = db.collection('transactions')
         withdrawals_ref = db.collection('withdrawals')
-        quests_ref = db.collection('quests')
-        otc_deals_ref = db.collection('otc_deals')
-        logging.info("Firebase initialized successfully")
-        return True
-    except Exception as e:
-        logging.error(f"Firebase initialization error: {e}")
-        return False
-
-def track_ad_impression(platform: str, ad_type: str, user_id: int, country: str):
-    try:
-        db.collection('ad_impressions').add({
-            'platform': platform,
-            'ad_type': ad_type,
-            'user_id': user_id,
-            'country': country,
-            'timestamp': SERVER_TIMESTAMP
-        })
-    except Exception as e:
-        logging.error(f"Ad impression tracking failed: {e}")
-
-def track_ad_reward(user_id: int, amount: float, platform: str, weekend_boost: bool):
-    try:
-        db.collection('ad_rewards').add({
-            'user_id': user_id,
-            'amount': amount,
-            'platform': platform,
-            'weekend_boost': weekend_boost,
-            'timestamp': SERVER_TIMESTAMP
-        })
-    except Exception as e:
-        logging.error(f"Ad reward tracking failed: {e}")
-
-def complete_quest(user_id: int, quest_id: str) -> bool:
-    try:
-        quest_doc = quests_ref.document(quest_id).get()
-        if not quest_doc.exists:
-            return False
-            
-        quest_data = quest_doc.to_dict()
-        user_ref = users_ref.document(str(user_id))
+        query = withdrawals_ref.where('user_id', '==', user_id) \
+                              .where('timestamp', '>=', one_day_ago) \
+                              .order_by('timestamp', direction=firestore.Query.DESCENDING)
         
-        # Check if already completed
-        user_data = user_ref.get().to_dict()
-        if quest_id in user_data.get('completed_quests', {}):
-            return False
-            
-        # Update quest completions
-        quests_ref.document(quest_id).update({
-            'completions': firestore.Increment(1)
-        })
-        
-        # Update user data
-        user_ref.update({
-            f'completed_quests.{quest_id}': datetime.datetime.now(),  # Fixed datetime reference
-            'balance': firestore.Increment(quest_data['reward_ton']),
-            'points': firestore.Increment(quest_data['reward_points'])
-        })
-        
-        return True
+        results = query.stream()
+        return [doc.to_dict() for doc in results]
     except Exception as e:
-        logging.error(f"Failed to complete quest: {e}")  # Fixed logging reference
-        return False
-
-# User operations
-def get_user_ref(user_id: int):
-    return users_ref.document(str(user_id))
-
-def get_user_data(user_id: int):
-    try:
-        doc = get_user_ref(user_id).get()
-        return doc.to_dict() if doc.exists else None
-    except FirebaseError as e:
-        logging.error(f"Error getting user data: {e}")
-        return None
-
-def create_user(user_id: int, username: str):
-    user_ref = get_user_ref(user_id)
-    try:
-        if not user_ref.get().exists:
-            user_ref.set({
-                'user_id': user_id,
-                'username': username,
-                'balance': 0.0,
-                'points': 0,
-                'last_played': {},
-                'referral_count': 0,
-                'faucet_claimed': None,
-                'withdrawal_methods': {},
-                'payment_methods': {},
-                'completed_quests': {},
-                'created_at': SERVER_TIMESTAMP
-            })
-        return user_ref
-    except FirebaseError as e:
-        logging.error(f"Error creating user: {e}")
-        return None
-
-def update_user(user_id: int, update_data: dict):
-    try:
-        get_user_ref(user_id).update(update_data)
-    except FirebaseError as e:
-        logging.error(f"Error updating user: {e}")
-
-def get_user_balance(user_id: int) -> float:
-    user_data = get_user_data(user_id)
-    return user_data.get('balance', 0.0) if user_data else 0.0
-
-def update_balance(user_id: int, amount: float):
-    try:
-        user_ref = get_user_ref(user_id)
-        transaction = db.transaction()
-        
-        @firestore.transactional
-        def update_in_transaction(transaction, user_ref, amount):
-            snapshot = user_ref.get(transaction=transaction)
-            if not snapshot.exists:
-                return 0.0
-                
-            current_balance = snapshot.get('balance', 0.0)
-            new_balance = current_balance + amount
-            transaction.update(user_ref, {'balance': new_balance})
-            return new_balance
-            
-        return update_in_transaction(transaction, user_ref, amount)
-    except FirebaseError as e:
-        logging.error(f"Error updating balance: {e}")
-        return get_user_balance(user_id)
-
-# Leaderboard operations
-def update_leaderboard_points(user_id: int, points: int):
-    try:
-        user_ref = get_user_ref(user_id)
-        user_ref.update({
-            'points': firestore.Increment(points),
-            'last_active': SERVER_TIMESTAMP
-        })
-    except FirebaseError as e:
-        logging.error(f"Error updating leaderboard points: {e}")
-
-def get_leaderboard(limit: int = 10) -> list:
-    try:
-        query = users_ref.order_by('points', direction=firestore.Query.DESCENDING).limit(limit)
-        return [doc.to_dict() for doc in query.stream()]
-    except Exception as e:
-        logging.error(f"Error getting leaderboard: {e}")
+        logger.error(f"Failed to get recent withdrawals: {e}")
         return []
 
-def get_user_rank(user_id: int) -> int:
+def save_staking(user_id: str, contract_address: str, amount: float):
+    """Save staking contract to Firestore"""
+    if not db:
+        return
     try:
-        user_doc = get_user_ref(user_id).get()
-        if not user_doc.exists:
-            return 0
-            
-        user_points = user_doc.get('points', 0)
-        count_query = users_ref.where(filter=FieldFilter('points', '>', user_points))
-        return count_query.count().get()[0][0].value + 1
-    except Exception as e:
-        logging.error(f"Error getting user rank: {e}")
-        return 0
-
-# Withdrawal operations
-def process_withdrawal(user_id: int, method: str, amount: float, details: dict):
-    try:
-        withdrawal_ref = withdrawals_ref.add({
+        staking_ref = db.collection('staking').document(contract_address)
+        staking_ref.set({
             'user_id': user_id,
-            'method': method,
             'amount': amount,
-            'details': details,
-            'status': 'pending',
-            'created_at': SERVER_TIMESTAMP
-        })[1]
-        
-        return {
-            'status': 'success',
-            'withdrawal_id': withdrawal_ref.id
-        }
+            'contract_address': contract_address,
+            'created_at': datetime.now(),
+            'status': 'active'
+        })
+        logger.info(f"Saved staking contract {contract_address} for user {user_id}")
     except Exception as e:
-        logging.error(f"Withdrawal processing error: {e}")
-        return {
-            'status': 'error',
-            'error': str(e)
-        }
+        logger.error(f"Failed to save staking contract: {e}")

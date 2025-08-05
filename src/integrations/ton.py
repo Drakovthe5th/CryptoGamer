@@ -5,7 +5,7 @@ import requests
 import base64
 import asyncio
 from datetime import datetime, timedelta
-from tontools import TonCenterClient, Wallet
+from tontools import TonCenterClient, Wallet, Contract
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -193,18 +193,33 @@ async def close_ton_wallet():
     """Close TON wallet connection"""
     return await ton_wallet.close()
 
-def validate_ton_address(address: str) -> bool:
-    """Validate TON wallet address format"""
+def is_valid_ton_address(address: str) -> bool:
+    """Validate TON wallet address format using tontools"""
     try:
-        # Basic validation
-        if not address.startswith(('EQ', 'UQ')) or len(address) < 48:
-            return False
-            
-        # Advanced validation would happen during transaction
-        return True
+        return Wallet.is_address_valid(address)
     except:
         return False
 
-async def process_ton_withdrawal(user_id: int, amount: float, address: str):
-    """Process TON withdrawal (public interface)"""
-    return await ton_wallet.process_withdrawal(user_id, amount, address)
+async def create_staking_contract(user_id: str, amount: float) -> str:
+    """Create a staking contract"""
+    try:
+        # Placeholder implementation - in real app this would deploy a contract
+        logger.info(f"Creating staking contract for user {user_id} with {amount} TON")
+        
+        # Generate a dummy contract address
+        return f"EQD_STAKING_{user_id}_{int(time.time())}"
+    except Exception as e:
+        logger.error(f"Staking contract creation failed: {e}")
+        return ""
+
+async def execute_swap(user_id: str, from_token: str, to_token: str, amount: float) -> str:
+    """Execute token swap on a DEX"""
+    try:
+        # Placeholder implementation - in real app this would interact with a DEX
+        logger.info(f"Executing swap for user {user_id}: {amount} {from_token} to {to_token}")
+        
+        # Generate a dummy transaction hash
+        return f"tx_{user_id}_{int(time.time())}"
+    except Exception as e:
+        logger.error(f"Token swap failed: {e}")
+        return ""

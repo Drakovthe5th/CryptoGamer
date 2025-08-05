@@ -2,9 +2,15 @@ from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.database.firebase import db
-from src.integrations.ton import create_staking_contract, execute_swap, is_valid_ton_address
+from src.integrations.ton import (
+    create_staking_contract, 
+    execute_swap, 
+    is_valid_ton_address,
+    initialize_ton_wallet,
+    close_ton_wallet
+)
 from src.utils.security import get_user_id, generate_2fa_code, verify_2fa_code, is_abnormal_activity
-from src.integrations.mpesa import send_telegram_message  # Removed logger import
+from src.integrations.mpesa import send_telegram_message
 from src.utils.maintenance import (
     check_server_load,
     check_ton_node,
@@ -13,10 +19,20 @@ from src.utils.maintenance import (
     send_alert_to_admin
 )
 import datetime
+import asyncio
 
 app = Flask(__name__)
 socketio = SocketIO(app)
 celery = Celery(app.name, broker='redis://localhost:6379/0')
+
+# Initialize TON wallet on startup
+@app.before_first_request
+def initialize():
+    asyncio.run(initialize_ton_wallet())
+
+@app.teardown_appcontext
+def shutdown(exception=None):
+    asyncio.run(close_ton_wallet())
 
 # Blockchain Enhancements
 @app.route('/api/blockchain/stake', methods=['POST'])
@@ -29,7 +45,10 @@ def stake():
         return jsonify({'success': False, 'error': 'Invalid amount'}), 400
     
     # Create staking contract
-    contract_address = create_staking_contract(user_id, amount)
+    contract_address = asyncio.run(create_staking_contract(user_id, amount))
+    
+    if not contract_address:
+        return jsonify({'success': False, 'error': 'Failed to create staking contract'}), 500
     
     # Save to database
     db.save_staking(user_id, contract_address, amount)
@@ -48,7 +67,10 @@ def swap_tokens():
     amount = request.json.get('amount')
     
     # Execute swap on DEX
-    tx_hash = execute_swap(user_id, from_token, to_token, amount)
+    tx_hash = asyncio.run(execute_swap(user_id, from_token, to_token, amount))
+    
+    if not tx_hash:
+        return jsonify({'success': False, 'error': 'Swap failed'}), 500
     
     return jsonify({
         'success': True,
