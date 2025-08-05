@@ -13,7 +13,7 @@ waitress==3.0.1
 
 # Background Tasks
 schedule==1.2.1
-+flask-socketio==5.3.6
+flask-socketio==5.3.6
 
 # Payment Processors
 paypalrestsdk==1.13.1
