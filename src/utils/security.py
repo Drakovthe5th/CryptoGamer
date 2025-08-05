@@ -2,7 +2,10 @@ import os
 import hashlib
 import hmac
 import urllib.parse
+from flask import request
 from config import Config
+import jwt
+import datetime
 
 def validate_telegram_hash(init_data: str, bot_token: str) -> bool:
     """Validate Telegram WebApp initData hash"""
@@ -31,3 +34,23 @@ def validate_telegram_hash(init_data: str, bot_token: str) -> bool:
     ).hexdigest()
     
     return received_hash == expected_hash
+
+def get_user_id(req=request) -> int:
+    """Extract user ID from JWT token in Authorization header"""
+    auth_header = req.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return 0
+    
+    try:
+        token = auth_header.split(' ')[1]
+        payload = jwt.decode(
+            token,
+            Config.JWT_SECRET_KEY,
+            algorithms=['HS256'],
+            options={'verify_exp': True}
+        )
+        return payload.get('user_id', 0)
+    except jwt.ExpiredSignatureError:
+        return 0
+    except jwt.InvalidTokenError:
+        return 0
