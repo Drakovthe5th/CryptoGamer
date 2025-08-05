@@ -2,27 +2,24 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime, timedelta
 import logging
-import json
 import os
-from config import config
-import re
 
 logger = logging.getLogger(__name__)
 
 # Initialize Firebase
 try:
     if not firebase_admin._apps:
-        # Properly format the private key
-        cred_data = config.FIREBASE_CREDS
+        # Get path to credentials file from environment
+        creds_path = os.getenv('FIREBASE_CREDS')
         
-        # Fix newline formatting in private key
-        if "private_key" in cred_data:
-            cred_data["private_key"] = cred_data["private_key"].replace('\\n', '\n')
+        if not creds_path or not os.path.exists(creds_path):
+            logger.error("Firebase credentials file not found at: " + str(creds_path))
+            raise RuntimeError("Firebase credentials file not found")
         
-        cred = credentials.Certificate(cred_data)
+        cred = credentials.Certificate(creds_path)
         firebase_admin.initialize_app(cred)
+        logger.info(f"Firebase initialized successfully using credentials file: {creds_path}")
     db = firestore.client()
-    logger.info("Firebase initialized successfully")
 except Exception as e:
     logger.error(f"Firebase initialization failed: {e}")
     db = None
