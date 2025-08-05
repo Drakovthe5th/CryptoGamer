@@ -27,49 +27,78 @@ function renderAd(ad) {
 }
 
 function showAd() {
-    if (!currentAd) {
-        alert('No ad available');
-        return;
-    }
-    
-    // Show ad in fullscreen
-    document.getElementById('ad-container').classList.add('fullscreen');
-    
-    // Start ad timer
-    let timeLeft = 30;
-    const timer = setInterval(() => {
-        timeLeft--;
-        document.getElementById('watch-ad-btn').textContent = `Watching (${timeLeft}s)`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(timer);
-            completeAd();
-        }
-    }, 1000);
+  if (adInProgress) return;
+  adInProgress = true;
+  
+  const button = document.getElementById('watch-ad-btn');
+  button.disabled = true;
+  button.textContent = 'Loading ad...';
+
+  // Use Monetag's rewarded interstitial
+  show_9644715().then(() => {
+    // User completed the ad
+    completeAd();
+  }).catch(error => {
+    console.error('Ad error:', error);
+    alert('Failed to show ad or ad skipped.');
+  }).finally(() => {
+    button.disabled = false;
+    button.textContent = 'Watch Ad';
+    adInProgress = false;
+  });
 }
 
 function completeAd() {
-    fetch('/api/ads/reward', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Telegram-Hash': window.Telegram.WebApp.initData
-        },
-        body: JSON.stringify({ ad_id: currentAd.id })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(`You earned ${data.reward} TON!`);
-            updateBalance(data.new_balance);
-        } else {
-            alert('Failed to reward ad: ' + data.error);
-        }
-        document.getElementById('ad-container').classList.remove('fullscreen');
-        document.getElementById('watch-ad-btn').textContent = 'Watch Ad';
-        loadAd(); // Load next ad
-    });
+  fetch('/api/ads/reward', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Telegram-Hash': window.Telegram.WebApp.initData
+    },
+    body: JSON.stringify({ ad_id: 'monetag' }) // Special ID for Monetag ads
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert(`You earned ${data.reward} TON!`);
+      updateBalance(data.new_balance);
+    } else {
+      alert('Failed to reward ad: ' + data.error);
+    }
+  });
 }
+
+// ads.js - alternative showAdPopup function
+function showAdPopup() {
+  if (adInProgress) return;
+  adInProgress = true;
+  
+  const button = document.getElementById('watch-ad-btn');
+  button.disabled = true;
+  button.textContent = 'Loading ad...';
+
+  // Use Monetag's rewarded popup
+  show_9644715('pop').then(() => {
+    // User completed the ad
+    completeAd();
+  }).catch(error => {
+    console.error('Ad error:', error);
+  }).finally(() => {
+    button.disabled = false;
+    button.textContent = 'Watch Ad';
+    adInProgress = false;
+  });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadAd();
+  
+  // Activate A-ADS after page load
+  setTimeout(() => {
+    document.getElementById('frame').style.display = 'block';
+  }, 2000);
+});
 
 // Initialize
 document.addEventListener('DOMContentLoaded', loadAd);

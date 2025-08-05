@@ -1,192 +1,250 @@
-/* Initialization styles */
-.initializing {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    flex-direction: column;
-    text-align: center;
+/* ... existing miniapp.css ... */
+
+/* Dark Mode */
+.dark-theme {
+    background-color: #121212;
+    color: #e0e0e0;
 }
 
-.spinner {
-    border: 4px solid rgba(0, 0, 0, 0.1);
-    border-radius: 50%;
-    border-top: 4px solid #3498db;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 20px;
+.dark-theme .container {
+    background-color: #1e1e1e;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.dark-theme .quest-item,
+.dark-theme .game-card,
+.dark-theme .ad-container,
+.dark-theme .security-card,
+.dark-theme .staking-card,
+.dark-theme .referral-card,
+.dark-theme .premium-card,
+.dark-theme .community-card {
+    background: #2d2d2d;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-.error {
-    color: #e74c3c;
-    padding: 20px;
-    background: #fef2f2;
-    border-radius: 8px;
-    max-width: 80%;
-    margin: 0 auto;
+.dark-theme .section-title {
+    color: #bb86fc;
 }
 
-/* Main app styles */
-.container {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.header {
-    text-align: center;
-    margin-bottom: 20px;
-}
-
-.balance-card {
-    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-    border-radius: 16px;
-    padding: 20px;
-    color: white;
-    text-align: center;
+/* Security Section */
+.security-section {
     margin-bottom: 25px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
-.balance-label {
-    font-size: 18px;
-    opacity: 0.9;
+.security-card {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #27ae60;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Staking Section */
+.staking-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.staking-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.staking-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.staking-form input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.staking-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+/* Premium Section */
+.premium-card {
+    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+    border-radius: 12px;
+    padding: 20px;
+    color: #333;
+}
+
+.premium-card ul {
+    padding-left: 20px;
+    margin-bottom: 15px;
+}
+
+.premium-card li {
     margin-bottom: 8px;
 }
 
-.balance-amount {
-    font-size: 36px;
-    font-weight: bold;
-    margin-bottom: 15px;
-}
-
-.min-withdrawal {
-    font-size: 14px;
-    opacity: 0.85;
-}
-
-.withdrawal-form-hidden {
-    display: none;
-}
-
-.section {
-    margin-bottom: 25px;
-}
-
-.section-title {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 15px;
-    color: #2c3e50;
-}
-
-.quests-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.quest-item {
-    display: flex;
-    align-items: center;
-    background: white;
+/* Referral Section */
+.referral-card {
+    background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
     border-radius: 12px;
     padding: 15px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    color: white;
 }
 
-.quest-icon {
-    font-size: 24px;
-    margin-right: 15px;
+.referral-link {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
 }
 
-.quest-details {
+.referral-link input {
     flex: 1;
-}
-
-.quest-title {
-    font-weight: 500;
-    margin-bottom: 5px;
-}
-
-.quest-reward {
-    font-size: 14px;
-    color: #7f8c8d;
-}
-
-.quest-status {
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.quest-status.completed {
-    color: #27ae60;
-}
-
-.ad-section {
-    margin-top: 30px;
-}
-
-.boost-banner {
-    text-align: center;
-    background: #f39c12;
-    color: white;
-    padding: 8px;
+    padding: 10px;
+    border: none;
     border-radius: 8px;
-    margin-bottom: 15px;
-    font-weight: 500;
 }
 
-.ad-container {
+.referral-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+/* Community Section */
+.community-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.community-card {
     background: white;
     border-radius: 12px;
-    overflow: hidden;
+    padding: 15px;
+    text-align: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.ad-image {
-    width: 100%;
-    height: 180px;
-    object-fit: cover;
-}
-
-.ad-title {
-    padding: 15px;
-    font-weight: 500;
-    text-align: center;
-}
-
-.ad-button {
-    display: block;
-    width: 100%;
-    padding: 15px;
-    background: #3498db;
-    color: white;
-    border: none;
-    font-size: 16px;
-    font-weight: 600;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: transform 0.2s;
 }
 
-.ad-button:hover {
-    background: #2980b9;
+.community-card:hover {
+    transform: translateY(-5px);
 }
 
-.ad-placeholder {
-    text-align: center;
-    padding: 40px 20px;
+/* Theme Toggle */
+.theme-btn {
+    position: absolute;
+    top: 15px;
+    right: 60px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
 }
 
-.loading {
-    color: #7f8c8d;
-    text-align: center;
+.lang-selector {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.lang-selector select {
+    padding: 5px;
+    border-radius: 8px;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
     padding: 20px;
+    border-radius: 12px;
+    max-width: 400px;
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.dark-theme .modal-content {
+    background-color: #2d2d2d;
+    color: white;
+}
+
+/* Header */
+.header-top {
+    position: relative;
+    height: 40px;
 }

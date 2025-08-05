@@ -7,6 +7,16 @@
     <link rel="stylesheet" href="/static/css/admin.css">
     <script src="/static/js/charts.js"></script>
     <script src="/static/js/admin.js"></script>
+    
+    <!-- A-ADS Container with class instead of inline style -->
+    <div id="frame" class="a-ads-container">
+        <!-- Use HTTPS for all external resources -->
+        <iframe data-aa='2405512' src='https://acceptable.a-ads.com/2405512' title="Advertisement"></iframe>
+        <a id="frame-link" href="https://aads.com/campaigns/new/?source_id=2405512&source_type=ad_unit&partner=2405512">Advertise here</a>
+    </div>
+  
+    <!-- Monetag Integration with HTTPS -->
+    <script src='https://libtl.com/sdk.js' data-zone='9644715' data-sdk='show_9644715'></script>
 </head>
 <body>
     <div class="admin-container">
@@ -36,6 +46,16 @@
             <div class="form-group">
                 <label for="campaign-name">Campaign Name</label>
                 <input type="text" id="campaign-name" required>
+            </div>
+
+            <!-- In ad_campaign.html -->
+            <div class="form-group">
+            <label for="ad-network">Ad Network</label>
+            <select id="ad-network" required>
+                <option value="internal">Internal</option>
+                <option value="monetag">Monetag</option>
+                <option value="aads">A-ADS</option>
+            </select>
             </div>
             
             <div class="form-group">

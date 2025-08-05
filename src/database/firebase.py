@@ -5,6 +5,8 @@ from firebase_admin.exceptions import FirebaseError
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from google.cloud.firestore_v1.base_query import FieldFilter
+import datetime  # Add this import
+from src.utils.logger import logger  # Import logger
 from config import Config
 import logging
 

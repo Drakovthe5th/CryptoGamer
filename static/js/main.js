@@ -161,3 +161,232 @@ function submitOtcWithdrawal() {
         }
     });
 }
+
+// Show in-app interstitial ads
+function initInterstitialAds() {
+  show_9644715({
+    type: 'inApp',
+    inAppSettings: {
+      frequency: 2,          // Show 2 ads
+      capping: 0.1,          // Within 6 minutes
+      interval: 30,          // 30-second interval between ads
+      timeout: 5,            // 5-second delay before first ad
+      everyPage: false       // Don't reset on page navigation
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initInterstitialAds);
+
+// Enhanced Security Features
+function showAddAddressForm() {
+    document.getElementById('address-modal').style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function saveAddress() {
+    const address = document.getElementById('new-address').value;
+    if (!address) return;
+    
+    // Save to backend
+    fetch('/api/security/whitelist', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ address })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add to UI
+            const li = document.createElement('li');
+            li.textContent = address;
+            document.getElementById('whitelist-addresses').appendChild(li);
+            closeModal('address-modal');
+        }
+    });
+}
+
+// 2FA Toggle
+document.getElementById('2fa-toggle').addEventListener('change', function() {
+    if (this.checked) {
+        // Enable 2FA
+        fetch('/api/security/enable-2fa', {
+            method: 'POST',
+            headers: {
+                'X-Telegram-Hash': window.Telegram.WebApp.initData
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('2fa-modal').style.display = 'block';
+            }
+        });
+    } else {
+        // Disable 2FA
+        fetch('/api/security/disable-2fa', {
+            method: 'POST',
+            headers: {
+                'X-Telegram-Hash': window.Telegram.WebApp.initData
+            }
+        });
+    }
+});
+
+function verify2FA() {
+    const code = document.getElementById('2fa-code').value;
+    fetch('/api/security/verify-2fa', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ code })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeModal('2fa-modal');
+        } else {
+            alert('Invalid code');
+        }
+    });
+}
+
+// Premium Subscription
+function subscribePremium() {
+    fetch('/api/user/subscribe', {
+        method: 'POST',
+        headers: {
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Premium subscription activated!');
+            loadUserData();
+        } else {
+            alert('Failed: ' + data.error);
+        }
+    });
+}
+
+// Referral Program
+function copyRefLink() {
+    const refInput = document.getElementById('ref-link');
+    refInput.select();
+    document.execCommand('copy');
+    alert('Referral link copied!');
+}
+
+// Theme Toggle
+document.getElementById('theme-toggle').addEventListener('click', function() {
+    const isDark = document.body.classList.toggle('dark-theme');
+    this.textContent = isDark ? '☀️' : '🌙';
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+});
+
+// Language Selector
+document.getElementById('lang').addEventListener('change', function() {
+    const lang = this.value;
+    localStorage.setItem('lang', lang);
+    applyLanguage(lang);
+});
+
+function applyLanguage(lang) {
+    // In a real app, this would load translation strings
+    console.log('Language changed to', lang);
+}
+
+// Community Features
+function openForum() {
+    Telegram.WebApp.openLink('https://forum.cryptogameminer.com');
+}
+
+function openEvents() {
+    // In a real app, this would show live events
+    alert('Live events coming soon!');
+}
+
+function openFeedback() {
+    Telegram.WebApp.showPopup({
+        title: 'Feedback',
+        message: 'Share your feedback with us',
+        buttons: [
+            { type: 'default', text: 'Submit', id: 'submit' }
+        ]
+    }, function(buttonId) {
+        if (buttonId === 'submit') {
+            const feedback = prompt('Enter your feedback:');
+            if (feedback) {
+                submitFeedback(feedback);
+            }
+        }
+    });
+}
+
+function submitFeedback(feedback) {
+    fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ feedback })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Thank you for your feedback!');
+        }
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing initialization ...
+    
+    // Load security data
+    fetch('/api/security/data', {
+        headers: {
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.whitelist) {
+            data.whitelist.forEach(address => {
+                const li = document.createElement('li');
+                li.textContent = address;
+                document.getElementById('whitelist-addresses').appendChild(li);
+            });
+        }
+        
+        if (data.is2FAEnabled) {
+            document.getElementById('2fa-toggle').checked = true;
+        }
+    });
+    
+    // Load referral data
+    fetch('/api/user/referrals', {
+        headers: {
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.count) {
+            document.getElementById('ref-count').textContent = data.count;
+        }
+        if (data.earnings) {
+            document.getElementById('ref-earnings').textContent = data.earnings.toFixed(6);
+        }
+    });
+});
