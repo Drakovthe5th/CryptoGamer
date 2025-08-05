@@ -193,6 +193,29 @@ def health_check():
         'timestamp': datetime.datetime.utcnow().isoformat()
     })
 
+@app.route('/debug')
+def debug_info():
+    """Endpoint for debugging environment and imports"""
+    import sys
+    import pytoniq
+    
+    info = {
+        "python_version": sys.version,
+        "pytoniq_version": pytoniq.__version__,
+        "pytoniq_path": pytoniq.__file__,
+        "firebase_creds_available": bool(config.FIREBASE_CREDS),
+        "ton_enabled": config.TON_ENABLED,
+        "environment_keys": list(os.environ.keys())
+    }
+    
+    # Try to list pytoniq contents
+    try:
+        info["pytoniq_contents"] = dir(pytoniq)
+    except Exception as e:
+        info["pytoniq_contents_error"] = str(e)
+    
+    return jsonify(info)
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     logger.info(f"Starting server on port {port}")
