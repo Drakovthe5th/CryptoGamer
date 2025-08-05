@@ -1,15 +1,25 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
+import json
+import os
 from config import config
+import re
 
 logger = logging.getLogger(__name__)
 
 # Initialize Firebase
 try:
     if not firebase_admin._apps:
-        cred = credentials.Certificate(config.FIREBASE_CREDS)
+        # Properly format the private key
+        cred_data = config.FIREBASE_CREDS
+        
+        # Fix newline formatting in private key
+        if "private_key" in cred_data:
+            cred_data["private_key"] = cred_data["private_key"].replace('\\n', '\n')
+        
+        cred = credentials.Certificate(cred_data)
         firebase_admin.initialize_app(cred)
     db = firestore.client()
     logger.info("Firebase initialized successfully")
