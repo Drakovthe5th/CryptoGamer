@@ -16,7 +16,7 @@ from src.database.firebase import (
     save_staking
 )
 from src.utils.security import get_user_id, generate_2fa_code, verify_2fa_code, is_abnormal_activity
-from src.integrations.mpesa import send_telegram_message
+from src.integrations.telegram import send_telegram_message
 from src.utils.maintenance import (
     check_server_load,
     check_ton_node,

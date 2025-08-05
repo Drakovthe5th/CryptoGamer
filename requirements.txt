@@ -1,5 +1,5 @@
 pytoniq==0.1.41
-pytoniq-core
+pytoniq_core
 flask
 flask-socketio
 celery

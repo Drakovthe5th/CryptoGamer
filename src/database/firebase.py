@@ -43,28 +43,6 @@ def get_firestore_db():
 # Initialize Firebase on import
 initialize_firebase()
 
-try:
-    if not firebase_admin._apps:
-        # Use credentials from config
-        if config.FIREBASE_CREDS:
-            # Create temporary credentials file
-            temp_creds_path = "/tmp/firebase_creds.json"
-            with open(temp_creds_path, 'w') as f:
-                json.dump(config.FIREBASE_CREDS, f)
-            
-            cred = credentials.Certificate(temp_creds_path)
-            firebase_admin.initialize_app(cred)
-            logger.info("Firebase initialized using config credentials")
-        else:
-            logger.error("No Firebase credentials available")
-            raise RuntimeError("Missing Firebase credentials")
-    
-    db = firestore.client()
-    logger.info("Firestore client created successfully")
-except Exception as e:
-    logger.error(f"Firebase initialization failed: {e}")
-    db = None
-
 def add_whitelist(user_id: str, address: str):
     """Add address to user's whitelist"""
     if not db:

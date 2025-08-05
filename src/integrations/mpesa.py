@@ -3,43 +3,40 @@ import requests
 import base64
 import datetime
 import logging
-from config import Config
+from config import config
 
 logger = logging.getLogger(__name__)
 
-def generate_mpesa_credentials():
+def generate_mpesa_credentials() -> str:
     """Generate M-Pesa API credentials"""
-    consumer_key = Config.MPESA_CONSUMER_KEY
-    consumer_secret = Config.MPESA_CONSUMER_SECRET
-    credentials = f"{consumer_key}:{consumer_secret}"
-    encoded_credentials = base64.b64encode(credentials.encode()).decode()
-    return encoded_credentials
+    consumer_key = config.MPESA_CONSUMER_KEY
+    consumer_secret = config.MPESA_CONSUMER_SECRET
+    return base64.b64encode(f"{consumer_key}:{consumer_secret}".encode()).decode()
 
-def get_mpesa_token():
-    """Get M-Pesa access token"""
-    try:
-        url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-        headers = {
-            "Authorization": f"Basic {generate_mpesa_credentials()}"
-        }
-        
-        response = requests.get(url, headers=headers)
-        if response.status_code == 200:
-            return response.json().get("access_token")
-        else:
-            logger.error(f"M-Pesa token error: {response.text}")
-            return None
-    except Exception as e:
-        logger.error(f"M-Pesa token exception: {e}")
-        return None
+def get_mpesa_token() -> str:
+    """Get M-Pesa access token with retry logic"""
+    for _ in range(3):  # 3 retries
+        try:
+            response = requests.get(
+                "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+                headers={"Authorization": f"Basic {generate_mpesa_credentials()}"},
+                timeout=5
+            )
+            if response.status_code == 200:
+                return response.json().get("access_token")
+            logger.error(f"M-Pesa token error: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.error(f"M-Pesa token exception: {e}")
+        time.sleep(1)  # Wait before retry
+    return None
 
-def send_mpesa_payment(phone: str, amount: float, currency: str):
-    """Send payment via M-Pesa"""
+def send_mpesa_payment(phone: str, amount: float, currency: str = "KES") -> dict:
+    """Send payment via M-Pesa with proper error handling"""
     try:
         # Convert to KES if needed
         if currency != "KES":
-            # In real implementation, convert using exchange rate
-            amount_kes = amount * 150  # Simplified conversion
+            # Use actual exchange rate service in production
+            amount_kes = amount * config.EXCHANGE_RATES['USD_TO_KES']
         else:
             amount_kes = amount
             
@@ -47,26 +44,29 @@ def send_mpesa_payment(phone: str, amount: float, currency: str):
         if not access_token:
             return {"status": "error", "error": "Failed to get token"}
             
-        url = "https://api.safaricom.co.ke/mpesa/b2c/v1/paymentrequest"
-        headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json"
-        }
-        
         payload = {
-            "InitiatorName": Config.MPESA_INITIATOR_NAME,
-            "SecurityCredential": Config.MPESA_SECURITY_CREDENTIAL,
+            "InitiatorName": config.MPESA_INITIATOR_NAME,
+            "SecurityCredential": config.MPESA_SECURITY_CREDENTIAL,
             "CommandID": "BusinessPayment",
             "Amount": amount_kes,
-            "PartyA": Config.MPESA_BUSINESS_SHORTCODE,
+            "PartyA": config.MPESA_BUSINESS_SHORTCODE,
             "PartyB": phone,
             "Remarks": "CryptoGameBot Withdrawal",
-            "QueueTimeOutURL": Config.MPESA_CALLBACK_URL,
-            "ResultURL": Config.MPESA_CALLBACK_URL,
+            "QueueTimeOutURL": config.MPESA_CALLBACK_URL,
+            "ResultURL": config.MPESA_CALLBACK_URL,
             "Occasion": "Payment"
         }
         
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(
+            "https://api.safaricom.co.ke/mpesa/b2c/v1/paymentrequest",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            },
+            timeout=10
+        )
+        
         if response.status_code == 200:
             logger.info(f"M-Pesa payment initiated: {response.json()}")
             return {"status": "success", "response": response.json()}
