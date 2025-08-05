@@ -2,8 +2,9 @@ import os
 import json
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables only in development
+if os.getenv("ENV", "development") == "development":
+    load_dotenv()
 
 class Config:
     # Core Configuration
@@ -19,7 +20,7 @@ class Config:
     WEBHOOK_SECRET = TELEGRAM_TOKEN
     
     # Firebase Configuration
-    FIREBASE_CREDS = json.loads(os.getenv("FIREBASE_CREDS")) if os.getenv("FIREBASE_CREDS") else {
+    FIREBASE_CREDS = {
         "type": "service_account",
         "project_id": "crptominerbot",
         "private_key_id": "bf5b5063f1a2465e994bbed99d7a48eb1fa4d117",
