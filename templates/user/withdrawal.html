@@ -1,158 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Withdraw Earnings</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <style>
-        .withdrawal-methods {
-            display: flex;
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .method-card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            cursor: pointer;
-            transition: all 0.3s;
-            flex: 1;
-            text-align: center;
-        }
-        .method-card.selected {
-            border-color: #3498db;
-            background-color: #e8f4ff;
-        }
-        .method-card h3 {
-            margin-top: 0;
-        }
-        .withdrawal-form {
-            margin-top: 20px;
-            display: none;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withdraw Funds</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/static/js/main.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Withdraw Earnings</h1>
-        <div class="balance-info">
-            <p>Available Balance: <strong>{{ balance }} XNO</strong></p>
-            <p>Minimum Withdrawal: <strong>{{ min_withdrawal }} XNO</strong></p>
-        </div>
+        <header>
+            <h1>💰 Withdraw Funds</h1>
+            <div id="balance">Loading balance...</div>
+        </header>
         
-        <h2>Select Method</h2>
-        <div class="withdrawal-methods">
-            <div class="method-card" data-method="nano">
-                <h3>🌐 Nano</h3>
-                <p>Instant, feeless transactions</p>
+        <section>
+            <h2>Withdrawal Options</h2>
+            
+            <div class="withdrawal-option">
+                <h3>💎 TON Wallet</h3>
+                <p>Withdraw directly to your TON wallet</p>
+                <form id="ton-withdrawal-form">
+                    <div class="form-group">
+                        <label for="ton-address">TON Wallet Address</label>
+                        <input type="text" id="ton-address" placeholder="EQAhF..." required>
+                    </div>
+                    <div class="form-group">
+                        <label for="ton-amount">Amount (TON)</label>
+                        <input type="number" id="ton-amount" min="0.1" step="0.001" required>
+                    </div>
+                    <button type="submit">Withdraw TON</button>
+                </form>
             </div>
-            <div class="method-card" data-method="mpesa">
-                <h3>📱 M-Pesa</h3>
-                <p>Mobile money (Kenya only)</p>
+            
+            <div class="withdrawal-option">
+                <h3>💵 Cash via OTC Desk</h3>
+                <p>Convert your TON to cash (USD, EUR, KES)</p>
+                <form id="otc-withdrawal-form">
+                    <div class="form-group">
+                        <label for="otc-amount">Amount (TON)</label>
+                        <input type="number" id="otc-amount" min="1" step="0.1" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="otc-currency">Currency</label>
+                        <select id="otc-currency" required>
+                            <option value="USD">US Dollars (USD)</option>
+                            <option value="EUR">Euros (EUR)</option>
+                            <option value="KES">Kenyan Shillings (KES)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="payment-method">Payment Method</label>
+                        <select id="payment-method" required>
+                            <option value="M-Pesa">M-Pesa</option>
+                            <option value="PayPal">PayPal</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    
+                    <div id="payment-details">
+                        <!-- Payment details fields will be loaded here based on method -->
+                    </div>
+                    
+                    <button type="submit">Request Cash</button>
+                </form>
             </div>
-            <div class="method-card" data-method="paypal">
-                <h3>💳 PayPal</h3>
-                <p>Global payments</p>
-            </div>
-        </div>
-        
-        <form id="withdrawal-form" class="withdrawal-form">
-            <div id="method-details"></div>
-            <div class="form-group">
-                <label for="amount">Amount (XNO)</label>
-                <input type="number" id="amount" step="0.001" min="{{ min_withdrawal }}" max="{{ balance }}" required>
-            </div>
-            <button type="submit">Request Withdrawal</button>
-        </form>
+        </section>
     </div>
     
     <script>
-        // Method selection
-        document.querySelectorAll('.method-card').forEach(card => {
-            card.addEventListener('click', () => {
-                document.querySelectorAll('.method-card').forEach(c => {
-                    c.classList.remove('selected');
-                });
-                card.classList.add('selected');
-                
-                const method = card.dataset.method;
-                document.getElementById('withdrawal-form').style.display = 'block';
-                
-                let detailsHTML = '';
-                switch(method) {
-                    case 'nano':
-                        detailsHTML = `
-                            <div class="form-group">
-                                <label for="nano-address">Nano Address</label>
-                                <input type="text" id="nano-address" placeholder="nano_..." required>
-                            </div>
-                        `;
-                        break;
-                    case 'mpesa':
-                        detailsHTML = `
-                            <div class="form-group">
-                                <label for="mpesa-number">Phone Number</label>
-                                <input type="tel" id="mpesa-number" placeholder="2547XXXXXXXX" required>
-                            </div>
-                        `;
-                        break;
-                    case 'paypal':
-                        detailsHTML = `
-                            <div class="form-group">
-                                <label for="paypal-email">PayPal Email</label>
-                                <input type="email" id="paypal-email" placeholder="you@example.com" required>
-                            </div>
-                        `;
-                        break;
-                }
-                
-                document.getElementById('method-details').innerHTML = detailsHTML;
-            });
-        });
-        
-        // Form submission
-        document.getElementById('withdrawal-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        document.getElementById('payment-method').addEventListener('change', function() {
+            const method = this.value;
+            let detailsHTML = '';
             
-            const method = document.querySelector('.method-card.selected').dataset.method;
-            const amount = parseFloat(document.getElementById('amount').value);
-            
-            let details;
-            switch(method) {
-                case 'nano':
-                    details = { address: document.getElementById('nano-address').value };
-                    break;
-                case 'mpesa':
-                    details = { phone: document.getElementById('mpesa-number').value };
-                    break;
-                case 'paypal':
-                    details = { email: document.getElementById('paypal-email').value };
-                    break;
+            if (method === 'M-Pesa') {
+                detailsHTML = `
+                    <div class="form-group">
+                        <label for="mpesa-phone">M-Pesa Phone Number</label>
+                        <input type="tel" id="mpesa-phone" placeholder="254712345678" required>
+                    </div>
+                `;
+            } else if (method === 'PayPal') {
+                detailsHTML = `
+                    <div class="form-group">
+                        <label for="paypal-email">PayPal Email</label>
+                        <input type="email" id="paypal-email" required>
+                    </div>
+                `;
+            } else if (method === 'Bank Transfer') {
+                detailsHTML = `
+                    <div class="form-group">
+                        <label for="bank-name">Bank Name</label>
+                        <input type="text" id="bank-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="account-name">Account Name</label>
+                        <input type="text" id="account-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="account-number">Account Number</label>
+                        <input type="text" id="account-number" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="iban">IBAN (Optional)</label>
+                        <input type="text" id="iban">
+                    </div>
+                `;
             }
             
-            try {
-                const response = await fetch('/api/withdraw', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Telegram-User-ID': '{{ user_id }}'
-                    },
-                    body: JSON.stringify({
-                        method: method,
-                        amount: amount,
-                        details: details
-                    })
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    alert(`✅ Withdrawal request submitted!\nTransaction ID: ${result.tx_id}`);
-                } else {
-                    alert(`❌ Error: ${result.error}`);
-                }
-            } catch (error) {
-                console.error('Withdrawal error:', error);
-                alert('Failed to process withdrawal. Please try again.');
-            }
+            document.getElementById('payment-details').innerHTML = detailsHTML;
         });
     </script>
 </body>

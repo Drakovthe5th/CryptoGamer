@@ -1,3 +1,4 @@
+import os
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 USER_SCHEMA = {
@@ -5,18 +6,19 @@ USER_SCHEMA = {
     'username': str,
     'balance': float,
     'points': int,
-    'last_played': dict,  # {game_type: timestamp}
+    'last_played': dict,
     'referral_count': int,
     'faucet_claimed': SERVER_TIMESTAMP,
-    'withdrawal_methods': dict,  # {method: details}
-    'completed_quests': dict,  # {quest_id: timestamp}
+    'withdrawal_methods': dict,
+    'payment_methods': dict,
+    'completed_quests': dict,
     'created_at': SERVER_TIMESTAMP
 }
 
 QUEST_SCHEMA = {
     'title': str,
     'description': str,
-    'reward_xno': float,
+    'reward_ton': float,
     'reward_points': int,
     'active': bool,
     'completions': int,
@@ -25,10 +27,10 @@ QUEST_SCHEMA = {
 
 TRANSACTION_SCHEMA = {
     'user_id': int,
-    'type': str,  # 'deposit', 'withdrawal', 'game_reward'
+    'type': str,
     'amount': float,
-    'method': str,  # 'nano', 'mpesa', 'paypal'
-    'status': str,  # 'pending', 'success', 'failed'
+    'method': str,
+    'status': str,
     'timestamp': SERVER_TIMESTAMP,
-    'details': dict  # Additional transaction details
+    'details': dict
 }

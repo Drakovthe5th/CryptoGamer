@@ -3,223 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoGameBot MiniApp</title>
+    <title>CryptoGameMiner</title>
+    <link rel="stylesheet" href="/static/css/miniapp.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/miniapp.css') }}">
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/miniapp.js"></script>
 </head>
 <body>
-    <div id="init-container" class="initializing">
-        <div class="spinner"></div>
-        <p>Initializing MiniApp...</p>
-    </div>
-
-    <div id="app" class="container" style="display:none;">
-        <div class="header">
-            <h1>CryptoGame Miner</h1>
-        </div>
+    <div class="container">
+        <header>
+            <h1>💎 CryptoGameMiner</h1>
+            <div id="balance">Loading balance...</div>
+        </header>
         
-        <div class="balance-card">
-            <div class="balance-label">Your Balance</div>
-            <div class="balance-amount" id="balance">0.000000 XNO</div>
-            <div class="min-withdrawal">
-                Minimum withdrawal: <span id="min-withdrawal">XNO</span>
-            </div>
-        </div>
-        
-        <div class="section" id="quests-section">
-            <div class="section-title">Active Quests</div>
-            <div id="quests-container" class="loading">
-                Loading quests...
-            </div>
-        </div>
-        
-        <div class="ad-section">
-            <div class="boost-banner">Weekend Boost! +50% Earnings</div>
-            <div id="ad-container">
-                <div class="ad-placeholder">
-                    <div class="spinner"></div>
-                    <p>Loading ad...</p>
+        <section class="games">
+            <h2>🎮 Earn TON</h2>
+            <div class="game-cards">
+                <div class="game-card" id="trivia-game">
+                    <h3>Trivia Challenge</h3>
+                    <p>Answer questions to earn TON</p>
+                    <button onclick="startGame('trivia')">Play</button>
+                </div>
+                <div class="game-card" id="spin-game">
+                    <h3>Spin Wheel</h3>
+                    <p>Test your luck</p>
+                    <button onclick="startGame('spin')">Spin</button>
                 </div>
             </div>
-        </div>
+        </section>
+        
+        <section class="ads">
+            <h2>📺 Watch & Earn</h2>
+            <div id="ad-container">
+                <p>Loading ads...</p>
+            </div>
+            <button id="watch-ad-btn" onclick="showAd()">Watch Ad</button>
+        </section>
+        
+        <section class="withdrawal">
+            <h2>💰 Withdraw TON</h2>
+            <div id="withdrawal-options">
+                <button onclick="showWithdrawalForm('ton')">TON Wallet</button>
+                <button onclick="showWithdrawalForm('cash')">Cash via OTC</button>
+            </div>
+            <div id="withdrawal-form" class="withdrawal-form-hidden">
+                <!-- Form will be loaded here -->
+            </div>
+        </section>
     </div>
-
-    <script>
-        // Initialize after SDK loads
-        function initApp() {
-            const webApp = Telegram.WebApp;
-            
-            try {
-                webApp.ready();
-                webApp.expand();
-                
-                const userId = webApp.initDataUnsafe.user?.id;
-                
-                if (!userId) {
-                    document.getElementById('init-container').innerHTML = 
-                        '<div class="error">Error: User authentication failed.<br>Please open this app within Telegram.</div>';
-                    return;
-                }
-                
-                // Show app content
-                document.getElementById('init-container').style.display = 'none';
-                document.getElementById('app').style.display = 'block';
-                
-                // Load user data
-                loadUserData(userId, webApp.initData);
-                
-                // Refresh data every 60 seconds
-                setInterval(() => loadUserData(userId, webApp.initData), 60000);
-            } catch (e) {
-                document.getElementById('init-container').innerHTML = 
-                    `<div class="error">Initialization error: ${e.message || 'Unknown error'}</div>`;
-            }
-        }
-        
-        // Initialize when SDK is ready
-        if (window.Telegram && window.Telegram.WebApp) {
-            initApp();
-        } else {
-            document.getElementById('init-container').innerHTML = 
-                '<div class="error">Failed to load Telegram SDK.<br>Please try again later.</div>';
-        }
-        
-        // Basic HTML escaping for security
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>"']/g, 
-                tag => ({
-                    '&': '&amp;',
-                    '<': '&lt;',
-                    '>': '&gt;',
-                    '"': '&quot;',
-                    "'": '&#39;'
-                }[tag]));
-        }
-
-        // Format balance display
-        function formatBalance(balance) {
-            return parseFloat(balance).toFixed(6) + ' XNO';
-        }
-
-        // Load user data
-        async function loadUserData(userId, initData) {
-            const balanceDisplay = document.getElementById('balance');
-            const minWithdrawalDisplay = document.getElementById('min-withdrawal');
-            const questsContainer = document.getElementById('quests-container');
-            const adContainer = document.getElementById('ad-container');
-            
-            try {
-                questsContainer.innerHTML = '<div class="loading">Loading quests...</div>';
-                adContainer.innerHTML = '<div class="loading">Loading ads...</div>';
-                
-                const response = await fetch('/api/user/data', {
-                    headers: {
-                        'X-Telegram-User-ID': userId.toString(),
-                        'X-Telegram-Hash': initData
-                    }
-                });
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                // Update balance
-                balanceDisplay.textContent = formatBalance(data.balance);
-                
-                // Update min withdrawal
-                minWithdrawalDisplay.textContent = formatBalance(data.min_withdrawal);
-                
-                // Update quests
-                renderQuests(data.quests);
-                
-                // Update ads
-                renderAd(data.ads[0]);
-                
-            } catch (error) {
-                console.error("Failed to load user data:", error);
-                balanceDisplay.textContent = '0.000000 XNO';
-                questsContainer.innerHTML = `<div class="error">${escapeHtml(error.message || 'Error loading data')}</div>`;
-                adContainer.innerHTML = `<div class="error">${escapeHtml(error.message || 'Error loading ads')}</div>`;
-            }
-        }
-
-        // Render quests
-        function renderQuests(quests) {
-            const questsContainer = document.getElementById('quests-container');
-            questsContainer.innerHTML = '';
-            
-            if (!quests || quests.length === 0) {
-                questsContainer.innerHTML = '<div class="loading">No active quests available</div>';
-                return;
-            }
-            
-            quests.forEach(quest => {
-                const questEl = document.createElement('div');
-                questEl.className = 'quest-item';
-                questEl.innerHTML = `
-                    <div class="quest-icon">🎯</div>
-                    <div class="quest-details">
-                        <div class="quest-title">${escapeHtml(quest.title)}</div>
-                        <div class="quest-reward">Reward: ${quest.reward.toFixed(6)} XNO</div>
-                    </div>
-                    <div class="quest-status ${quest.completed ? 'completed' : ''}">
-                        ${quest.completed ? '✅ Completed' : '🔄 Active'}
-                    </div>
-                `;
-                questsContainer.appendChild(questEl);
-            });
-        }
-
-        // Render ad
-        function renderAd(ad) {
-            const adContainer = document.getElementById('ad-container');
-            
-            if (!ad) {
-                adContainer.innerHTML = '<div class="loading">No ads available</div>';
-                return;
-            }
-            
-            adContainer.innerHTML = `
-                <img src="${ad.image_url}" class="ad-image" alt="${escapeHtml(ad.title)}">
-                <div class="ad-title">${escapeHtml(ad.title)}</div>
-                <button class="ad-button" onclick="claimAdReward('${ad.id}')">
-                    View Ad (+${ad.reward.toFixed(6)} XNO)
-                </button>
-            `;
-        }
-
-        // Claim ad reward
-        window.claimAdReward = async (adId) => {
-            try {
-                const userId = Telegram.WebApp.initDataUnsafe.user.id;
-                const initData = Telegram.WebApp.initData;
-                
-                const response = await fetch('/api/ads/reward', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Telegram-User-ID': userId.toString(),
-                        'X-Telegram-Hash': initData
-                    },
-                    body: JSON.stringify({ ad_id: adId })
-                });
-                
-                const result = await response.json();
-                
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-                
-                alert(`🎉 You earned ${result.reward.toFixed(6)} XNO!`);
-                loadUserData(userId, initData); // Refresh data
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-            }
-        };
-    </script>
 </body>
 </html>

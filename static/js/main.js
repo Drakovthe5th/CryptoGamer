@@ -1,135 +1,163 @@
-// Basic HTML escaping for security
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>"']/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;'
-        }[tag]));
-}
-
-// Format balance display
-function formatBalance(balance) {
-    return parseFloat(balance).toFixed(6) + ' XNO';
-}
-
-// Load user data
-async function loadUserData(userId, initData) {
-    const balanceDisplay = document.getElementById('balance');
-    const minWithdrawalDisplay = document.getElementById('min-withdrawal');
-    const questsContainer = document.getElementById('quests-container');
-    const adContainer = document.getElementById('ad-container');
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Telegram Web App
+    const webApp = window.Telegram.WebApp;
+    webApp.expand();
+    webApp.enableClosingConfirmation();
     
-    try {
-        questsContainer.innerHTML = '<div class="loading">Loading quests...</div>';
-        adContainer.innerHTML = '<div class="loading">Loading ads...</div>';
-        
-        const response = await fetch('/api/user/data', {
-            headers: {
-                'X-Telegram-User-ID': userId.toString(),
-                'X-Telegram-Hash': initData
-            }
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            throw new Error(data.error);
+    // Load user data
+    loadUserData();
+    
+    // Set up event listeners
+    document.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', handleButtonClick);
+    });
+});
+
+function loadUserData() {
+    fetch('/api/user/data', {
+        headers: {
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.balance !== undefined) {
+            document.getElementById('balance').textContent = 
+                `Balance: ${data.balance.toFixed(6)} TON`;
         }
         
-        // Update balance
-        balanceDisplay.textContent = formatBalance(data.balance);
+        // Load additional data based on page
+        if (document.getElementById('daily-quests')) {
+            loadQuests();
+        }
         
-        // Update min withdrawal
-        minWithdrawalDisplay.textContent = formatBalance(data.min_withdrawal);
-        
-        // Update quests
-        renderQuests(data.quests);
-        
-        // Update ads
-        renderAd(data.ads[0]);
-        
-    } catch (error) {
-        console.error("Failed to load user data:", error);
-        balanceDisplay.textContent = '0.000000 XNO';
-        questsContainer.innerHTML = `<div class="error">${escapeHtml(error.message || 'Error loading data')}</div>`;
-        adContainer.innerHTML = `<div class="error">${escapeHtml(error.message || 'Error loading ads')}</div>`;
-    }
-}
-
-// Render quests
-function renderQuests(quests) {
-    const questsContainer = document.getElementById('quests-container');
-    questsContainer.innerHTML = '';
-    
-    if (!quests || quests.length === 0) {
-        questsContainer.innerHTML = '<div class="loading">No active quests available</div>';
-        return;
-    }
-    
-    quests.forEach(quest => {
-        const questEl = document.createElement('div');
-        questEl.className = 'quest-item';
-        questEl.innerHTML = `
-            <div class="quest-icon">🎯</div>
-            <div class="quest-details">
-                <div class="quest-title">${escapeHtml(quest.title)}</div>
-                <div class="quest-reward">Reward: ${quest.reward.toFixed(6)} XNO</div>
-            </div>
-            <div class="quest-status ${quest.completed ? 'completed' : ''}">
-                ${quest.completed ? '✅ Completed' : '🔄 Active'}
-            </div>
-        `;
-        questsContainer.appendChild(questEl);
+        if (document.getElementById('ton-withdrawal-form')) {
+            setupWithdrawalForms();
+        }
+    })
+    .catch(error => {
+        console.error('Error loading user data:', error);
     });
 }
 
-// Render ad
-function renderAd(ad) {
-    const adContainer = document.getElementById('ad-container');
+function handleButtonClick(event) {
+    const button = event.target;
+    const action = button.dataset.action;
     
-    if (!ad) {
-        adContainer.innerHTML = '<div class="loading">No ads available</div>';
-        return;
+    if (action) {
+        switch(action) {
+            case 'start-game':
+                startGame(button.dataset.game);
+                break;
+            case 'claim-reward':
+                claimReward(button.dataset.rewardId);
+                break;
+            case 'initiate-withdrawal':
+                initiateWithdrawal();
+                break;
+        }
     }
-    
-    adContainer.innerHTML = `
-        <img src="${ad.image_url}" class="ad-image" alt="${escapeHtml(ad.title)}">
-        <div class="ad-title">${escapeHtml(ad.title)}</div>
-        <button class="ad-button" onclick="claimAdReward('${ad.id}')">
-            View Ad (+${ad.reward.toFixed(6)} XNO)
-        </button>
-    `;
 }
 
-// Claim ad reward
-window.claimAdReward = async (adId) => {
-    try {
-        const userId = Telegram.WebApp.initDataUnsafe.user.id;
-        const initData = Telegram.WebApp.initData;
-        
-        const response = await fetch('/api/ads/reward', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Telegram-User-ID': userId.toString(),
-                'X-Telegram-Hash': initData
-            },
-            body: JSON.stringify({ ad_id: adId })
-        });
-        
-        const result = await response.json();
-        
-        if (result.error) {
-            throw new Error(result.error);
+function startGame(gameType) {
+    fetch(`/api/games/start?game=${gameType}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
         }
-        
-        alert(`🎉 You earned ${result.reward.toFixed(6)} XNO!`);
-        loadUserData(userId, initData); // Refresh data
-    } catch (error) {
-        alert(`Error: ${error.message}`);
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Launch game interface based on gameType
+            launchGameInterface(gameType);
+        } else {
+            alert('Failed to start game: ' + data.error);
+        }
+    });
+}
+
+function setupWithdrawalForms() {
+    document.getElementById('ton-withdrawal-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitTonWithdrawal();
+    });
+    
+    document.getElementById('otc-withdrawal-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        submitOtcWithdrawal();
+    });
+}
+
+function submitTonWithdrawal() {
+    const address = document.getElementById('ton-address').value;
+    const amount = parseFloat(document.getElementById('ton-amount').value);
+    
+    fetch('/api/withdraw', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({
+            method: 'ton',
+            amount: amount,
+            address: address
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Withdrawal successful! TX: ${data.tx_hash}`);
+            loadUserData(); // Refresh balance
+        } else {
+            alert('Withdrawal failed: ' + data.error);
+        }
+    });
+}
+
+function submitOtcWithdrawal() {
+    const amount = parseFloat(document.getElementById('otc-amount').value);
+    const currency = document.getElementById('otc-currency').value;
+    const method = document.getElementById('payment-method').value;
+    
+    // Get payment details based on method
+    let paymentDetails = {};
+    if (method === 'M-Pesa') {
+        paymentDetails = { phone: document.getElementById('mpesa-phone').value };
+    } else if (method === 'PayPal') {
+        paymentDetails = { email: document.getElementById('paypal-email').value };
+    } else if (method === 'Bank Transfer') {
+        paymentDetails = {
+            bankName: document.getElementById('bank-name').value,
+            accountName: document.getElementById('account-name').value,
+            accountNumber: document.getElementById('account-number').value,
+            iban: document.getElementById('iban').value || ''
+        };
     }
-};
+    
+    fetch('/api/withdraw', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({
+            method: 'otc',
+            amount: amount,
+            currency: currency,
+            paymentMethod: method,
+            details: paymentDetails
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Cash withdrawal processing! Deal ID: ${data.deal_id}`);
+            loadUserData(); // Refresh balance
+        } else {
+            alert('Withdrawal failed: ' + data.error);
+        }
+    });
+}

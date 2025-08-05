@@ -1,51 +1,52 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from src.database.firebase import (
-    get_user_data, 
-    update_balance,
-    get_active_quests,
-    track_ad_impression,
-    track_ad_reward
+    initialize_firebase, get_user_data, 
+    update_balance, get_active_quests,
+    track_ad_impression, track_ad_reward
 )
 from src.utils.security import validate_telegram_hash
 from config import Config
+import os
+import json
 import datetime
 import logging
 
 def create_app():
     app = Flask(__name__)
     
+    # Initialize Firebase
+    firebase_creds = json.loads(os.environ.get('FIREBASE_CREDS', '{}'))
+    initialize_firebase(firebase_creds)
+    
     @app.route('/miniapp')
     def serve_miniapp():
-        """Serve the mini-app HTML"""
-        return app.send_static_file('miniapp.html')
+        return send_from_directory('static', 'miniapp.html')
 
     @app.route('/api/user/data', methods=['GET'])
     def get_user_data_api():
-        """Get comprehensive user data for mini-app"""
         try:
-            # Validate Telegram hash
-            init_data = request.headers.get('X-Telegram-Hash')
-            user_id = request.headers.get('X-Telegram-User-ID')
-            if not validate_telegram_hash(init_data, request.query_string.decode()):
+            init_data = request.headers.get('X-Telegram-InitData')
+            if not validate_telegram_hash(init_data, Config.TELEGRAM_BOT_TOKEN):
                 return jsonify({'error': 'Invalid hash'}), 401
 
-            # Get user data
+            user_id = request.args.get('user_id')
+            if not user_id:
+                return jsonify({'error': 'User ID required'}), 400
+
             user_data = get_user_data(int(user_id))
             if not user_data:
                 return jsonify({'error': 'User not found'}), 404
 
-            # Get active quests
             quests = [
                 {
                     'id': quest.id,
                     'title': quest.get('title'),
-                    'reward': quest.get('reward_xno'),
+                    'reward': quest.get('reward_ton'),
                     'completed': quest.id in user_data.get('completed_quests', {})
                 }
                 for quest in get_active_quests()
             ]
 
-            # Get available ads
             ads = [{
                 'id': 'ad1',
                 'title': 'Special Offer',
@@ -64,24 +65,22 @@ def create_app():
 
     @app.route('/api/ads/reward', methods=['POST'])
     def ad_reward():
-        """Handle ad rewards"""
         try:
-            # Validate Telegram hash
-            init_data = request.headers.get('X-Telegram-Hash')
-            user_id = request.headers.get('X-Telegram-User-ID')
-            if not validate_telegram_hash(init_data, request.get_data(as_text=True)):
+            init_data = request.headers.get('X-Telegram-InitData')
+            if not validate_telegram_hash(init_data, Config.TELEGRAM_BOT_TOKEN):
                 return jsonify({'error': 'Invalid hash'}), 401
 
-            # Calculate reward with weekend boost
+            user_id = request.json.get('user_id')
+            ad_id = request.json.get('ad_id')
+            if not user_id or not ad_id:
+                return jsonify({'error': 'Missing parameters'}), 400
+
             now = datetime.datetime.now()
-            is_weekend = now.weekday() in [5, 6]  # Saturday/Sunday
+            is_weekend = now.weekday() in [5, 6]
             base_reward = Config.AD_REWARD_AMOUNT
             reward = base_reward * (Config.WEEKEND_BOOST_MULTIPLIER if is_weekend else 1.0)
             
-            # Update balance
             new_balance = update_balance(int(user_id), reward)
-            
-            # Track reward
             track_ad_reward(int(user_id), reward, 'telegram_miniapp', is_weekend)
             
             return jsonify({
@@ -96,7 +95,6 @@ def create_app():
 
     @app.route('/api/campaign-stats')
     def campaign_stats():
-        """Provide campaign statistics for charts"""
         return jsonify({
             "labels": ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
             "datasets": [

@@ -1,21 +1,30 @@
 import logging
 import os
+from datetime import datetime
 
-def setup_logger():
-    log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=log_level
+def setup_logger(name: str, log_file: str = None, level=logging.INFO):
+    """Set up a logger with file and console handlers"""
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Add ad performance logger
-    ad_logger = logging.getLogger('ad_performance')
-    ad_handler = logging.FileHandler('ad_performance.log')
-    ad_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-    ad_logger.addHandler(ad_handler)
-    ad_logger.setLevel(logging.INFO)
+    # Console handler
+    ch = logging.StreamHandler()
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
     
-    return logging.getLogger(__name__)
-
-# Initialize logger
-logger = setup_logger()
+    # File handler if specified
+    if log_file:
+        # Create logs directory if not exists
+        os.makedirs(os.path.dirname(log_file), exist_ok=True)
+        
+        fh = logging.FileHandler(log_file)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    
+    return logger

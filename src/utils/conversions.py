@@ -1,41 +1,16 @@
-import requests
-from config import Config
+def to_ton(amount: float) -> float:
+    """Convert raw amount to TON (1 TON = 1,000,000,000 nanoton)"""
+    return amount  # Our system uses TON as base unit
 
+def ton_to_nano(amount: float) -> int:
+    """Convert TON to nanoton for blockchain operations"""
+    return int(amount * 10**9)
 
-def to_xno(raw_amount: int) -> float:
-    return raw_amount / 10**30
+def convert_currency(amount_ton: float, rate: float) -> float:
+    """Convert TON to fiat currency"""
+    return amount_ton * rate
 
-def to_raw(xno_amount: float) -> int:
-    return int(xno_amount * 10**30)
-
-def usd_to_xno(amount: float, inverse=False) -> float:
-    """Convert between USD and XNO using CoinMarketCap"""
-    if not Config.CMC_API_KEY:
-        # Fallback rate if API key not available
-        return amount * (1/3.0 if inverse else 3.0)
-    
-    try:
-        url = "https://pro-api.coinmarketcap.com/v2/tools/price-conversion"
-        params = {
-            'amount': amount,
-            'symbol': 'XNO' if inverse else 'USD',
-            'convert': 'USD' if inverse else 'XNO'
-        }
-        headers = {'X-CMC_PRO_API_KEY': Config.CMC_API_KEY}
-        
-        response = requests.get(url, params=params, headers=headers)
-        data = response.json()
-        
-        if response.status_code == 200 and data['status']['error_code'] == 0:
-            quote = data['data']['quote']
-            if inverse:
-                # Converting USD to XNO
-                return quote['XNO']['price']
-            else:
-                # Converting XNO to USD
-                return quote['USD']['price']
-    except Exception:
-        pass
-    
-    # Fallback if API fails
-    return amount * (1/3.0 if inverse else 3.0)
+def calculate_fee(amount: float, fee_percent: float, min_fee: float) -> float:
+    """Calculate transaction fee"""
+    fee = amount * fee_percent / 100
+    return max(fee, min_fee)

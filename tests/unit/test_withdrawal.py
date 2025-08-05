@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from src.features.withdrawal import process_withdrawal
+from src.integrations.withdrawal import process_withdrawal
 
 class TestWithdrawals(unittest.TestCase):
     

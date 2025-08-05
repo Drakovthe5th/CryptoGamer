@@ -72,6 +72,10 @@
     opacity: 0.85;
 }
 
+.withdrawal-form-hidden {
+    display: none;
+}
+
 .section {
     margin-bottom: 25px;
 }

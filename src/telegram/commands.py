@@ -1,16 +1,16 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from firebase_admin import firestore  # Fixed import
+from firebase_admin import firestore
 from src.database.firebase import (
     create_user, get_user_balance, update_balance, get_user_data,
     users_ref, update_leaderboard_points, get_leaderboard, get_user_rank
 )
 from src.features.quests import get_active_quests
-from src.utils.conversions import to_xno
+from src.utils.conversions import to_ton
 from config import Config
 import datetime
 import random
-import logging  # Added missing import
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -40,25 +40,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     await context.bot.send_message(
                         chat_id=referrer_id,
                         text=f"🎉 {username} joined using your referral link! "
-                             f"You earned {Config.REWARDS['referral']:.6f} XNO"
+                             f"You earned {Config.REWARDS['referral']:.6f} TON"
                     )
                 except Exception:
                     pass
         except ValueError:
             pass
     
-    # Welcome message
+    # Welcome message with TON focus
     text = (
         f"👋 Welcome to CryptoGameBot, {user.first_name}!\n\n"
-        "🎮 Earn cryptocurrency by playing games:\n"
-        "• 🧠 Trivia quizzes\n"
-        "• 💥 Clicker game\n"
-        "• 🎰 Spin wheel\n"
-        "• 🎯 Complete quests\n\n"
-        "💰 Withdraw your earnings to Nano, M-Pesa, or PayPal!\n\n"
-        "🆓 Claim free crypto with /faucet\n"
+        "💎 Earn TON cryptocurrency by:\n"
+        "• 🧠 Playing trivia games\n"
+        "• 🎰 Spinning the wheel\n"
+        "• 📺 Watching ads\n"
+        "• 🎯 Completing quests\n\n"
+        "💰 Withdraw to your TON wallet or convert to cash via our OTC desk!\n\n"
+        "🆓 Claim free TON with /faucet\n"
         "🏆 Compete on the /leaderboard\n"
-        "💼 Open in-app with /app"
+        "📱 Open in-app with /app"
     )
     
     # Start buttons
@@ -79,8 +79,8 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     balance = get_user_balance(user_id)
     
     text = (
-        f"💰 Your Balance: {to_xno(balance):.6f} XNO\n\n"
-        f"💸 Minimum withdrawal: {Config.MIN_WITHDRAWAL} XNO\n"
+        f"💎 Your Balance: {to_ton(balance):.6f} TON\n\n"
+        f"💸 Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON\n"
         "💳 Set up withdrawal methods with /set_withdrawal"
     )
     
@@ -90,7 +90,6 @@ async def play_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Game selection keyboard
     keyboard = [
         [InlineKeyboardButton("🧠 Trivia Quiz", callback_data="trivia")],
-        [InlineKeyboardButton("💥 Clicker Game", callback_data="clicker")],
         [InlineKeyboardButton("🎰 Spin Wheel", callback_data="spin")],
         [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily")]
     ]
@@ -106,16 +105,15 @@ async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     if balance < Config.MIN_WITHDRAWAL:
         await update.message.reply_text(
-            f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} XNO\n"
-            f"Your balance: {to_xno(balance):.6f} XNO"
+            f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON\n"
+            f"Your balance: {to_ton(balance):.6f} TON"
         )
         return
     
-    # Withdrawal methods
+    # Withdrawal methods - TON and OTC options
     keyboard = [
-        [InlineKeyboardButton("🌐 Nano", callback_data="withdraw_nano")],
-        [InlineKeyboardButton("📱 M-Pesa", callback_data="withdraw_mpesa")],
-        [InlineKeyboardButton("💳 PayPal", callback_data="withdraw_paypal")],
+        [InlineKeyboardButton("💎 TON Wallet", callback_data="withdraw_ton")],
+        [InlineKeyboardButton("💵 Cash via OTC", callback_data="withdraw_cash")],
         [InlineKeyboardButton("❌ Cancel", callback_data="withdraw_cancel")]
     ]
     
@@ -127,9 +125,13 @@ async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def miniapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     miniapp_url = f"https://{Config.RENDER_URL}/miniapp"
     text = (
-        "📲 Open the CryptoGameBot MiniApp for a better gaming experience!\n\n"
-        f"👉 [Launch MiniApp]({miniapp_url})\n\n"
-        "Play games, check balance, and withdraw directly in-app!"
+        "📲 Open the CryptoGameBot MiniApp for the best experience!\n\n"
+        "Features:\n"
+        "• 💎 Real-time TON balance\n"
+        "• 🎮 Play TON-earning games\n"
+        "• 💸 Seamless withdrawals\n"
+        "• 📊 View leaderboards\n\n"
+        f"👉 [Launch MiniApp]({miniapp_url})"
     )
     
     await update.message.reply_text(
@@ -189,16 +191,17 @@ async def faucet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_ref.update({'faucet_claimed': now})
     
     await update.message.reply_text(
-        f"💧 You claimed {reward:.6f} XNO!\n"
-        f"💰 New balance: {to_xno(new_balance):.6f} XNO"
+        f"💧 You claimed {reward:.6f} TON!\n"
+        f"💰 New balance: {to_ton(new_balance):.6f} TON"
     )
 
 async def set_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /set_withdrawal command"""
     keyboard = [
-        [InlineKeyboardButton("🌐 Set Nano Address", callback_data="set_nano")],
+        [InlineKeyboardButton("💎 Set TON Address", callback_data="set_ton")],
         [InlineKeyboardButton("📱 Set M-Pesa Number", callback_data="set_mpesa")],
-        [InlineKeyboardButton("💳 Set PayPal Email", callback_data="set_paypal")]
+        [InlineKeyboardButton("💳 Set PayPal Email", callback_data="set_paypal")],
+        [InlineKeyboardButton("🏦 Set Bank Details", callback_data="set_bank")]
     ]
     
     await update.message.reply_text(
@@ -213,15 +216,15 @@ async def weekend_promotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_weekend:
         text = (
             "🎉 WEEKEND SPECIAL 🎉\n\n"
-            "All ad rewards are boosted by 50% this weekend!\n\n"
-            "🔥 Earn more crypto with every ad you watch\n"
+            "All rewards are boosted by 50% this weekend!\n\n"
+            "🔥 Earn more TON with every action\n"
             "🚀 Available in the MiniApp now!"
         )
     else:
         text = (
             "🔥 Next Weekend Promotion 🔥\n\n"
-            "Starting Saturday, all ad rewards will be boosted by 50%!\n"
-            "Set a reminder to maximize your earnings."
+            "Starting Saturday, all rewards will be boosted by 50%!\n"
+            "Set a reminder to maximize your TON earnings."
         )
     
     keyboard = [
@@ -231,3 +234,39 @@ async def weekend_promotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         text,
         reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def otc_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show OTC desk information"""
+    text = (
+        "💱 <b>OTC Desk Information</b>\n\n"
+        "Convert your TON to cash quickly and securely:\n\n"
+        "• 💵 Supported currencies: USD, EUR, KES\n"
+        "• 💳 Payment methods: M-Pesa, PayPal, Bank Transfer\n"
+        "• ⚡ Fast processing: Within 24 hours\n"
+        "• 🔒 Secure transactions\n\n"
+        "To get started:\n"
+        "1. Use /withdraw and select 'Cash via OTC'\n"
+        "2. Choose your preferred currency\n"
+        "3. Enter your payment details\n\n"
+        "Set up your payment methods with /set_withdrawal"
+    )
+    
+    await update.message.reply_text(text, parse_mode='HTML')
+
+async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show support information"""
+    text = (
+        "🆘 <b>Support Center</b>\n\n"
+        "Need help? Here's how to reach us:\n\n"
+        "• 📧 Email: support@cryptogamebot.com\n"
+        "• 💬 Telegram: @CryptoGameSupport\n"
+        "• 🌐 Website: https://cryptogamebot.com/support\n\n"
+        "Common issues:\n"
+        "- Withdrawal delays: Can take up to 24 hours\n"
+        "- Missing rewards: Check your transaction history\n"
+        "- Game issues: Try reloading the MiniApp\n\n"
+        "For faster assistance, include your user ID:\n"
+        f"<code>{update.effective_user.id}</code>"
+    )
+    
+    await update.message.reply_text(text, parse_mode='HTML')

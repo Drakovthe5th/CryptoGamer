@@ -1,3 +1,4 @@
+import os
 from src.database.firebase import users_ref
 from src.database.firebase import update_leaderboard_points
 

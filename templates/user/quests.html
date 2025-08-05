@@ -1,61 +1,40 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Available Quests</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quests</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/static/js/main.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Available Quests</h1>
-        <div class="quests-list">
-            {% for quest in quests %}
-            <div class="quest-item">
-                <div class="quest-header">
-                    <h2>{{ quest.title }}</h2>
-                    <span class="quest-reward">{{ quest.reward }} XNO</span>
-                </div>
-                <p class="quest-description">{{ quest.description }}</p>
-                <div class="quest-meta">
-                    <span class="quest-status {% if quest.completed %}completed{% else %}active{% endif %}">
-                        {% if quest.completed %}✅ Completed{% else %}🔄 Active{% endif %}
-                    </span>
-                    <span class="quest-points">{{ quest.points }} XP</span>
-                </div>
-                {% if not quest.completed %}
-                <button class="start-quest" data-quest-id="{{ quest.id }}">Start Quest</button>
-                {% endif %}
+        <header>
+            <h1>🎯 Quests</h1>
+            <div id="balance">Loading balance...</div>
+        </header>
+        
+        <section>
+            <h2>Daily Quests</h2>
+            <div id="daily-quests" class="quests-container">
+                <!-- Daily quests will be loaded here -->
             </div>
-            {% endfor %}
-        </div>
+        </section>
+        
+        <section>
+            <h2>Weekly Quests</h2>
+            <div id="weekly-quests" class="quests-container">
+                <!-- Weekly quests will be loaded here -->
+            </div>
+        </section>
+        
+        <section>
+            <h2>Special Quests</h2>
+            <div id="special-quests" class="quests-container">
+                <!-- Special quests will be loaded here -->
+            </div>
+        </section>
     </div>
-    
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    <script>
-        document.querySelectorAll('.start-quest').forEach(button => {
-            button.addEventListener('click', async () => {
-                const questId = button.dataset.questId;
-                try {
-                    const response = await fetch('/api/quests/start', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Telegram-User-ID': '{{ user_id }}'
-                        },
-                        body: JSON.stringify({ quest_id: questId })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.success) {
-                        alert('Quest started! Complete the tasks to earn rewards.');
-                    } else {
-                        alert(`Error: ${result.error}`);
-                    }
-                } catch (error) {
-                    console.error('Quest start error:', error);
-                    alert('Failed to start quest. Please try again.');
-                }
-            });
-        });
-    </script>
 </body>
 </html>

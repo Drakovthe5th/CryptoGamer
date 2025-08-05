@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from .routes import configure_routes
 
 def create_app():
     app = Flask(__name__)
@@ -9,13 +10,11 @@ def create_app():
         return jsonify({
             "status": "running",
             "service": "CryptoGameMiner",
-            "version": "1.0.0"
+            "version": "1.0.0",
+            "crypto": "TON"
         }), 200
     
-    # Webhook endpoint for Telegram
-    @app.route('/webhook', methods=['POST'])
-    def webhook():
-        # Telegram will send updates here in production
-        return jsonify({"status": "webhook received"}), 200
+    # Configure all routes
+    configure_routes(app)
     
     return app

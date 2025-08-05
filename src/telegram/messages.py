@@ -1,48 +1,54 @@
-def welcome_message(user):
-    return (
-        f"👋 Welcome to CryptoGameBot, {user.first_name}!\n\n"
-        "🎮 Earn cryptocurrency by playing games:\n"
-        "• 🧠 Trivia quizzes\n"
-        "• 💥 Clicker game\n"
-        "• 🎰 Spin wheel\n"
-        "• 🎯 Complete quests\n\n"
-        "💰 Withdraw your earnings to Nano, M-Pesa, or PayPal!\n\n"
-        "🆓 Claim free crypto with /faucet\n"
-        "🏆 Compete on the /leaderboard\n"
-        "💼 Open in-app with /app"
-    )
+WELCOME_MESSAGE = """
+👋 Welcome to CryptoGameMiner, {name}!
 
-def balance_message(balance, min_withdrawal):
-    return (
-        f"💰 Your Balance: {balance:.6f} XNO\n\n"
-        f"💸 Minimum withdrawal: {min_withdrawal} XNO\n"
-        "💳 Set up withdrawal methods with /set_withdrawal"
-    )
+🎮 Play games, complete quests, and watch ads to earn TON cryptocurrency.
+💎 Withdraw to your TON wallet or convert to cash via our OTC desk.
 
-def faucet_claimed_message(reward, new_balance):
-    return (
-        f"💧 You claimed {reward:.6f} XNO!\n"
-        f"💰 New balance: {new_balance:.6f} XNO"
-    )
+💰 Current Balance: {balance:.6f} TON
+"""
 
-def withdrawal_options_message(balance, min_withdrawal):
-    if balance < min_withdrawal:
-        return (
-            f"❌ Minimum withdrawal: {min_withdrawal} XNO\n"
-            f"Your balance: {balance:.6f} XNO"
-        )
-    return "💸 Select withdrawal method:"
+BALANCE_MESSAGE = """
+💎 Your Balance
+Total: {balance:.6f} TON
+Available: {available:.6f} TON
+Pending: {pending:.6f} TON
 
-def miniapp_message():
-    return (
-        "📲 Open the CryptoGameBot MiniApp for a better gaming experience!\n\n"
-        "👉 [Launch MiniApp](https://yourdomain.com/miniapp)\n\n"
-        "Play games, check balance, and withdraw directly in-app!"
-    )
+💸 Minimum Withdrawal: {min_withdrawal} TON
+"""
 
-def leaderboard_message(leaderboard, user_rank):
-    text = "🏆 <b>TOP PLAYERS</b>\n\n"
-    for idx, user in enumerate(leaderboard, start=1):
-        text += f"{idx}. {user.get('username', 'Anonymous')} - {user.get('points', 0)} pts\n"
-    text += f"\n👤 Your position: #{user_rank}"
-    return text
+WITHDRAWAL_OPTIONS = """
+💰 How would you like to withdraw?
+
+1. 💎 TON Wallet - Send directly to your TON address
+2. 💵 Cash via OTC Desk - Convert to cash (USD/EUR/KES)
+"""
+
+OTC_QUOTE = """
+🔒 Final Offer:
+• Selling: {amount_ton:.6f} TON
+• Rate: {rate} {currency}/TON
+• Fee: {fee:.2f} {currency}
+• You Receive: {total:.2f} {currency}
+"""
+
+WITHDRAWAL_SUCCESS = """
+✅ Withdrawal Successful!
+Amount: {amount:.6f} TON
+Method: {method}
+Transaction: {tx_link}
+"""
+
+OTC_SUCCESS = """
+💸 Cash Withdrawal Processing!
+Deal ID: {deal_id}
+Amount: {amount_ton:.6f} TON → {currency}
+You'll receive payment within 24 hours.
+"""
+
+GAME_REWARD = """
+🎮 Game Completed!
+Score: {score}
+Duration: {duration}s
+Reward: {reward:.6f} TON
+New Balance: {new_balance:.6f} TON
+"""

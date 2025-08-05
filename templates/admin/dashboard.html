@@ -3,98 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advertiser Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/admin.js"></script>
 </head>
 <body>
     <div class="admin-container">
-        <h1>Campaign Performance</h1>
-        <div class="campaign-stats">
-            <div class="metric">
-                <h3>Impressions</h3>
-                <p>{{ impressions }}</p>
+        <h1>📊 Admin Dashboard</h1>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Users</h3>
+                <p id="total-users">0</p>
             </div>
-            <div class="metric">
-                <h3>Completions</h3>
-                <p>{{ completions }}</p>
+            <div class="stat-card">
+                <h3>Active Today</h3>
+                <p id="active-today">0</p>
             </div>
-            <div class="metric">
-                <h3>Conversion Rate</h3>
-                <p>{{ conversion_rate }}%</p>
+            <div class="stat-card">
+                <h3>TON Balance</h3>
+                <p id="ton-balance">0.00</p>
             </div>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2 class="chart-title">Campaign Performance</h2>
-                <div class="chart-actions">
-                    <button class="chart-btn">Export</button>
-                    <button class="chart-btn">View Details</button>
-                </div>
-            </div>
-            
-            <div class="chart-wrapper">
-                <canvas id="campaignChart"></canvas>
-            </div>
-        </div>
-
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2 class="chart-title">Revenue Sources</h2>
-            </div>
-            
-            <div class="chart-wrapper">
-                <canvas id="revenueChart"></canvas>
+            <div class="stat-card">
+                <h3>Pending Withdrawals</h3>
+                <p id="pending-withdrawals">0</p>
             </div>
         </div>
         
-        <script>
-            // Campaign stats chart
-            const campaignCtx = document.getElementById('campaignChart').getContext('2d');
-            new Chart(campaignCtx, {
-                type: 'bar',
-                data: {
-                    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-                    datasets: [
-                        {
-                            label: "Impressions",
-                            data: [65, 59, 80, 81, 56, 55],
-                            backgroundColor: "rgba(52, 152, 219, 0.7)"
-                        },
-                        {
-                            label: "Conversions",
-                            data: [28, 48, 40, 19, 86, 27],
-                            backgroundColor: "rgba(46, 204, 113, 0.7)"
-                        }
-                    ]
-                }
-            });
-            
-            // Revenue chart
-            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-            new Chart(revenueCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ["Ads", "Premium", "Sponsors", "Donations"],
-                    datasets: [{
-                        label: "Revenue Distribution",
-                        data: [45, 25, 20, 10],
-                        backgroundColor: [
-                            "#3498db",
-                            "#2ecc71",
-                            "#9b59b6",
-                            "#f39c12"
-                        ]
-                    }]
-                }
-            });
-        </script>
+        <div class="chart-row">
+            <div class="chart-container">
+                <canvas id="user-growth-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="rewards-distribution-chart"></canvas>
+            </div>
+        </div>
         
-        <h2>Create New Quest</h2>
-        <form action="/admin/create_quest" method="POST">
-            <!-- Quest creation form -->
-        </form>
+        <div class="chart-row">
+            <div class="chart-container">
+                <canvas id="withdrawals-chart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="otc-chart"></canvas>
+            </div>
+        </div>
+        
+        <h2>Recent Activity</h2>
+        <table id="activity-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Activity will be loaded here -->
+            </tbody>
+        </table>
     </div>
 </body>
 </html>

@@ -1,13 +1,15 @@
+import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from firebase_admin import firestore  # Fixed import
 from src.database.firebase import (
     get_user_data, update_balance, update_leaderboard_points, 
-    quests_ref, users_ref, SERVER_TIMESTAMP
+    quests_ref, users_ref, SERVER_TIMESTAMP, withdrawals_ref, otc_deals_ref
 )
-from src.features.withdrawal import process_withdrawal
+from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
-from src.utils.conversions import to_xno
+from src.integrations.ton import process_ton_withdrawal
+from src.utils.conversions import to_ton, convert_currency, calculate_fee
+from src.utils.validators import validate_ton_address, validate_mpesa_number, validate_email
 from config import Config
 import random
 import datetime
@@ -15,15 +17,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def set_nano_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Prompt user to set Nano address"""
+async def set_ton_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prompt user to set TON address"""
     query = update.callback_query
     await query.answer()
     
-    context.user_data['awaiting_nano'] = True
+    context.user_data['awaiting_ton'] = True
     await query.edit_message_text(
-        "🌐 Please send your Nano address in the following format:\n"
-        "`nano_1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd`\n\n"
+        "🌐 Please send your TON address in the following format:\n"
+        "`EQAhF...` (standard TON wallet address)\n\n"
         "Or type /cancel to abort",
         parse_mode='Markdown'
     )
@@ -75,28 +77,38 @@ async def trivia_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Trivia questions
+    # TON-themed questions
     questions = [
         {
-            "question": "What consensus algorithm does Nano use?",
-            "options": ["Proof of Work", "Proof of Stake", "Block Lattice", "Directed Acyclic Graph"],
+            "question": "What blockchain does TON use?",
+            "options": ["Proof of Work", "Proof of Stake", "Byzantine Fault Tolerance", "Sharded Proof of Stake"],
+            "correct": 3
+        },
+        {
+            "question": "What is the native cryptocurrency of TON?",
+            "options": ["TON Coin", "Toncoin", "Gram", "Telegram Coin"],
+            "correct": 1
+        },
+        {
+            "question": "What does TON stand for?",
+            "options": ["Telegram Open Network", "The Open Network", "Token Open Network", "Telegram Operating Network"],
+            "correct": 1
+        },
+        {
+            "question": "What unique feature does TON have?",
+            "options": ["Instant Hypercube Routing", "Quantum Resistance", "Infinite Sharding", "Telegram Integration"],
             "correct": 2
         },
         {
-            "question": "What is the smallest unit of Nano called?",
-            "options": ["Nano", "Raw", "Wei", "Satoshi"],
-            "correct": 1
-        },
-        {
-            "question": "When was Nano (then RaiBlocks) created?",
-            "options": ["2014", "2015", "2016", "2017"],
-            "correct": 1
+            "question": "What is the transaction speed of TON?",
+            "options": ["1,000 TPS", "10,000 TPS", "100,000 TPS", "1,000,000 TPS"],
+            "correct": 3
         }
     ]
     
     # Select random question
     question = random.choice(questions)
-    context.user_data['trivia_question'] = question  # Store for answer handling
+    context.user_data['trivia_question'] = question
     context.user_data['trivia_answer'] = question['correct']
     
     # Build options keyboard
@@ -117,7 +129,7 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
     user_id = query.from_user.id
     selected = int(query.data.split('_')[1])
     correct_idx = context.user_data.get('trivia_answer')
-    question = context.user_data.get('trivia_question')  # Get stored question
+    question = context.user_data.get('trivia_question')
     
     # Update last played time
     users_ref.document(str(user_id)).update({
@@ -131,88 +143,20 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
         update_leaderboard_points(user_id, 5)
         
         await query.edit_message_text(
-            f"✅ Correct! You earned {reward:.6f} XNO\n"
-            f"💰 New balance: {to_xno(new_balance):.6f} XNO"
+            f"✅ Correct! You earned {reward:.6f} TON\n"
+            f"💰 New balance: {to_ton(new_balance):.6f} TON"
         )
     else:
         # Incorrect answer
         reward = Config.REWARDS.get('trivia_incorrect', 0.001)
         new_balance = update_balance(user_id, reward)
         
-        # Use stored question for correct answer
         correct_answer = question['options'][correct_idx]
         await query.edit_message_text(
             f"❌ Wrong! The correct answer was: {correct_answer}\n"
-            f"💡 You still earned {reward:.6f} XNO for playing!\n"
-            f"💰 New balance: {to_xno(new_balance):.6f} XNO"
+            f"💡 You still earned {reward:.6f} TON for playing!\n"
+            f"💰 New balance: {to_ton(new_balance):.6f} TON"
         )
-
-async def clicker_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start clicker game session"""
-    query = update.callback_query
-    await query.answer()
-    
-    user_id = query.from_user.id
-    context.user_data['clicker_score'] = 0
-    context.user_data['clicker_start'] = datetime.datetime.now()
-    
-    keyboard = [
-        [InlineKeyboardButton("💥 CLICK ME!", callback_data="clicker_click")],
-        [InlineKeyboardButton("🏆 FINISH", callback_data="clicker_finish")]
-    ]
-    
-    await query.edit_message_text(
-        "💥 CLICKER GAME!\n\n"
-        "Click as fast as you can for 30 seconds!\n"
-        "Current clicks: 0",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-async def handle_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle user click in clicker game"""
-    query = update.callback_query
-    await query.answer()
-    
-    clicker_data = context.user_data
-    
-    # Increment score
-    clicker_data['clicker_score'] += 1
-    
-    # Update message with current score
-    elapsed = (datetime.datetime.now() - clicker_data['clicker_start']).seconds
-    remaining = max(0, 30 - elapsed)
-    
-    await query.edit_message_text(
-        f"💥 CLICKER GAME!\n\n"
-        f"Click as fast as you can for {remaining} seconds!\n"
-        f"Current clicks: {clicker_data['clicker_score']}",
-        reply_markup=query.message.reply_markup
-    )
-
-async def finish_clicker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Finish clicker game and award points"""
-    query = update.callback_query
-    await query.answer()
-    
-    user_id = query.from_user.id
-    score = context.user_data.get('clicker_score', 0)
-    
-    # Calculate reward
-    reward = Config.REWARDS['clicker_click'] * score
-    new_balance = update_balance(user_id, reward)
-    update_leaderboard_points(user_id, score // 10)  # 1 point per 10 clicks
-    
-    # Update last played time
-    users_ref.document(str(user_id)).update({
-        'last_played.clicker': SERVER_TIMESTAMP
-    })
-    
-    await query.edit_message_text(
-        f"🏁 Game finished!\n"
-        f"🔥 Total clicks: {score}\n"
-        f"💰 You earned: {reward:.6f} XNO\n"
-        f"💎 New balance: {to_xno(new_balance):.6f} XNO"
-    )
 
 async def spin_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start spin wheel game"""
@@ -235,9 +179,8 @@ async def spin_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(
         "🎰 SPIN THE WHEEL!\n\n"
-        "Test your luck and win up to 0.1 XNO!",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        "Test your luck and win up to 0.1 TON!",
+        reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Process wheel spin"""
@@ -263,40 +206,8 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(
         f"{text}\n"
-        f"💰 You earned: {reward:.6f} XNO\n"
-        f"💎 New balance: {to_xno(new_balance):.6f} XNO"
-    )
-
-async def daily_bonus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Claim daily bonus"""
-    query = update.callback_query
-    await query.answer()
-    
-    user_id = query.from_user.id
-    user_data = get_user_data(user_id)
-    today = datetime.datetime.now().date()
-    
-    # Check if already claimed today
-    last_claim = user_data.get('daily_claimed')
-    if last_claim and last_claim.date() == today:
-        await query.edit_message_text("⏳ You've already claimed your daily bonus today!")
-        return
-    
-    # Award bonus
-    reward = Config.REWARDS['daily_bonus']
-    new_balance = update_balance(user_id, reward)
-    update_leaderboard_points(user_id, 10)
-    
-    # Update claim time
-    users_ref.document(str(user_id)).update({
-        'daily_claimed': SERVER_TIMESTAMP
-    })
-    
-    await query.edit_message_text(
-        f"🎁 DAILY BONUS CLAIMED!\n\n"
-        f"💰 You received: {reward:.6f} XNO\n"
-        f"💎 New balance: {to_xno(new_balance):.6f} XNO\n\n"
-        f"Come back tomorrow for another bonus!"
+        f"💰 You earned: {reward:.6f} TON\n"
+        f"💎 New balance: {to_ton(new_balance):.6f} TON"
     )
 
 # =====================
@@ -320,32 +231,127 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
     
     if balance < Config.MIN_WITHDRAWAL:
         await query.edit_message_text(
-            f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} XNO\n"
-            f"Your balance: {balance:.6f} XNO"
+            f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON\n"
+            f"Your balance: {balance:.6f} TON"
         )
         return
         
-    # Get withdrawal details
-    method_data = user_data['withdrawal_methods'].get(method)
-    if not method_data or not method_data.get('verified'):
+    # Process withdrawal based on method
+    if method == 'ton':
+        # TON blockchain withdrawal
+        context.user_data['withdrawal_method'] = 'ton'
+        context.user_data['withdrawal_amount'] = balance
         await query.edit_message_text(
-            f"⚠️ Your {method} method is not verified. "
-            "Please set it up first with /set_withdrawal"
-        )
-        return
-        
-    # Process withdrawal
-    result = process_withdrawal(user_id, method, balance, method_data)
-    
-    if result and result.get('status') == 'success':
-        update_balance(user_id, -balance)
-        await query.edit_message_text(
-            f"✅ Withdrawal of {balance:.6f} XNO to {method} is processing!\n"
-            f"Transaction ID: {result.get('tx_id', 'N/A')}"
+            "🌐 Please enter your TON wallet address:",
+            parse_mode='Markdown'
         )
     else:
-        error = result.get('error', 'Unknown error') if result else 'Withdrawal failed'
-        await query.edit_message_text(f"❌ Withdrawal failed: {error}")
+        # OTC desk cash withdrawal
+        currencies = otc_desk.buy_rates.keys()
+        keyboard = [[InlineKeyboardButton(currency, callback_data=f"cash_{currency}")] 
+                    for currency in currencies]
+        
+        context.user_data['withdrawal_method'] = method
+        context.user_data['withdrawal_amount'] = balance
+        
+        await query.edit_message_text(
+            f"💱 Select currency for your {balance:.6f} TON:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+
+async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process currency selection for OTC withdrawal"""
+    query = update.callback_query
+    await query.answer()
+    currency = query.data.split('_')[1]
+    user_id = query.from_user.id
+    
+    method = context.user_data['withdrawal_method']
+    amount = context.user_data['withdrawal_amount']
+    
+    user_data = get_user_data(user_id)
+    payment_details = user_data['payment_methods'].get(method, {})
+    
+    rate = otc_desk.get_buy_rate(currency)
+    if not rate:
+        await query.edit_message_text("❌ Invalid currency selected")
+        return
+        
+    fiat_amount = convert_currency(amount, rate)
+    fee = calculate_fee(fiat_amount, Config.OTC_FEE_PERCENT, Config.MIN_OTC_FEE)
+    total = fiat_amount - fee
+    
+    deal_data = {
+        'user_id': user_id,
+        'amount_ton': amount,
+        'currency': currency,
+        'payment_method': method,
+        'rate': rate,
+        'fiat_amount': fiat_amount,
+        'fee': fee,
+        'total': total,
+        'status': 'pending',
+        'created_at': SERVER_TIMESTAMP,
+        'payment_details': payment_details
+    }
+    
+    deal_ref = otc_deals_ref.add(deal_data)
+    deal_id = deal_ref[1].id
+    
+    update_balance(user_id, -amount)
+    
+    payment_info = ""
+    if method == 'M-Pesa':
+        payment_info = f"📱 M-Pesa Number: {payment_details.get('phone', 'N/A')}"
+    elif method == 'PayPal':
+        payment_info = f"💳 PayPal Email: {payment_details.get('email', 'N/A')}"
+    elif method == 'Bank Transfer':
+        payment_info = f"🏦 Bank Account: {payment_details.get('account_number', 'N/A')}"
+    
+    await query.edit_message_text(
+        f"💸 Cash withdrawal processing!\n\n"
+        f"• Deal ID: <code>{deal_id}</code>\n"
+        f"• Amount: {amount:.6f} TON → {currency}\n"
+        f"• Rate: {rate:.2f} {currency}/TON\n"
+        f"• Fee: {fee:.2f} {currency}\n"
+        f"• You Receive: {total:.2f} {currency}\n\n"
+        f"{payment_info}\n\n"
+        f"Payment will be processed within 24 hours.",
+        parse_mode='HTML'
+    )
+
+async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Complete TON withdrawal with provided address"""
+    user_id = update.effective_user.id
+    address = update.message.text.strip()
+    amount = context.user_data['withdrawal_amount']
+    
+    if not validate_ton_address(address):
+        await update.message.reply_text("❌ Invalid TON address format. Please try again.")
+        return
+    
+    result = process_ton_withdrawal(user_id, amount, address)
+    
+    if result and result.get('status') == 'success':
+        withdrawal_data = {
+            'user_id': user_id,
+            'amount': amount,
+            'address': address,
+            'tx_hash': result['tx_hash'],
+            'status': 'pending',
+            'created_at': SERVER_TIMESTAMP
+        }
+        withdrawals_ref.add(withdrawal_data)
+        update_balance(user_id, -amount)
+        
+        await update.message.reply_text(
+            f"✅ Withdrawal of {amount:.6f} TON is processing!\n"
+            f"Transaction: https://tonscan.org/tx/{result.get('tx_hash')}"
+        )
+    else:
+        error = result.get('error', 'Withdrawal failed') if result else 'Withdrawal failed'
+        await update.message.reply_text(f"❌ Withdrawal failed: {error}")
 
 # ================
 # QUEST HANDLERS
@@ -368,9 +374,8 @@ async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Format quest details
     text = f"<b>{quest_data['title']}</b>\n\n"
     text += f"{quest_data['description']}\n\n"
-    text += f"💎 Reward: {quest_data['reward_xno']:.6f} XNO\n"
+    text += f"💎 Reward: {quest_data['reward_ton']:.6f} TON\n"
     text += f"⭐ Points: {quest_data['reward_points']}\n"
-    text += f"🔁 Completions: {quest_data.get('completions', 0)}\n\n"
     
     # Check if user has completed quest
     user_id = query.from_user.id
@@ -402,44 +407,81 @@ async def complete_quest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.edit_message_text("❌ Failed to complete quest. Please try again.")
 
-async def back_to_quests(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Return to quest list view"""
+# ===================
+# PAYMENT METHOD HANDLERS
+# ===================
+
+async def select_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle payment method selection for OTC"""
     query = update.callback_query
     await query.answer()
+    method = query.data.split('_')[1]
     
-    keyboard = []
-    quests = quests_ref.where('active', '==', True).stream()
+    # Store selected method in context
+    context.user_data['payment_method'] = method
     
-    for quest in quests:
-        quest_data = quest.to_dict()
-        keyboard.append([InlineKeyboardButton(
-            quest_data['title'], 
-            callback_data=f"quest_{quest.id}"
-        )])
-    
-    await query.edit_message_text(
-        "🎯 Available Quests:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    # Prompt for details based on method
+    if method == 'M-Pesa':
+        await query.edit_message_text(
+            "📱 Please enter your M-Pesa number in the format:\n"
+            "254712345678\n\n"
+            "Or type /cancel to abort"
+        )
+    elif method == 'PayPal':
+        await query.edit_message_text(
+            "💳 Please enter your PayPal email address:\n"
+            "example@domain.com\n\n"
+            "Or type /cancel to abort"
+        )
+    elif method == 'Bank':
+        await query.edit_message_text(
+            "🏦 Please enter your bank details in the format:\n"
+            "Bank Name, Account Name, Account Number\n\n"
+            "Example: Equity Bank, John Doe, 123456789\n\n"
+            "Or type /cancel to abort"
+        )
 
-# =================
-# NAVIGATION HANDLERS
-# =================
-
-async def back_to_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Return to main menu"""
-    query = update.callback_query
-    await query.answer()
+async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Save payment details to user profile"""
+    user_id = update.effective_user.id
+    method = context.user_data.get('payment_method')
+    details = update.message.text.strip()
     
-    keyboard = [
-        [InlineKeyboardButton("🎮 Play Games", callback_data="play")],
-        [InlineKeyboardButton("💰 Withdraw", callback_data="withdraw")],
-        [InlineKeyboardButton("🎯 Quests", callback_data="quests")]
-    ]
+    if not method:
+        await update.message.reply_text("❌ No payment method selected. Please start over.")
+        return
     
-    await query.edit_message_text(
-        "🏠 Main Menu",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    # Validate and save details
+    if method == 'M-Pesa':
+        if not validate_mpesa_number(details):
+            await update.message.reply_text("❌ Invalid M-Pesa number format. Please try again.")
+            return
+        payment_data = {'phone': details}
+    elif method == 'PayPal':
+        if not validate_email(details):
+            await update.message.reply_text("❌ Invalid email format. Please try again.")
+            return
+        payment_data = {'email': details}
+    elif method == 'Bank':
+        parts = details.split(',')
+        if len(parts) < 3:
+            await update.message.reply_text("❌ Invalid format. Please provide all required details.")
+            return
+        payment_data = {
+            'bank_name': parts[0].strip(),
+            'account_name': parts[1].strip(),
+            'account_number': parts[2].strip()
+        }
+    
+    # Update user profile
+    user_ref = users_ref.document(str(user_id))
+    user_ref.update({
+        f'payment_methods.{method}': payment_data
+    })
+    
+    await update.message.reply_text(
+        f"✅ {method} details saved successfully!\n"
+        "You can now use this method for OTC withdrawals."
     )
 
 # ================
@@ -450,17 +492,25 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     """Handle errors in the telegram bot"""
     logger.error("Exception while handling an update:", exc_info=context.error)
     
+    # Send error message to user
     if update and isinstance(update, Update) and update.effective_message:
         await update.effective_message.reply_text(
             "⚠️ An error occurred. Please try again later or contact support."
         )
     
-    # Notify admin
+    # Notify admin with detailed error
     if Config.ADMIN_ID:
         try:
+            error_trace = context.error.__traceback__ if context.error else None
+            error_details = f"⚠️ Bot error:\n{context.error}\n\nTraceback:\n{error_trace}"
+            
+            # Truncate if too long
+            if len(error_details) > 3000:
+                error_details = error_details[:3000] + "..."
+                
             await context.bot.send_message(
                 chat_id=Config.ADMIN_ID,
-                text=f"⚠️ Bot error:\n{context.error}"
+                text=error_details
             )
-        except Exception:
-            logger.error("Failed to notify admin about error")
+        except Exception as e:
+            logger.error(f"Failed to notify admin about error: {e}")

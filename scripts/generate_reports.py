@@ -1,80 +1,79 @@
-from src.database.firebase import initialize_firebase, db
-from config import Config
-import datetime
+import logging
+from src.database.firebase import db
+from datetime import datetime, timedelta
 import csv
 import os
 
-def generate_financial_report():
-    initialize_firebase(Config.FIREBASE_CREDS)
-    
-    # Get date range (last 30 days)
-    end_date = datetime.datetime.now()
-    start_date = end_date - datetime.timedelta(days=30)
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+def generate_daily_report():
+    """Generate daily financial report"""
+    end_time = datetime.now()
+    start_time = end_time - timedelta(days=1)
     
     # Query transactions
-    transactions = db.collection('transactions').where(
-        'timestamp', '>=', start_date
-    ).stream()
+    transactions = db.collection('transactions').where('timestamp', '>=', start_time).where('timestamp', '<=', end_time).stream()
     
     # Prepare report data
     report_data = []
-    total_deposits = 0
-    total_withdrawals = 0
-    total_earnings = 0
+    ton_in = 0
+    ton_out = 0
+    cash_out = 0
     
     for tx in transactions:
         tx_data = tx.to_dict()
-        amount = tx_data.get('amount', 0)
-        
-        # Categorize transaction
-        if tx_data['type'] == 'deposit':
-            total_deposits += amount
-            tx_type = 'Deposit'
-        elif tx_data['type'] in ['withdrawal_success', 'withdrawal_completed']:
-            total_withdrawals += amount
-            tx_type = 'Withdrawal'
-        else:
-            tx_type = 'Earning'
-            total_earnings += amount
-        
+        if tx_data['type'] == 'reward':
+            ton_in += tx_data['amount']
+        elif tx_data['type'] == 'withdrawal':
+            ton_out += tx_data['amount']
+        elif tx_data['type'] == 'otc':
+            cash_out += tx_data['fiat_amount']
+            
         report_data.append({
-            'Date': tx_data['timestamp'].strftime('%Y-%m-%d %H:%M'),
-            'User ID': tx_data['user_id'],
-            'Type': tx_type,
-            'Amount (XNO)': amount,
-            'Method': tx_data.get('method', 'N/A'),
-            'Status': tx_data.get('status', 'completed')
+            'timestamp': tx_data['timestamp'],
+            'user_id': tx_data['user_id'],
+            'type': tx_data['type'],
+            'amount_ton': tx_data.get('amount', 0),
+            'fiat_amount': tx_data.get('fiat_amount', 0),
+            'fiat_currency': tx_data.get('currency', 'TON'),
+            'description': tx_data.get('description', '')
         })
     
-    # Calculate net revenue
-    net_revenue = total_earnings + total_deposits - total_withdrawals
+    # Create report directory
+    report_dir = "reports/daily"
+    os.makedirs(report_dir, exist_ok=True)
     
-    # Generate CSV report
-    report_date = end_date.strftime('%Y%m%d')
-    filename = f"financial_report_{report_date}.csv"
-    os.makedirs('reports', exist_ok=True)
-    filepath = os.path.join('reports', filename)
+    # Generate CSV
+    report_date = end_time.strftime("%Y-%m-%d")
+    filename = f"{report_dir}/daily_report_{report_date}.csv"
     
-    with open(filepath, 'w', newline='') as csvfile:
-        fieldnames = ['Date', 'User ID', 'Type', 'Amount (XNO)', 'Method', 'Status']
+    with open(filename, 'w', newline='') as csvfile:
+        fieldnames = ['timestamp', 'user_id', 'type', 'amount_ton', 'fiat_amount', 'fiat_currency', 'description']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        
         writer.writeheader()
-        writer.writerows(report_data)
+        for row in report_data:
+            writer.writerow(row)
     
     # Create summary
-    summary = (
-        f"Financial Report ({report_date})\n"
-        f"--------------------------------\n"
-        f"Total Deposits: {total_deposits:.6f} XNO\n"
-        f"Total Withdrawals: {total_withdrawals:.6f} XNO\n"
-        f"Total Earnings: {total_earnings:.6f} XNO\n"
-        f"Net Revenue: {net_revenue:.6f} XNO\n"
-        f"--------------------------------\n"
-        f"Report saved to: {filepath}"
-    )
+    summary = f"""Daily Report - {report_date}
     
-    print(summary)
-    return filepath
+TON Rewarded: {ton_in:.6f}
+TON Withdrawn: {ton_out:.6f}
+Cash Out: {cash_out:.2f} USD
+Net TON Movement: {(ton_in - ton_out):.6f}
+"""
+    
+    with open(f"{report_dir}/summary_{report_date}.txt", 'w') as f:
+        f.write(summary)
+    
+    logger.info(f"Generated daily report: {filename}")
+    return filename
 
 if __name__ == '__main__':
-    generate_financial_report()
+    generate_daily_report()
