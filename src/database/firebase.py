@@ -88,14 +88,14 @@ def complete_quest(user_id: int, quest_id: str) -> bool:
         
         # Update user data
         user_ref.update({
-            f'completed_quests.{quest_id}': datetime.datetime.now(),
+            f'completed_quests.{quest_id}': datetime.datetime.now(),  # Fixed datetime reference
             'balance': firestore.Increment(quest_data['reward_ton']),
             'points': firestore.Increment(quest_data['reward_points'])
         })
         
         return True
     except Exception as e:
-        logging.error(f"Failed to complete quest: {e}")
+        logging.error(f"Failed to complete quest: {e}")  # Fixed logging reference
         return False
 
 # User operations

@@ -4,8 +4,7 @@ from celery import Celery
 from src.database.firebase import db
 from src.integrations.ton import create_staking_contract, execute_swap, is_valid_ton_address
 from src.utils.security import get_user_id, generate_2fa_code, verify_2fa_code, is_abnormal_activity
-from src.utils.logger import logger
-from src.integrations.mpesa import send_telegram_message
+from src.integrations.mpesa import send_telegram_message  # Removed logger import
 from src.utils.maintenance import (
     check_server_load,
     check_ton_node,
