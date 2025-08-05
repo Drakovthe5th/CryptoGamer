@@ -1,4 +1,3 @@
-import os
 import time
 import logging
 import requests
@@ -6,7 +5,7 @@ import base64
 import asyncio
 from datetime import datetime, timedelta
 from pytoniq import LiteClient, WalletV4R2
-from pytoniq.crypto.mnemonic import Mnemonic
+from pytoniq_core import Cell, begin_cell, Address
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -22,7 +21,7 @@ class TONWallet:
         self.initialized = False
 
     async def initialize(self):
-        """Initialize TON wallet connection"""
+        """Initialize TON wallet connection using private key only"""
         try:
             # Configure client based on network
             if config.TON_NETWORK == "mainnet":
@@ -40,23 +39,15 @@ class TONWallet:
             
             await self.client.connect()
             
-            # Initialize wallet from mnemonic or private key
-            if config.TON_WALLET_MNEMONIC:
-                # Create mnemonic from words
-                mnemonic = Mnemonic.from_mnemonic(config.TON_WALLET_MNEMONIC.split())
-                self.wallet = await WalletV4R2.from_mnemonic(
-                    provider=self.client,
-                    mnemonics=mnemonic
-                )
-            elif config.TON_PRIVATE_KEY:
-                private_key = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = WalletV4R2(
-                    provider=self.client, 
-                    public_key=config.TON_PUBLIC_KEY,
-                    private_key=private_key
-                )
-            else:
-                raise ValueError("No wallet credentials provided")
+            # Initialize wallet from private key
+            if not config.TON_PRIVATE_KEY:
+                raise ValueError("No TON private key provided")
+            
+            private_key = base64.b64decode(config.TON_PRIVATE_KEY)
+            self.wallet = WalletV4R2(
+                provider=self.client, 
+                private_key=private_key
+            )
             
             # Verify wallet address
             wallet_address = (await self.wallet.get_address()).to_str()
@@ -133,6 +124,7 @@ class TONWallet:
                 'status': 'error',
                 'error': str(e)
             }
+
 
     async def process_withdrawal(self, user_id: int, amount: float, address: str) -> dict:
         """Process TON withdrawal with rate limiting and security checks"""
@@ -224,6 +216,7 @@ def is_valid_ton_address(address: str) -> bool:
         return True
     except:
         return False
+
 
 async def create_staking_contract(user_id: str, amount: float) -> str:
     """Create a staking contract (placeholder implementation)"""

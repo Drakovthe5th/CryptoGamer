@@ -1,4 +1,4 @@
-pytoniq==0.1.36
+pytoniq==0.1.41
 pytoniq-core
 flask
 flask-socketio
