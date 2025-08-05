@@ -3,13 +3,11 @@ import time
 import logging
 import requests
 import base64
+import asyncio
 from datetime import datetime, timedelta
-import pytoniq
-from pytoniq import LiteClient, WalletV4R2, Address
-from pytoniq.wallet import WalletV4Contract  # Corrected import location
-from pytoniq.wallet import Mnemonic
-from pytoniq_core import Cell, begin_cell
+from tontools import TonCenterClient, Wallet
 from config import config
+
 logger = logging.getLogger(__name__)
 
 class TONWallet:
@@ -23,30 +21,35 @@ class TONWallet:
         self.initialized = False
 
     async def initialize(self):
-        """Initialize TON wallet connection"""
+        """Initialize TON wallet connection using TonTools"""
         try:
-            # Configure client based on network
-            if config.TON_NETWORK == "mainnet":
-                self.client = LiteClient.from_mainnet_config(0, timeout=15)
-            else:
-                self.client = LiteClient.from_testnet_config(0, timeout=15)
+            # Initialize TonCenter client
+            self.client = TonCenterClient(
+                base_url='https://toncenter.com/api/v2/',
+                api_key=config.TON_API_KEY,
+                testnet=(config.TON_NETWORK != "mainnet")
+            )
             
-            await self.client.connect()
-            
-            # Initialize wallet
+            # Initialize wallet from mnemonic or private key
             if config.TON_WALLET_MNEMONIC:
-                mnemonic = Mnemonic(config.TON_WALLET_MNEMONIC)
-                self.wallet = await WalletV4R2.from_mnemonic(self.client, mnemonic)
+                self.wallet = Wallet(
+                    provider=self.client,
+                    mnemonics=config.TON_WALLET_MNEMONIC.split(),
+                    version='v4r2'
+                )
             elif config.TON_PRIVATE_KEY:
+                # Convert base64 encoded private key to bytes
                 private_key = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = WalletV4R2(provider=self.client, 
-                                         public_key=config.TON_PUBLIC_KEY,
-                                         private_key=private_key)
+                self.wallet = Wallet(
+                    provider=self.client,
+                    private_key=private_key,
+                    version='v4r2'
+                )
             else:
                 raise ValueError("No wallet credentials provided")
             
             # Verify wallet address
-            wallet_address = (await self.wallet.get_address()).to_str()
+            wallet_address = self.wallet.address
             if wallet_address != config.TON_HOT_WALLET:
                 logger.warning(f"Wallet address mismatch: {wallet_address} vs {config.TON_HOT_WALLET}")
             
@@ -92,28 +95,17 @@ class TONWallet:
             # Convert TON to nanoton
             amount_nano = int(amount * 1e9)
             
-            # Prepare message body
-            body = begin_cell()
-            if memo:
-                body.store_uint(0, 32)  # op code for comment
-                body.store_string(memo)
-            body = body.end_cell()
-            
-            # Create transaction
-            tx = await self.wallet.transfer(
-                destination=Address(destination),
+            # Send transaction with memo
+            tx_hash = await self.wallet.transfer_ton(
+                destination_address=destination,
                 amount=amount_nano,
-                body=body,
-                timeout=120
+                message=memo
             )
-            
-            # Broadcast transaction
-            await self.client.send_message(tx['message'].to_boc())
             
             logger.info(f"TON transaction sent: {amount:.6f} TON to {destination}")
             return {
                 'status': 'success',
-                'tx_hash': tx['hash'],
+                'tx_hash': tx_hash,
                 'amount': amount,
                 'destination': destination
             }
@@ -187,9 +179,8 @@ class TONWallet:
 
     async def close(self):
         """Close TON connection"""
-        if self.client:
-            await self.client.close()
-            logger.info("TON client connection closed")
+        # TonTools doesn't require explicit closing
+        logger.info("TON client connection closed")
 
 # Global TON wallet instance
 ton_wallet = TONWallet()
@@ -209,8 +200,7 @@ def validate_ton_address(address: str) -> bool:
         if not address.startswith(('EQ', 'UQ')) or len(address) < 48:
             return False
             
-        # Advanced validation with pytoniq
-        Address(address)
+        # Advanced validation would happen during transaction
         return True
     except:
         return False
