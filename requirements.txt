@@ -1,4 +1,5 @@
-tontools
+pytoniq
+pytoniq-core
 flask
 flask-socketio
 celery

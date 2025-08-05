@@ -5,7 +5,9 @@ import requests
 import base64
 import asyncio
 from datetime import datetime, timedelta
-from tontools import TonCenterClient, Wallet, Contract
+from pytoniq import LiteClient, Address
+from pytoniq.wallet import WalletV4R2, WalletV4Contract, Mnemonic
+from pytoniq_core import Cell, begin_cell
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -21,35 +23,30 @@ class TONWallet:
         self.initialized = False
 
     async def initialize(self):
-        """Initialize TON wallet connection using TonTools"""
+        """Initialize TON wallet connection"""
         try:
-            # Initialize TonCenter client
-            self.client = TonCenterClient(
-                base_url='https://toncenter.com/api/v2/',
-                api_key=config.TON_API_KEY,
-                testnet=(config.TON_NETWORK != "mainnet")
-            )
+            # Configure client based on network
+            if config.TON_NETWORK == "mainnet":
+                self.client = LiteClient.from_mainnet_config(0, timeout=15)
+            else:
+                self.client = LiteClient.from_testnet_config(0, timeout=15)
             
-            # Initialize wallet from mnemonic or private key
+            await self.client.connect()
+            
+            # Initialize wallet
             if config.TON_WALLET_MNEMONIC:
-                self.wallet = Wallet(
-                    provider=self.client,
-                    mnemonics=config.TON_WALLET_MNEMONIC.split(),
-                    version='v4r2'
-                )
+                mnemonic = Mnemonic.from_mnemonic(config.TON_WALLET_MNEMONIC.split())
+                self.wallet = await WalletV4R2.from_mnemonic(provider=self.client, mnemonics=mnemonic)
             elif config.TON_PRIVATE_KEY:
-                # Convert base64 encoded private key to bytes
                 private_key = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = Wallet(
-                    provider=self.client,
-                    private_key=private_key,
-                    version='v4r2'
-                )
+                self.wallet = WalletV4R2(provider=self.client, 
+                                         public_key=config.TON_PUBLIC_KEY,
+                                         private_key=private_key)
             else:
                 raise ValueError("No wallet credentials provided")
             
             # Verify wallet address
-            wallet_address = self.wallet.address
+            wallet_address = (await self.wallet.get_address()).to_str()
             if wallet_address != config.TON_HOT_WALLET:
                 logger.warning(f"Wallet address mismatch: {wallet_address} vs {config.TON_HOT_WALLET}")
             
@@ -95,17 +92,28 @@ class TONWallet:
             # Convert TON to nanoton
             amount_nano = int(amount * 1e9)
             
-            # Send transaction with memo
-            tx_hash = await self.wallet.transfer_ton(
-                destination_address=destination,
+            # Prepare message body
+            body = begin_cell()
+            if memo:
+                body.store_uint(0, 32)  # op code for comment
+                body.store_string(memo)
+            body = body.end_cell()
+            
+            # Create transaction
+            tx = await self.wallet.transfer(
+                destination=Address(destination),
                 amount=amount_nano,
-                message=memo
+                body=body,
+                timeout=120
             )
+            
+            # Broadcast transaction
+            await self.client.send_message(tx['message'].to_boc())
             
             logger.info(f"TON transaction sent: {amount:.6f} TON to {destination}")
             return {
                 'status': 'success',
-                'tx_hash': tx_hash,
+                'tx_hash': tx['hash'],
                 'amount': amount,
                 'destination': destination
             }
@@ -179,8 +187,9 @@ class TONWallet:
 
     async def close(self):
         """Close TON connection"""
-        # TonTools doesn't require explicit closing
-        logger.info("TON client connection closed")
+        if self.client:
+            await self.client.close()
+            logger.info("TON client connection closed")
 
 # Global TON wallet instance
 ton_wallet = TONWallet()
@@ -194,32 +203,38 @@ async def close_ton_wallet():
     return await ton_wallet.close()
 
 def is_valid_ton_address(address: str) -> bool:
-    """Validate TON wallet address format using tontools"""
+    """Validate TON wallet address format"""
     try:
-        return Wallet.is_address_valid(address)
+        # Basic validation
+        if not address.startswith(('EQ', 'UQ')) or len(address) < 48:
+            return False
+            
+        # Advanced validation
+        Address(address)
+        return True
     except:
         return False
 
 async def create_staking_contract(user_id: str, amount: float) -> str:
-    """Create a staking contract"""
+    """Create a staking contract (placeholder implementation)"""
     try:
-        # Placeholder implementation - in real app this would deploy a contract
         logger.info(f"Creating staking contract for user {user_id} with {amount} TON")
-        
-        # Generate a dummy contract address
-        return f"EQD_STAKING_{user_id}_{int(time.time())}"
+        # In a real implementation, this would deploy a smart contract
+        return f"EQ_STAKING_{user_id}_{int(time.time())}"
     except Exception as e:
         logger.error(f"Staking contract creation failed: {e}")
         return ""
 
 async def execute_swap(user_id: str, from_token: str, to_token: str, amount: float) -> str:
-    """Execute token swap on a DEX"""
+    """Execute token swap (placeholder implementation)"""
     try:
-        # Placeholder implementation - in real app this would interact with a DEX
         logger.info(f"Executing swap for user {user_id}: {amount} {from_token} to {to_token}")
-        
-        # Generate a dummy transaction hash
+        # In a real implementation, this would interact with a DEX
         return f"tx_{user_id}_{int(time.time())}"
     except Exception as e:
         logger.error(f"Token swap failed: {e}")
         return ""
+
+async def process_ton_withdrawal(user_id: int, amount: float, address: str):
+    """Process TON withdrawal (public interface)"""
+    return await ton_wallet.process_withdrawal(user_id, amount, address)
