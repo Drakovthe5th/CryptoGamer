@@ -17,7 +17,6 @@ flask-socketio==5.3.6
 
 # Payment Processors
 paypalrestsdk==1.13.1
-pypesa==0.1.7  # Correct M-Pesa package
 
 # TON Blockchain
 pytoniq==0.1.41
