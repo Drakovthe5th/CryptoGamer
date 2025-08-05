@@ -5,7 +5,8 @@ import requests
 import base64
 from datetime import datetime, timedelta
 import pytoniq
-from pytoniq import LiteClient, WalletV4R2, Mnemonic, Address, WalletV4Contract
+from pytoniq import LiteClient, WalletV4R2, Address, WalletV4Contract
+from pytoniq.wallet import Mnemonic  # Corrected import location
 from pytoniq_core import Cell, begin_cell
 from config import config
 
