@@ -5,21 +5,9 @@ import requests
 import base64
 import asyncio
 from datetime import datetime, timedelta
-from pytoniq import LiteClient, Address
-from pytoniq_core import Cell, begin_cell
-from config import Config
-
-# Import wallet components with fallbacks
-try:
-    # Try modern import structure
-    from pytoniq.wallet import WalletV4R2, Mnemonic
-except ImportError:
-    try:
-        # Try older structure
-        from pytoniq.liteclient.wallet import WalletV4R2, Mnemonic
-    except ImportError:
-        # Final fallback
-        from pytoniq import WalletV4R2, Mnemonic
+from pytoniq import LiteClient, WalletV4R2, Mnemonic
+from pytoniq_core import Cell, begin_cell, Address
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -38,21 +26,35 @@ class TONWallet:
         try:
             # Configure client based on network
             if config.TON_NETWORK == "mainnet":
-                self.client = LiteClient.from_mainnet_config(0, timeout=15)
+                self.client = LiteClient.from_mainnet_config(
+                    ls_i=0,        # Index in config
+                    trust_level=2, # Trust level (2 = verify all proofs)
+                    timeout=15     # Timeout in seconds
+                )
             else:
-                self.client = LiteClient.from_testnet_config(0, timeout=15)
+                self.client = LiteClient.from_testnet_config(
+                    ls_i=0,
+                    trust_level=2,
+                    timeout=15
+                )
             
             await self.client.connect()
             
-            # Initialize wallet
+            # Initialize wallet from mnemonic or private key
             if config.TON_WALLET_MNEMONIC:
+                # Create mnemonic from words
                 mnemonic = Mnemonic.from_mnemonic(config.TON_WALLET_MNEMONIC.split())
-                self.wallet = await WalletV4R2.from_mnemonic(provider=self.client, mnemonics=mnemonic)
+                self.wallet = await WalletV4R2.from_mnemonic(
+                    provider=self.client,
+                    mnemonics=mnemonic
+                )
             elif config.TON_PRIVATE_KEY:
                 private_key = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = WalletV4R2(provider=self.client, 
-                                         public_key=config.TON_PUBLIC_KEY,
-                                         private_key=private_key)
+                self.wallet = WalletV4R2(
+                    provider=self.client, 
+                    public_key=config.TON_PUBLIC_KEY,
+                    private_key=private_key
+                )
             else:
                 raise ValueError("No wallet credentials provided")
             
@@ -110,21 +112,18 @@ class TONWallet:
                 body.store_string(memo)
             body = body.end_cell()
             
-            # Create transaction
-            tx = await self.wallet.transfer(
+            # Create and send transaction
+            result = await self.wallet.transfer(
                 destination=Address(destination),
                 amount=amount_nano,
                 body=body,
                 timeout=120
             )
             
-            # Broadcast transaction
-            await self.client.send_message(tx['message'].to_boc())
-            
             logger.info(f"TON transaction sent: {amount:.6f} TON to {destination}")
             return {
                 'status': 'success',
-                'tx_hash': tx['hash'],
+                'tx_hash': result['hash'],
                 'amount': amount,
                 'destination': destination
             }
