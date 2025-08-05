@@ -1,13 +1,19 @@
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
-from src.database.firebase import db
 from src.integrations.ton import (
     create_staking_contract, 
     execute_swap, 
     is_valid_ton_address,
     initialize_ton_wallet,
     close_ton_wallet
+)
+from src.database.firebase import (
+    add_whitelist,
+    enable_2fa as db_enable_2fa,
+    flag_user,
+    get_recent_withdrawals,
+    save_staking
 )
 from src.utils.security import get_user_id, generate_2fa_code, verify_2fa_code, is_abnormal_activity
 from src.integrations.mpesa import send_telegram_message
@@ -20,18 +26,25 @@ from src.utils.maintenance import (
 )
 import datetime
 import asyncio
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
 
 # Initialize TON wallet on startup
 @app.before_first_request
 def initialize():
+    logger.info("Initializing TON wallet...")
     asyncio.run(initialize_ton_wallet())
 
 @app.teardown_appcontext
 def shutdown(exception=None):
+    logger.info("Closing TON wallet...")
     asyncio.run(close_ton_wallet())
 
 # Blockchain Enhancements
@@ -51,7 +64,7 @@ def stake():
         return jsonify({'success': False, 'error': 'Failed to create staking contract'}), 500
     
     # Save to database
-    db.save_staking(user_id, contract_address, amount)
+    save_staking(user_id, contract_address, amount)
     
     return jsonify({
         'success': True,
@@ -79,7 +92,7 @@ def swap_tokens():
 
 # Security Endpoints
 @app.route('/api/security/whitelist', methods=['POST'])
-def add_whitelist():
+def add_whitelist_endpoint():
     user_id = get_user_id(request)
     address = request.json.get('address')
     
@@ -87,12 +100,12 @@ def add_whitelist():
     if not is_valid_ton_address(address):
         return jsonify({'success': False, 'error': 'Invalid address'}), 400
     
-    db.add_whitelist(user_id, address)
+    add_whitelist(user_id, address)
     
     return jsonify({'success': True})
 
 @app.route('/api/security/enable-2fa', methods=['POST'])
-def enable_2fa():
+def enable_2fa_endpoint():
     user_id = get_user_id(request)
     
     # Generate and send code
@@ -102,12 +115,12 @@ def enable_2fa():
     return jsonify({'success': True})
 
 @app.route('/api/security/verify-2fa', methods=['POST'])
-def verify_2fa():
+def verify_2fa_endpoint():
     user_id = get_user_id(request)
     code = request.json.get('code')
     
     if verify_2fa_code(user_id, code):
-        db.enable_2fa(user_id)
+        db_enable_2fa(user_id)
         return jsonify({'success': True})
     
     return jsonify({'success': False, 'error': 'Invalid code'}), 401
@@ -115,14 +128,14 @@ def verify_2fa():
 # Fraud Detection
 def detect_fraud(user_id):
     # Analyze user behavior
-    recent_withdrawals = db.get_recent_withdrawals(user_id)
+    recent_withdrawals = get_recent_withdrawals(user_id)
     if len(recent_withdrawals) > 5:  # More than 5 withdrawals in 24h
-        db.flag_user(user_id, 'Excessive withdrawals')
+        flag_user(user_id, 'Excessive withdrawals')
         return True
     
     # More sophisticated checks
     if is_abnormal_activity(user_id):
-        db.flag_user(user_id, 'Abnormal activity pattern')
+        flag_user(user_id, 'Abnormal activity pattern')
         return True
     
     return False
@@ -131,14 +144,22 @@ def detect_fraud(user_id):
 @socketio.on('connect')
 def handle_connect():
     user_id = get_user_id(request)
-    join_room(user_id)
-    emit('status', {'message': 'Connected'})
+    if user_id:
+        join_room(user_id)
+        emit('status', {'message': 'Connected'})
+        logger.info(f"User {user_id} connected to WebSocket")
+    else:
+        logger.warning("WebSocket connection attempt without valid user ID")
 
 @socketio.on('price_alert')
 def handle_price_alert(data):
     user_id = get_user_id(request)
-    # Send alert to specific user
-    emit('priceAlert', data, room=user_id)
+    if user_id:
+        # Send alert to specific user
+        emit('priceAlert', data, room=user_id)
+        logger.info(f"Price alert sent to user {user_id}")
+    else:
+        logger.warning("Price alert attempt without valid user ID")
 
 # Infrastructure Monitoring
 @celery.task
@@ -164,5 +185,15 @@ def run_load_test():
     celery.send_task('run_load_test', args=[test_config])
     return jsonify({'success': True, 'message': 'Load test started'})
 
+# Health Check Endpoint
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.datetime.utcnow().isoformat()
+    })
+
 if __name__ == '__main__':
-    socketio.run(app)
+    port = int(os.environ.get('PORT', 10000))
+    logger.info(f"Starting server on port {port}")
+    socketio.run(app, host='0.0.0.0', port=port)

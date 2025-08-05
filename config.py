@@ -2,7 +2,7 @@ import os
 import json
 from dotenv import load_dotenv
 import logging
-import re  # Added missing import
+import re  # Ensure re is imported
 
 logger = logging.getLogger(__name__)
 
