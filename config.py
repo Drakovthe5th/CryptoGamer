@@ -14,7 +14,7 @@ load_dotenv()
 class Config:
     def __init__(self):
         # Load Firebase credentials first
-        self.FIREBASE_CREDS = self.load_firebase_creds()
+        self.FIREBASE_CREDS = self.load_FIREBASE_CREDS()
         
         # Core configuration
         self.TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
