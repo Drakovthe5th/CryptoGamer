@@ -124,15 +124,6 @@ def add_whitelist(user_id: int, address: str):
         logger.error(f"Error adding to whitelist: {str(e)}")
         return False
 
-def db_enable_2fa(user_id: int):
-    try:
-        doc_ref = db.collection('users').document(str(user_id))
-        doc_ref.update({'2fa_enabled': True})
-        return True
-    except Exception as e:
-        logger.error(f"Error enabling 2FA: {str(e)}")
-        return False
-
 def get_recent_withdrawals(user_id: int, hours=24) -> list:
     try:
         end_time = datetime.utcnow()

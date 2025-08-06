@@ -14,13 +14,6 @@ from src.integrations.ton import (
     close_ton_wallet,
     TONWallet
 )
-from src.database.firebase import (
-    add_whitelist,
-    enable_2fa as db_enable_2fa,
-    flag_user,
-    get_recent_withdrawals,
-    save_staking
-)
 from src.utils.security import get_user_id, generate_2fa_code, verify_2fa_code, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
 from src.utils.maintenance import (
@@ -158,27 +151,6 @@ def add_whitelist_endpoint():
     add_whitelist(user_id, address)
     
     return jsonify({'success': True})
-
-@app.route('/api/security/enable-2fa', methods=['POST'])
-def enable_2fa_endpoint():
-    user_id = get_user_id(request)
-    
-    # Generate and send code
-    code = generate_2fa_code(user_id)
-    send_telegram_message(user_id, f'Your 2FA code: {code}')
-    
-    return jsonify({'success': True})
-
-@app.route('/api/security/verify-2fa', methods=['POST'])
-def verify_2fa_endpoint():
-    user_id = get_user_id(request)
-    code = request.json.get('code')
-    
-    if verify_2fa_code(user_id, code):
-        db_enable_2fa(user_id)
-        return jsonify({'success': True})
-    
-    return jsonify({'success': False, 'error': 'Invalid code'}), 401
 
 # Fraud Detection
 def detect_fraud(user_id):
