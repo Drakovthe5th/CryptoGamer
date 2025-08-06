@@ -37,7 +37,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
 
 # Initialize TON wallet on startup
-@app.before_first_request
+@app._got_first_request
 def initialize():
     logger.info("Initializing TON wallet...")
     asyncio.run(initialize_ton_wallet())
