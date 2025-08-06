@@ -30,6 +30,8 @@ from src.utils.maintenance import (
     any_issues_found,
     send_alert_to_admin
 )
+from config import config  # FIX: Added config import
+from src.routes import configure_routes  # FIX: Added routes import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -86,6 +88,19 @@ initialize_app()
 
 # Register shutdown function
 atexit.register(shutdown_app)
+
+# FIX: Add root endpoint
+@app.route('/')
+def health_check():
+    return jsonify({
+        "status": "running",
+        "service": "CryptoGameMiner",
+        "version": "1.0.0",
+        "crypto": "TON"
+    }), 200
+
+# FIX: Configure all routes from routes.py
+configure_routes(app)
 
 # Blockchain Enhancements
 @app.route('/api/blockchain/stake', methods=['POST'])

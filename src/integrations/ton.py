@@ -61,7 +61,8 @@ class TONWallet:
             private_key = base64.b64decode(config.TON_PRIVATE_KEY)
             self.wallet = WalletV4R2(
                 provider=self.client, 
-                private_key=private_key
+                private_key=private_key,
+                address=Address(config.TON_HOT_WALLET)  # FIX: Added address parameter
             )
             
             # Verify wallet address
