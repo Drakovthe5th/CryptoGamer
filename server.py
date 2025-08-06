@@ -25,6 +25,7 @@ from src.utils.maintenance import (
 )
 from config import config
 from src.web.routes import configure_routes  # Fixed import path
+from src.database.firebase import initialize_firebase
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +54,9 @@ def initialize_app():
         logger.error(f"TON initialization failed: {e}")
     finally:
         loop.close()
+
+    firebase_creds = config.FIREBASE_CREDS
+    initialize_firebase(firebase_creds)
     
     # Other initialization tasks would go here
     logger.info("Application initialization complete")

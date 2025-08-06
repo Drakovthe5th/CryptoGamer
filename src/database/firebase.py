@@ -156,5 +156,10 @@ def save_staking(user_id: int, contract_address: str, amount: float):
         logger.error(f"Error saving staking: {str(e)}")
         return False
 
+
+def get_firestore_db():
+    global db
+    return db
+
 # Timestamp constant
 SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP
