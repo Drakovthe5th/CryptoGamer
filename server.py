@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
-from src.integrations.ton import TONWallet, initialize_ton_wallet, close_ton_wallet
 from src.integrations.ton import (
     create_staking_contract, 
     execute_swap, 
     is_valid_ton_address,
     initialize_ton_wallet,
     close_ton_wallet,
+    TONWallet
 )
 from src.database.firebase import (
     add_whitelist,
@@ -28,6 +28,7 @@ from src.utils.maintenance import (
 import datetime
 import asyncio
 import logging
+import atexit
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,29 +38,35 @@ app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
 
-
 # Global TON wallet instance
 ton_wallet = TONWallet()
 
-def app_initialize_ton_wallet():
-    """Initialize TON wallet connection"""
-    return initialize_ton_wallet()
-
-def app_close_ton_wallet():
-    """Close TON wallet connection"""
-    return close_ton_wallet()
-
-# Initialize TON wallet on startup
-@app.before_first_request
-def app_initialize():
+def initialize_app():
+    """Initialize application components"""
+    logger.info("Initializing application...")
+    
+    # Initialize TON wallet
     logger.info("Initializing TON wallet...")
-    app_initialize_ton_wallet()
+    asyncio.run(initialize_ton_wallet())
+    
+    # Other initialization tasks would go here
+    logger.info("Application initialization complete")
 
-@app.teardown_appcontext
-def app_shutdown(exception=None):
+def shutdown_app():
+    """Shutdown application components"""
+    logger.info("Shutting down application...")
+    
+    # Close TON wallet connection
     logger.info("Closing TON wallet...")
-    app_close_ton_wallet()
+    asyncio.run(close_ton_wallet())
+    
+    logger.info("Application shutdown complete")
 
+# Run initialization when app starts
+initialize_app()
+
+# Register shutdown function
+atexit.register(shutdown_app)
 
 # Blockchain Enhancements
 @app.route('/api/blockchain/stake', methods=['POST'])
