@@ -28,3 +28,6 @@ def setup_logger(name: str, log_file: str = None, level=logging.INFO):
         logger.addHandler(fh)
     
     return logger
+
+# Create a module-level logger instance
+logger = setup_logger("crptgameminer", "logs/app.log")
