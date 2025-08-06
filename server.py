@@ -6,7 +6,8 @@ from src.integrations.ton import (
     execute_swap, 
     is_valid_ton_address,
     initialize_ton_wallet,
-    close_ton_wallet
+    close_ton_wallet,
+    TONWallet
 )
 from src.database.firebase import (
     add_whitelist,
