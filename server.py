@@ -37,27 +37,29 @@ app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
 
+
 # Global TON wallet instance
 ton_wallet = TONWallet()
 
-def initialize_ton_wallet():
+def app_initialize_ton_wallet():
     """Initialize TON wallet connection"""
-    return asyncio.run(ton_wallet.initialize())
+    return initialize_ton_wallet()
 
-def close_ton_wallet():
+def app_close_ton_wallet():
     """Close TON wallet connection"""
-    return asyncio.run(ton_wallet.close())
+    return close_ton_wallet()
 
 # Initialize TON wallet on startup
 @app._got_first_request
 def app_initialize():
     logger.info("Initializing TON wallet...")
-    initialize_ton_wallet()
+    app_initialize_ton_wallet()
 
 @app.teardown_appcontext
 def app_shutdown(exception=None):
     logger.info("Closing TON wallet...")
-    close_ton_wallet()
+    app_close_ton_wallet()
+
 
 # Blockchain Enhancements
 @app.route('/api/blockchain/stake', methods=['POST'])
