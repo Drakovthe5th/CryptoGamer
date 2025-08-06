@@ -1,10 +1,11 @@
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from google.cloud.firestore_v1.base_query import FieldFilter
-from src.utils.logger import logger
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
-import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize Firebase app
 firebase_app = None
@@ -14,22 +15,35 @@ bucket = None
 def initialize_firebase(firebase_creds):
     global firebase_app, db, bucket
     try:
-        # Use credentials directly if provided
+        # Handle credentials
         if isinstance(firebase_creds, dict):
             cred = credentials.Certificate(firebase_creds)
         else:
             cred = credentials.Certificate(firebase_creds)
         
-        firebase_app = firebase_admin.initialize_app(cred, {
-            'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET')
-        })
+        # Get storage bucket from env or use default
+        storage_bucket = os.getenv('FIREBASE_STORAGE_BUCKET', None)
+        app_config = {'storageBucket': storage_bucket} if storage_bucket else {}
+        
+        firebase_app = firebase_admin.initialize_app(cred, app_config)
         db = firestore.client()
-        bucket = storage.bucket()
+        
+        # Initialize bucket only if name is available
+        if storage_bucket:
+            bucket = storage.bucket()
+        else:
+            bucket = None
+            logger.warning("Firebase storage bucket not configured. Storage functions disabled.")
+        
         logger.info("Firebase initialized successfully")
         return True
     except Exception as e:
         logger.error(f"Firebase initialization failed: {str(e)}")
         return False
+
+def get_firestore_db():
+    global db
+    return db
 
 # User operations
 def get_user_data(user_id: int):
@@ -155,11 +169,6 @@ def save_staking(user_id: int, contract_address: str, amount: float):
     except Exception as e:
         logger.error(f"Error saving staking: {str(e)}")
         return False
-
-
-def get_firestore_db():
-    global db
-    return db
 
 # Timestamp constant
 SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP

@@ -62,11 +62,10 @@ class TONWallet:
             self.wallet = WalletV4R2(
                 provider=self.client, 
                 private_key=private_key,
-                address=Address(config.TON_HOT_WALLET)  # FIX: Added address parameter
-            )
+                address=Address(config.TON_HOT_WALLET)
             
-            # Verify wallet address
-            wallet_address = (await self.wallet.get_address()).to_str()
+            # Verify wallet address - FIXED: Use address property
+            wallet_address = self.wallet.address.to_str()
             if wallet_address != config.TON_HOT_WALLET:
                 logger.warning(f"Wallet address mismatch: {wallet_address} vs {config.TON_HOT_WALLET}")
             
@@ -141,7 +140,6 @@ class TONWallet:
                 'error': str(e)
             }
 
-
     async def process_withdrawal(self, user_id: int, amount: float, address: str) -> dict:
         """Process TON withdrawal with rate limiting and security checks"""
         try:
@@ -181,18 +179,15 @@ class TONWallet:
 
     def get_user_daily_withdrawal(self, user_id: int) -> float:
         """Get user's daily withdrawal amount (from database)"""
-        # In production, this would query Firestore
         return 0.0  # Stub implementation
 
     def get_system_daily_withdrawal(self) -> float:
         """Get system's daily withdrawal total (from database)"""
-        # In production, this would query Firestore
         return 0.0  # Stub implementation
 
     def update_withdrawal_limits(self, user_id: int, amount: float):
         """Update withdrawal limits in database"""
-        # Stub implementation - would update Firestore
-        pass
+        pass  # Stub implementation
 
     def send_alert(self, message: str):
         """Send alert notification"""
@@ -209,8 +204,6 @@ class TONWallet:
             try:
                 await self.client.close()
                 logger.info("TON client connection closed")
-            except Exception as e:
-                logger.error(f"Error closing TON client: {e}")
             except Exception as e:
                 logger.error(f"Error closing TON client: {e}")
 
@@ -238,12 +231,10 @@ def is_valid_ton_address(address: str) -> bool:
     except:
         return False
 
-
 async def create_staking_contract(user_id: str, amount: float) -> str:
     """Create a staking contract (placeholder implementation)"""
     try:
         logger.info(f"Creating staking contract for user {user_id} with {amount} TON")
-        # In a real implementation, this would deploy a smart contract
         return f"EQ_STAKING_{user_id}_{int(time.time())}"
     except Exception as e:
         logger.error(f"Staking contract creation failed: {e}")
@@ -253,7 +244,6 @@ async def execute_swap(user_id: str, from_token: str, to_token: str, amount: flo
     """Execute token swap (placeholder implementation)"""
     try:
         logger.info(f"Executing swap for user {user_id}: {amount} {from_token} to {to_token}")
-        # In a real implementation, this would interact with a DEX
         return f"tx_{user_id}_{int(time.time())}"
     except Exception as e:
         logger.error(f"Token swap failed: {e}")
