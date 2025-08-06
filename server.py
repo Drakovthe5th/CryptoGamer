@@ -50,7 +50,7 @@ def app_close_ton_wallet():
     return close_ton_wallet()
 
 # Initialize TON wallet on startup
-@app._got_first_request
+@app.before_first_request
 def app_initialize():
     logger.info("Initializing TON wallet...")
     app_initialize_ton_wallet()
