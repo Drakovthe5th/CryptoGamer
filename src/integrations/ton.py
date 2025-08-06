@@ -63,7 +63,7 @@ class TONWallet:
                 provider=self.client, 
                 private_key=private_key,
                 address=Address(config.TON_HOT_WALLET)
-            
+            )
             # Verify wallet address - FIXED: Use address property
             wallet_address = self.wallet.address.to_str()
             if wallet_address != config.TON_HOT_WALLET:
