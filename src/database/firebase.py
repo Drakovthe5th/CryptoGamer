@@ -1,26 +1,31 @@
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
-from datetime import datetime, timedelta
 import logging
-import os
 from config import config
 
 logger = logging.getLogger(__name__)
 
-# Initialize Firebase
 # Global database instance
 db = None
 
 def initialize_firebase():
     global db
     try:
-        # Load Firebase credentials from config
-        if config.FIREBASE_CREDS:
-            cred_dict = json.loads(config.FIREBASE_CREDS)
-            cred = credentials.Certificate(cred_dict)
-        else:
+        if not config.FIREBASE_CREDS:
             raise ValueError("Firebase credentials not configured")
+        
+        # Handle different credential formats
+        if isinstance(config.FIREBASE_CREDS, str):
+            # Parse JSON string
+            cred_dict = json.loads(config.FIREBASE_CREDS)
+        elif isinstance(config.FIREBASE_CREDS, dict):
+            # Use dictionary directly
+            cred_dict = config.FIREBASE_CREDS
+        else:
+            raise TypeError("Invalid Firebase credentials format")
+        
+        cred = credentials.Certificate(cred_dict)
         
         # Initialize Firebase app
         if not firebase_admin._apps:

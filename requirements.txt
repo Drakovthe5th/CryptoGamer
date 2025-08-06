@@ -6,6 +6,7 @@ celery
 firebase-admin
 python-dotenv
 requests
+psutil==5.9.8
 pyjwt
 python-telegram-bot
 paypalrestsdk
