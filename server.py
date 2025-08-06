@@ -31,7 +31,7 @@ from src.utils.maintenance import (
     send_alert_to_admin
 )
 from config import config
-from src.routes import configure_routes  # Fixed import path
+from src.web.routes import configure_routes  # Fixed import path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
