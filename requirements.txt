@@ -13,3 +13,6 @@ paypalrestsdk
 google-cloud-firestore
 python-dateutil
 cryptography
+gevent==24.2.1
+gevent-websocket==0.10.1
+greenlet==3.0.3

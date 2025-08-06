@@ -52,8 +52,12 @@ def initialize_app():
     # Create a new event loop for initialization
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(initialize_ton_wallet())
-    loop.close()
+    try:
+        loop.run_until_complete(initialize_ton_wallet())
+    except Exception as e:
+        logger.error(f"TON initialization failed: {e}")
+    finally:
+        loop.close()
     
     # Other initialization tasks would go here
     logger.info("Application initialization complete")
@@ -68,8 +72,12 @@ def shutdown_app():
     # Create a new event loop for shutdown
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(close_ton_wallet())
-    loop.close()
+    try:
+        loop.run_until_complete(close_ton_wallet())
+    except Exception as e:
+        logger.error(f"Error closing TON wallet: {e}")
+    finally:
+        loop.close()
     
     logger.info("Application shutdown complete")
 
@@ -251,4 +259,14 @@ def debug_info():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     logger.info(f"Starting server on port {port}")
-    socketio.run(app, host='0.0.0.0', port=port)
+    
+    # Use production WSGI server
+    from gevent import pywsgi
+    from geventwebsocket.handler import WebSocketHandler
+    
+    server = pywsgi.WSGIServer(
+        ('0.0.0.0', port), 
+        app,
+        handler_class=WebSocketHandler
+    )
+    server.serve_forever()

@@ -20,6 +20,8 @@ class TONWallet:
         self.last_tx_check = datetime.min
         self.pending_withdrawals = {}
         self.initialized = False
+        self.connection_retries = 0
+        self.MAX_RETRIES = 3
 
     async def initialize(self):
         """Initialize TON wallet connection using private key only"""
@@ -29,16 +31,28 @@ class TONWallet:
                 self.client = LiteClient.from_mainnet_config(
                     ls_i=0,        # Index in config
                     trust_level=2, # Trust level (2 = verify all proofs)
-                    timeout=15     # Timeout in seconds
+                    timeout=60     # Increased timeout to 60 seconds
                 )
             else:
                 self.client = LiteClient.from_testnet_config(
                     ls_i=0,
                     trust_level=2,
-                    timeout=30
+                    timeout=60
                 )
             
-            await self.client.connect()
+            # Retry connection with exponential backoff
+            while self.connection_retries < self.MAX_RETRIES:
+                try:
+                    await self.client.connect()
+                    break
+                except (asyncio.TimeoutError, ConnectionError) as e:
+                    self.connection_retries += 1
+                    wait_time = 2 ** self.connection_retries
+                    logger.warning(f"TON connection failed (attempt {self.connection_retries}/{self.MAX_RETRIES}): {e}. Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+            
+            if self.connection_retries >= self.MAX_RETRIES:
+                raise ConnectionError("Failed to connect to TON network after multiple attempts")
             
             # Initialize wallet from private key
             if not config.TON_PRIVATE_KEY:
@@ -59,7 +73,7 @@ class TONWallet:
             self.initialized = True
             return True
         except Exception as e:
-            logger.exception("TON wallet initialization failed")  # Log full exception
+            logger.exception("TON wallet initialization failed")
             self.initialized = False
             return False
 
@@ -194,6 +208,8 @@ class TONWallet:
             try:
                 await self.client.close()
                 logger.info("TON client connection closed")
+            except Exception as e:
+                logger.error(f"Error closing TON client: {e}")
             except Exception as e:
                 logger.error(f"Error closing TON client: {e}")
 
