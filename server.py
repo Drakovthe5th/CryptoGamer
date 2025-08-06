@@ -1,3 +1,8 @@
+import os
+import datetime
+import asyncio
+import logging
+import atexit
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
@@ -25,10 +30,6 @@ from src.utils.maintenance import (
     any_issues_found,
     send_alert_to_admin
 )
-import datetime
-import asyncio
-import logging
-import atexit
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +48,12 @@ def initialize_app():
     
     # Initialize TON wallet
     logger.info("Initializing TON wallet...")
-    asyncio.run(initialize_ton_wallet())
+    
+    # Create a new event loop for initialization
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(initialize_ton_wallet())
+    loop.close()
     
     # Other initialization tasks would go here
     logger.info("Application initialization complete")
@@ -58,7 +64,12 @@ def shutdown_app():
     
     # Close TON wallet connection
     logger.info("Closing TON wallet...")
-    asyncio.run(close_ton_wallet())
+    
+    # Create a new event loop for shutdown
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(close_ton_wallet())
+    loop.close()
     
     logger.info("Application shutdown complete")
 

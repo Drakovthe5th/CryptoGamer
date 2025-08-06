@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 import requests
@@ -34,7 +35,7 @@ class TONWallet:
                 self.client = LiteClient.from_testnet_config(
                     ls_i=0,
                     trust_level=2,
-                    timeout=15
+                    timeout=30
                 )
             
             await self.client.connect()
@@ -58,7 +59,7 @@ class TONWallet:
             self.initialized = True
             return True
         except Exception as e:
-            logger.error(f"TON wallet initialization failed: {e}")
+            logger.exception("TON wallet initialization failed")  # Log full exception
             self.initialized = False
             return False
 
@@ -190,8 +191,11 @@ class TONWallet:
     async def close(self):
         """Close TON connection"""
         if self.client:
-            await self.client.close()
-            logger.info("TON client connection closed")
+            try:
+                await self.client.close()
+                logger.info("TON client connection closed")
+            except Exception as e:
+                logger.error(f"Error closing TON client: {e}")
 
 # Global TON wallet instance
 ton_wallet = TONWallet()
