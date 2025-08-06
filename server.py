@@ -14,7 +14,7 @@ from src.integrations.ton import (
     close_ton_wallet,
     TONWallet
 )
-from src.utils.security import get_user_id, generate_2fa_code, verify_2fa_code, is_abnormal_activity
+from src.utils.security import get_user_id, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
 from src.utils.maintenance import (
     check_server_load,

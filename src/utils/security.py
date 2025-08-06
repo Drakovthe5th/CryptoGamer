@@ -7,7 +7,7 @@ import random
 from datetime import datetime, timedelta
 from flask import request
 from config import Config
-from src.database.firebase import get_firestore_db  # Corrected import
+from src.database.firebase import db
 
 def validate_telegram_hash(init_data: str, bot_token: str) -> bool:
     """Validate Telegram WebApp initData hash"""
@@ -57,47 +57,47 @@ def get_user_id(req=request) -> int:
     except jwt.InvalidTokenError:
         return 0
 
-def generate_2fa_code(user_id: int) -> str:
-    """Generate a 6-digit 2FA code and store it in Firestore with expiration"""
-    try:
-        db = get_firestore_db()
-        code = ''.join(random.choices('0123456789', k=6))
-        expires_at = datetime.utcnow() + timedelta(minutes=5)
+# def generate_2fa_code(user_id: int) -> str:
+#     """Generate a 6-digit 2FA code and store it in Firestore with expiration"""
+#     try:
+#         db = get_firestore_db()
+#         code = ''.join(random.choices('0123456789', k=6))
+#         expires_at = datetime.utcnow() + timedelta(minutes=5)
         
-        # Store code in Firestore
-        db.collection('two_factor_codes').document(str(user_id)).set({
-            'code': code,
-            'expires_at': expires_at
-        })
+#         # Store code in Firestore
+#         db.collection('two_factor_codes').document(str(user_id)).set({
+#             'code': code,
+#             'expires_at': expires_at
+#         })
         
-        return code
-    except Exception as e:
-        print(f"2FA generation error: {e}")
-        return "000000"  # Fallback code
+#         return code
+#     except Exception as e:
+#         print(f"2FA generation error: {e}")
+#         return "000000"  # Fallback code
 
-def verify_2fa_code(user_id: int, code: str) -> bool:
-    """Verify if the 2FA code is valid and not expired"""
-    try:
-        db = get_firestore_db()
-        doc_ref = db.collection('two_factor_codes').document(str(user_id))
-        doc = doc_ref.get()
+# def verify_2fa_code(user_id: int, code: str) -> bool:
+#     """Verify if the 2FA code is valid and not expired"""
+#     try:
+#         db = get_firestore_db()
+#         doc_ref = db.collection('two_factor_codes').document(str(user_id))
+#         doc = doc_ref.get()
         
-        if not doc.exists:
-            return False
+#         if not doc.exists:
+#             return False
             
-        data = doc.to_dict()
-        stored_code = data.get('code', '')
-        expires_at = data.get('expires_at')
+#         data = doc.to_dict()
+#         stored_code = data.get('code', '')
+#         expires_at = data.get('expires_at')
         
-        # Check if code matches and is not expired
-        if stored_code == code and datetime.utcnow() < expires_at:
-            # Delete the code after successful verification
-            doc_ref.delete()
-            return True
-        return False
-    except Exception as e:
-        print(f"2FA verification error: {e}")
-        return False
+#         # Check if code matches and is not expired
+#         if stored_code == code and datetime.utcnow() < expires_at:
+#             # Delete the code after successful verification
+#             doc_ref.delete()
+#             return True
+#         return False
+#     except Exception as e:
+#         print(f"2FA verification error: {e}")
+#         return False
 
 def is_abnormal_activity(user_id: int) -> bool:
     """Detect abnormal activity patterns (stub implementation)"""
