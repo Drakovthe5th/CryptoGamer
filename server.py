@@ -30,8 +30,8 @@ from src.utils.maintenance import (
     any_issues_found,
     send_alert_to_admin
 )
-from config import config  # FIX: Added config import
-from src.routes import configure_routes  # FIX: Added routes import
+from config import config
+from src.routes import configure_routes  # Fixed import path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -89,7 +89,7 @@ initialize_app()
 # Register shutdown function
 atexit.register(shutdown_app)
 
-# FIX: Add root endpoint
+# Root endpoint
 @app.route('/')
 def health_check():
     return jsonify({
@@ -99,7 +99,7 @@ def health_check():
         "crypto": "TON"
     }), 200
 
-# FIX: Configure all routes from routes.py
+# Configure all routes
 configure_routes(app)
 
 # Blockchain Enhancements
