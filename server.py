@@ -85,13 +85,14 @@ atexit.register(shutdown_app)
 
 # Root endpoint (renamed to avoid conflict)
 @app.route('/')
-def index():
+def app_home():  # Changed from 'index'
     return jsonify({
         "status": "running",
         "service": "CryptoGameMiner",
         "version": "1.0.0",
         "crypto": "TON"
     }), 200
+
 
 # Configure all routes
 configure_routes(app)
@@ -189,7 +190,7 @@ def run_load_test():
 
 # Health Check Endpoint
 @app.route('/health')
-def health_check():
+def health_status():  # Changed from 'health_check'
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.datetime.utcnow().isoformat()

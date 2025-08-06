@@ -65,13 +65,18 @@ class TONWallet:
                 address=Address(config.TON_HOT_WALLET)
             )
             # Verify wallet address - FIXED: Use address property
+            # Replace the address verification section with:
             wallet_address = self.wallet.address.to_str()
-            if wallet_address != config.TON_HOT_WALLET:
-                logger.warning(f"Wallet address mismatch: {wallet_address} vs {config.TON_HOT_WALLET}")
-            
-            logger.info(f"TON wallet initialized: {wallet_address}")
-            self.initialized = True
-            return True
+            config_address = config.TON_HOT_WALLET
+
+            # Convert both to raw format for comparison
+            if wallet_address.startswith('UQ'):
+                wallet_address = Address(wallet_address).to_str(is_user_friendly=False)
+            if config_addrsess.startswith('UQ'):
+                config_address = Address(config_address).to_str(is_user_friendly=False)
+
+            if wallet_address != config_address:
+                logger.warning(f"Wallet address mismatch: {self.wallet.address.to_str()} vs {config.TON_HOT_WALLET}")
         except Exception as e:
             logger.exception("TON wallet initialization failed")
             self.initialized = False
