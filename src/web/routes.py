@@ -1,10 +1,9 @@
 from flask import request, jsonify, render_template, send_from_directory
 from src.database.firebase import (
-    get_user_balance, get_user_data, update_balance, 
+    get_user_data, update_balance, 
     process_ton_withdrawal, track_ad_reward, SERVER_TIMESTAMP
 )
 from src.utils.security import validate_telegram_hash
-from src.utils.conversions import to_ton
 from config import Config
 import logging
 import datetime
@@ -108,7 +107,15 @@ def configure_routes(app):
             amount = float(data['amount'])
             address = data['address']  # TON wallet address
             
-            balance = get_user_balance(int(user_id))
+            # Get balance from user data
+            user_data = get_user_data(int(user_id))
+            if not user_data:
+                return jsonify({
+                    'success': False,
+                    'error': 'User not found'
+                }), 404
+                
+            balance = user_data.get('balance', 0)
             
             if balance < Config.MIN_WITHDRAWAL:
                 return jsonify({

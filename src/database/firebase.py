@@ -1,125 +1,169 @@
-import json
 import firebase_admin
-from firebase_admin import credentials, firestore
-import logging
-from config import config
+from firebase_admin import credentials, firestore, storage
+from google.cloud.firestore_v1.base_query import FieldFilter
+from src.utils.logger import logger
+from datetime import datetime
+import os
+import json
 
-logger = logging.getLogger(__name__)
-
-# Global database instance
+# Initialize Firebase app
+firebase_app = None
 db = None
+bucket = None
 
-def initialize_firebase():
-    global db
+def initialize_firebase(firebase_creds):
+    global firebase_app, db, bucket
     try:
-        if not config.FIREBASE_CREDS:
-            raise ValueError("Firebase credentials not configured")
-        
-        # Handle different credential formats
-        if isinstance(config.FIREBASE_CREDS, str):
-            # Parse JSON string
-            cred_dict = json.loads(config.FIREBASE_CREDS)
-        elif isinstance(config.FIREBASE_CREDS, dict):
-            # Use dictionary directly
-            cred_dict = config.FIREBASE_CREDS
+        # Use credentials directly if provided
+        if isinstance(firebase_creds, dict):
+            cred = credentials.Certificate(firebase_creds)
         else:
-            raise TypeError("Invalid Firebase credentials format")
+            cred = credentials.Certificate(firebase_creds)
         
-        cred = credentials.Certificate(cred_dict)
-        
-        # Initialize Firebase app
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred)
-        
-        # Create Firestore client
+        firebase_app = firebase_admin.initialize_app(cred, {
+            'storageBucket': os.getenv('FIREBASE_STORAGE_BUCKET')
+        })
         db = firestore.client()
+        bucket = storage.bucket()
         logger.info("Firebase initialized successfully")
         return True
     except Exception as e:
-        logger.error(f"Firebase initialization failed: {e}")
+        logger.error(f"Firebase initialization failed: {str(e)}")
         return False
 
-def get_firestore_db():
-    """Get the Firestore database instance"""
-    if db is None:
-        initialize_firebase()
-    return db
-
-# Initialize Firebase on import
-initialize_firebase()
-
-def add_whitelist(user_id: str, address: str):
-    """Add address to user's whitelist"""
-    if not db:
-        return
+# User operations
+def get_user_data(user_id: int):
     try:
-        doc_ref = db.collection('users').document(user_id)
-        doc_ref.update({
-            'whitelist': firestore.ArrayUnion([address])
-        })
-        logger.info(f"Added {address} to whitelist for user {user_id}")
+        doc_ref = db.collection('users').document(str(user_id))
+        doc = doc_ref.get()
+        return doc.to_dict() if doc.exists else None
     except Exception as e:
-        logger.error(f"Failed to add to whitelist: {e}")
+        logger.error(f"Error getting user data: {str(e)}")
+        return None
 
-def enable_2fa(user_id: str):
-    """Enable 2FA for user"""
-    if not db:
-        return
+def get_user_balance(user_id: int) -> float:
     try:
-        doc_ref = db.collection('users').document(user_id)
+        user_data = get_user_data(user_id)
+        return user_data.get('balance', 0.0) if user_data else 0.0
+    except Exception as e:
+        logger.error(f"Error getting user balance: {str(e)}")
+        return 0.0
+
+def update_balance(user_id: int, amount: float) -> float:
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
+        transaction = db.transaction()
+        
+        @firestore.transactional
+        def update_in_transaction(transaction, doc_ref):
+            snapshot = doc_ref.get(transaction=transaction)
+            current_balance = snapshot.get('balance', 0.0)
+            new_balance = max(0.0, current_balance + amount)
+            transaction.update(doc_ref, {'balance': new_balance})
+            return new_balance
+        
+        return update_in_transaction(transaction, doc_ref)
+    except Exception as e:
+        logger.error(f"Error updating balance: {str(e)}")
+        return 0.0
+
+# Withdrawal operations
+def process_ton_withdrawal(user_id: int, amount: float, address: str) -> dict:
+    try:
+        withdrawal_data = {
+            'user_id': str(user_id),
+            'amount': amount,
+            'address': address,
+            'status': 'pending',
+            'created_at': datetime.utcnow(),
+            'updated_at': datetime.utcnow()
+        }
+        
+        doc_ref = db.collection('withdrawals').document()
+        doc_ref.set(withdrawal_data)
+        
+        return {
+            'status': 'success',
+            'withdrawal_id': doc_ref.id,
+            'message': 'Withdrawal request submitted'
+        }
+    except Exception as e:
+        logger.error(f"Withdrawal processing failed: {str(e)}")
+        return {
+            'status': 'error',
+            'error': str(e)
+        }
+
+# Ad operations
+def track_ad_reward(user_id: int, amount: float, source: str, is_weekend: bool):
+    try:
+        reward_data = {
+            'user_id': str(user_id),
+            'amount': amount,
+            'source': source,
+            'is_weekend': is_weekend,
+            'timestamp': datetime.utcnow()
+        }
+        
+        db.collection('ad_rewards').add(reward_data)
+        logger.info(f"Tracked ad reward for user {user_id}: {amount} TON")
+        return True
+    except Exception as e:
+        logger.error(f"Error tracking ad reward: {str(e)}")
+        return False
+
+# Security operations
+def add_whitelist(user_id: int, address: str):
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
+        doc_ref.update({
+            'whitelisted_addresses': firestore.ArrayUnion([address])
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Error adding to whitelist: {str(e)}")
+        return False
+
+def db_enable_2fa(user_id: int):
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
         doc_ref.update({'2fa_enabled': True})
-        logger.info(f"Enabled 2FA for user {user_id}")
+        return True
     except Exception as e:
-        logger.error(f"Failed to enable 2FA: {e}")
+        logger.error(f"Error enabling 2FA: {str(e)}")
+        return False
 
-def flag_user(user_id: str, reason: str):
-    """Flag user for suspicious activity"""
-    if not db:
-        return
+def get_recent_withdrawals(user_id: int, hours=24) -> list:
     try:
-        doc_ref = db.collection('users').document(user_id)
-        doc_ref.update({
-            'flagged': True,
-            'flag_reason': reason,
-            'flagged_at': datetime.now()
-        })
-        logger.warning(f"Flagged user {user_id}: {reason}")
-    except Exception as e:
-        logger.error(f"Failed to flag user: {e}")
-
-def get_recent_withdrawals(user_id: str) -> list:
-    """Get recent withdrawals for user"""
-    if not db:
-        return []
-    try:
-        # Get withdrawals from last 24 hours
-        now = datetime.now()
-        one_day_ago = now - timedelta(days=1)
+        end_time = datetime.utcnow()
+        start_time = end_time - timedelta(hours=hours)
         
         withdrawals_ref = db.collection('withdrawals')
-        query = withdrawals_ref.where('user_id', '==', user_id) \
-                              .where('timestamp', '>=', one_day_ago) \
-                              .order_by('timestamp', direction=firestore.Query.DESCENDING)
+        query = withdrawals_ref.where('user_id', '==', str(user_id)) \
+            .where('created_at', '>=', start_time) \
+            .where('created_at', '<=', end_time)
         
-        results = query.stream()
-        return [doc.to_dict() for doc in results]
+        return [doc.to_dict() for doc in query.stream()]
     except Exception as e:
-        logger.error(f"Failed to get recent withdrawals: {e}")
+        logger.error(f"Error getting recent withdrawals: {str(e)}")
         return []
 
-def save_staking(user_id: str, contract_address: str, amount: float):
-    """Save staking contract to Firestore"""
-    if not db:
-        return
+# Staking operations
+def save_staking(user_id: int, contract_address: str, amount: float):
     try:
-        staking_ref = db.collection('staking').document(contract_address)
-        staking_ref.set({
-            'user_id': user_id,
-            'amount': amount,
+        staking_data = {
+            'user_id': str(user_id),
             'contract_address': contract_address,
-            'created_at': datetime.now(),
+            'amount': amount,
+            'start_date': datetime.utcnow(),
             'status': 'active'
-        })
-        logger.info(f"Saved staking contract {contract_address} for user {user_id}")
+        }
+        
+        db.collection('staking').add(staking_data)
+        return True
     except Exception as e:
-        logger.error(f"Failed to save staking contract: {e}")
+        logger.error(f"Error saving staking: {str(e)}")
+        return False
+
+# Timestamp constant
+SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP
