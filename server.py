@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
+from src.integrations.ton import TONWallet, initialize_ton_wallet, close_ton_wallet
 from src.integrations.ton import (
     create_staking_contract, 
     execute_swap, 
     is_valid_ton_address,
     initialize_ton_wallet,
     close_ton_wallet,
-    TONWallet
 )
 from src.database.firebase import (
     add_whitelist,
