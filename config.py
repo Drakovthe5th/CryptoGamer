@@ -59,7 +59,7 @@ class Config:
         
         # Web Server Configuration
         self.RENDER_URL = os.getenv("RENDER_URL", "crptgameminer.onrender.com")
-        self.RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "crptgameminer.onrender.com")
+        self.RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "crptgameminer.onrender.com/miniapp")
         
         # Payment Processors
         self.PAYPAL_MODE = os.getenv("PAYPAL_MODE", "sandbox")
