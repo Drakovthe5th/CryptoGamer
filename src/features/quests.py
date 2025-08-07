@@ -1,63 +1,139 @@
-import os
-import time
-import threading
 import logging
-from datetime import datetime
-from firebase_admin import firestore
-from src.database.firebase import quests_ref, users_ref, update_balance, update_leaderboard_points
+from datetime import datetime, timedelta
+from src.database.firebase import get_user_data, update_balance
+from src.utils.security import get_user_id, is_abnormal_activity
+from config import config
+from flask import request
 
 logger = logging.getLogger(__name__)
 
-def get_active_quests():
-    """Get all active quests"""
-    try:
-        return quests_ref.where('active', '==', True).stream()
-    except Exception as e:
-        logger.error(f"Failed to get active quests: {e}")
-        return []
-
-def complete_quest(user_id: int, quest_id: str) -> bool:
-    """Mark a quest as completed for a user"""
-    try:
-        quest_doc = quests_ref.document(quest_id).get()
-        if not quest_doc.exists:
-            return False
+def claim_daily_bonus():
+    user_id = get_user_id()
+    if not user_id:
+        return False, 0.0
+    
+    # Security check
+    if is_abnormal_activity(user_id):
+        logger.warning(f"Abnormal activity detected for user {user_id} during bonus claim")
+        return False, 0.0
+    
+    user = get_user_data(user_id)
+    if not user:
+        return False, 0.0
+    
+    now = datetime.utcnow()
+    last_claim = user.get('last_bonus_claim')
+    
+    if last_claim and (now - last_claim).days < 1:
+        return False, user.get('balance', 0.0)
+    
+    # Apply daily limits
+    today = now.strftime("%Y-%m-%d")
+    last_activity = user.get('last_activity_date')
+    today_earned = user.get('today_earned', 0.0)
+    
+    if last_activity != today:
+        today_earned = 0.0
+        
+    reward = config.REWARDS["faucet"]
+    
+    if user.get('account_type') != 'premium':
+        max_daily = config.FREE_DAILY_EARN_LIMIT
+        if today_earned + reward > max_daily:
+            reward = max(max_daily - today_earned, 0)
+            if reward <= 0:
+                return False, user.get('balance', 0.0)
             
-        quest_data = quest_doc.to_dict()
-        user_ref = users_ref.document(str(user_id))
+        today_earned += reward
+    
+    new_balance = update_balance(user_id, reward)
+    
+    # Update user record
+    from src.database.firebase import get_firestore_db
+    db = get_firestore_db()
+    user_ref = db.collection('users').document(str(user_id))
+    user_ref.update({
+        'last_bonus_claim': now,
+        'last_activity_date': today,
+        'today_earned': today_earned
+    })
+    
+    # Log transaction
+    transaction_ref = db.collection('transactions').document()
+    transaction_ref.set({
+        'user_id': str(user_id),
+        'type': 'bonus',
+        'amount': reward,
+        'timestamp': now,
+        'details': 'Daily bonus claim'
+    })
+    
+    return True, new_balance
+
+def record_click():
+    user_id = get_user_id()
+    if not user_id:
+        return 0, 0.0
+    
+    # Security check
+    if is_abnormal_activity(user_id):
+        logger.warning(f"Abnormal activity detected for user {user_id} during click")
+        return 0, 0.0
+    
+    user = get_user_data(user_id)
+    if not user:
+        return 0, 0.0
+    
+    now = datetime.utcnow()
+    today = now.strftime("%Y-%m-%d")
+    last_click_date = user.get('last_click_date', '')
+    clicks_today = user.get('clicks_today', 0)
+    
+    if last_click_date != today:
+        clicks_today = 0
+    
+    if clicks_today >= 100:
+        return clicks_today, user.get('balance', 0.0)
+    
+    # Apply daily limits
+    last_activity = user.get('last_activity_date')
+    today_earned = user.get('today_earned', 0.0)
+    
+    if last_activity != today:
+        today_earned = 0.0
         
-        # Check if already completed
-        user_data = user_ref.get().to_dict()
-        if quest_id in user_data.get('completed_quests', {}):
-            return False
+    reward = config.REWARDS["click"]
+    
+    if user.get('account_type') != 'premium':
+        max_daily = config.FREE_DAILY_EARN_LIMIT
+        if today_earned + reward > max_daily:
+            reward = max(max_daily - today_earned, 0)
+            if reward <= 0:
+                return clicks_today, user.get('balance', 0.0)
             
-        # Update quest completions
-        quests_ref.document(quest_id).update({
-            'completions': firestore.Increment(1)
-        })
-        
-        # Update user data
-        user_ref.update({
-            f'completed_quests.{quest_id}': datetime.now(),
-            'balance': firestore.Increment(quest_data['reward_ton']),
-            'points': firestore.Increment(quest_data['reward_points'])
-        })
-        
-        return True
-    except Exception as e:
-        logger.error(f"Failed to complete quest: {e}")
-        return False
-
-def refresh_quests():
-    """Refresh quests based on schedule"""
-    try:
-        # In production, this would rotate quests based on schedule
-        logger.info("Quests refreshed successfully")
-    except Exception as e:
-        logger.error(f"Failed to refresh quests: {e}")
-
-def start_quest_scheduler():
-    """Start quest scheduler"""
-    while True:
-        refresh_quests()
-        time.sleep(3600)  # Refresh hourly
+        today_earned += reward
+    
+    new_balance = update_balance(user_id, reward)
+    
+    # Update user record
+    from src.database.firebase import get_firestore_db
+    db = get_firestore_db()
+    user_ref = db.collection('users').document(str(user_id))
+    user_ref.update({
+        'clicks_today': clicks_today + 1,
+        'last_click_date': today,
+        'last_activity_date': today,
+        'today_earned': today_earned
+    })
+    
+    # Log transaction
+    transaction_ref = db.collection('transactions').document()
+    transaction_ref.set({
+        'user_id': str(user_id),
+        'type': 'click',
+        'amount': reward,
+        'timestamp': now,
+        'details': f'Click #{clicks_today + 1}'
+    })
+    
+    return clicks_today + 1, new_balance

@@ -125,10 +125,26 @@
       width:100%; padding:10px; margin-top:6px; border:none;
       border-radius:6px; background:#222; color:#fff;
     }
+    /* ==== SECURITY ALERT ==== */
+    .security-alert {
+      background-color: #ff4d4d;
+      color: white;
+      padding: 8px;
+      text-align: center;
+      border-radius: 4px;
+      margin: 10px auto;
+      max-width: 480px;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <!-- Security Alert -->
+    <div class="security-alert" id="security-alert">
+      Suspicious activity detected! Account temporarily restricted.
+    </div>
+
     <!-- HEADER -->
     <header class="app-header">
       <button class="profile-btn" onclick="showPage('profile')">
@@ -240,7 +256,7 @@
     <div id="referrals-page" class="page">
       <div class="referral-box">
         <h2>Invite & Earn</h2>
-        <p>20% of friend’s earnings</p>
+        <p>20% of friend's earnings</p>
         <div class="referral-link" id="ref-link">https://t.me/CryptoGameMinerBot?start=ref-xyz</div>
         <button class="btn" onclick="copyReferralLink()">📋 Copy Link</button>
       </div>
@@ -295,95 +311,366 @@
   </div>
 
   <script>
+    // Global state
+    const SECURITY_CHECK_INTERVAL = 30000; // 30 seconds
     const tg = window.Telegram.WebApp;
     let userData = {
-      balance:0.5, clicks:0, referrals:0, refEarnings:0,
-      username:'CryptoGamer', bonusClaimed:false
+      id: null,
+      username: 'Guest',
+      balance: 0,
+      clicks: 0,
+      referrals: 0,
+      refEarnings: 0,
+      bonusClaimed: false,
+      lastSecurityCheck: 0
     };
+    let securityTimer = null;
 
-    // UI update
-    function updateUI() {
-      document.querySelectorAll('#balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
-      document.getElementById('wallet-balance').textContent = userData.balance.toFixed(2);
-      document.getElementById('click-count').textContent = userData.clicks;
-      document.querySelectorAll('#username,#profile-name,#profile-username')
-              .forEach(el=>el.textContent=userData.username);
-      document.getElementById('ref-count').textContent = userData.referrals;
-      document.getElementById('ref-earnings').textContent = userData.refEarnings.toFixed(2);
-      document.querySelectorAll('#profile-balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
+    // API helper with security headers
+    async function apiRequest(endpoint, method = 'GET', body = null) {
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': tg.initData,
+        'X-Security-Token': generateSecurityToken()
+      };
+      
+      try {
+        const response = await fetch(`/api${endpoint}`, {
+          method,
+          headers,
+          body: body ? JSON.stringify(body) : null,
+          credentials: 'include'
+        });
+        
+        // Handle security flags
+        if (response.status === 403) {
+          document.getElementById('security-alert').style.display = 'block';
+          tg.showAlert('Security restriction applied. Contact support.');
+          return null;
+        }
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'API request failed');
+        }
+        
+        return await response.json();
+      } catch (error) {
+        tg.showAlert(error.message || 'Request failed');
+        throw error;
+      }
+    }
+
+    // Generate security token based on time and user ID
+    function generateSecurityToken() {
+      const now = Math.floor(Date.now() / 1000);
+      const tokenData = `${userData.id || 'anon'}:${now}`;
+      return btoa(tokenData);
+    }
+
+    // Security monitoring
+    function startSecurityMonitoring() {
+      securityTimer = setInterval(async () => {
+        try {
+          const response = await apiRequest('/security/check');
+          if (response && response.restricted) {
+            document.getElementById('security-alert').style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Security check failed:', error);
+        }
+      }, SECURITY_CHECK_INTERVAL);
     }
 
     // Navigation
     function showPage(id) {
-      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-      document.getElementById(id+'-page').classList.add('active');
-      document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.remove('active'));
-      ['home','watch','wallet','games','quests','otc','referrals']
-        .forEach((pg,i)=>{ if(pg===id) document.querySelectorAll('.nav-btn')[i].classList.add('active'); });
-    }
-
-    // Home
-    function claimDailyBonus() {
-      if(userData.bonusClaimed) return;
-      userData.balance+=0.05; userData.bonusClaimed=true; updateUI();
-      tg?.showPopup({title:'Bonus!',message:'+0.05 TON',buttons:[{id:'ok',type:'ok'}]});
-    }
-    function earnFromClick() {
-      if(userData.clicks>=100) return tg?.showPopup({title:'Limit!',message:'Try tomorrow',buttons:[{id:'ok',type:'ok'}]});
-      userData.clicks++; userData.balance+=0.01; updateUI();
-      const a=document.querySelector('.click-area'); a.style.transform='scale(.95)';
-      setTimeout(()=>a.style.transform='scale(1)',120);
-    }
-
-    // Watch: rewarded interstitial
-    function rewardedInterstitial() {
-      // using Monetag SDK
-      show_9644715().then(()=>{
-        userData.balance+=0.1; updateUI();
-        tg?.showPopup({title:'Reward!',message:'+0.1 TON',buttons:[{id:'ok',type:'ok'}]});
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id + '-page').classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      ['home', 'watch', 'wallet', 'games', 'quests', 'otc', 'referrals'].forEach((pg, i) => {
+        if (pg === id) document.querySelectorAll('.nav-btn')[i].classList.add('active');
       });
     }
 
+    // UI update
+    function updateUI() {
+      document.querySelectorAll('#balance').forEach(el => el.textContent = userData.balance.toFixed(2));
+      document.getElementById('wallet-balance').textContent = userData.balance.toFixed(2);
+      document.getElementById('click-count').textContent = userData.clicks;
+      document.querySelectorAll('#profile-name, #profile-username').forEach(el => {
+        el.textContent = userData.username;
+      });
+      document.getElementById('ref-count').textContent = userData.referrals;
+      document.getElementById('ref-earnings').textContent = userData.refEarnings.toFixed(2);
+      document.querySelectorAll('#profile-balance').forEach(el => {
+        el.textContent = userData.balance.toFixed(2);
+      });
+    }
+
+    // Claim daily bonus with security check
+    async function claimDailyBonus() {
+      try {
+        const response = await apiRequest('/security/check');
+        if (response && response.restricted) {
+          tg.showAlert('Account restricted. Cannot claim bonus.');
+          return;
+        }
+        
+        const result = await apiRequest('/quests/claim_bonus', 'POST');
+        
+        if (result && result.success) {
+          userData.balance = result.new_balance;
+          userData.bonusClaimed = true;
+          updateUI();
+          tg.showPopup({
+            title: 'Bonus Claimed!', 
+            message: '+0.05 TON added to your balance',
+            buttons: [{id: 'ok', type: 'ok'}]
+          });
+        }
+      } catch (error) {
+        console.error('Claim bonus failed:', error);
+      }
+    }
+
+    // Earn from click with security check
+    async function earnFromClick() {
+      try {
+        const response = await apiRequest('/security/check');
+        if (response && response.restricted) {
+          tg.showAlert('Account restricted. Cannot earn from clicks.');
+          return;
+        }
+        
+        if (userData.clicks >= 100) {
+          return tg.showPopup({
+            title: 'Limit Reached!',
+            message: 'Try again tomorrow',
+            buttons: [{id: 'ok', type: 'ok'}]
+          });
+        }
+        
+        const result = await apiRequest('/quests/record_click', 'POST');
+        
+        if (result) {
+          userData.clicks = result.clicks;
+          userData.balance = result.balance;
+          updateUI();
+          
+          // Visual feedback
+          const clickArea = document.querySelector('.click-area');
+          clickArea.style.transform = 'scale(0.95)';
+          setTimeout(() => clickArea.style.transform = 'scale(1)', 120);
+        }
+      } catch (error) {
+        console.error('Click failed:', error);
+      }
+    }
+
+    // Watch ad and get rewarded with security
+    async function rewardedInterstitial() {
+      try {
+        const response = await apiRequest('/security/check');
+        if (response && response.restricted) {
+          tg.showAlert('Account restricted. Cannot watch ads.');
+          return;
+        }
+        
+        // Show ad using Monetag SDK
+        await show_9644715();
+        
+        // Record ad view and get reward
+        const result = await apiRequest('/ads/reward', 'POST', {
+          user_id: userData.id,
+          ad_id: 'monetag_9644715'
+        });
+        
+        if (result) {
+          userData.balance = result.new_balance;
+          updateUI();
+          
+          tg.showPopup({
+            title: 'Ad Watched!', 
+            message: `+${result.reward.toFixed(2)} TON added to your balance`,
+            buttons: [{id: 'ok', type: 'ok'}]
+          });
+        }
+      } catch (error) {
+        console.error('Ad failed:', error);
+        tg.showPopup({
+          title: 'Ad Error', 
+          message: 'Failed to show ad. Please try again.',
+          buttons: [{id: 'ok', type: 'ok'}]
+        });
+      }
+    }
+
     // Wallet stubs
-    function receive(){ tg?.showInvoice && tg.showInvoice(); }
-    function send(){ tg?.sendData && tg.sendData('send'); }
-    function stake(){ tg?.showPopup({title:'Stake',message:'Stake 5 TON @8.5% APY',buttons:[{id:'ok',type:'ok'}]}); }
+    function receive() { 
+      try {
+        tg?.showInvoice && tg.showInvoice(); 
+      } catch (e) {
+        console.error('Receive failed:', e);
+      }
+    }
+    
+    function send() { 
+      try {
+        tg?.sendData && tg.sendData('send'); 
+      } catch (e) {
+        console.error('Send failed:', e);
+      }
+    }
+    
+    function stake() { 
+      try {
+        tg?.showPopup({
+          title: 'Stake', 
+          message: 'Stake 5 TON @8.5% APY',
+          buttons: [{id: 'ok', type: 'ok'}]
+        }); 
+      } catch (e) {
+        console.error('Stake failed:', e);
+      }
+    }
 
     // Games
     function playGame(type) {
-      const labels={trivia:'Trivia',spin:'Spin',click:'Click',other:'Other'};
-      tg?.showPopup({title:'Game',message:`Launching ${labels[type]}`,buttons:[{id:'ok',type:'ok'}]});
+      try {
+        const labels = {
+          trivia: 'Trivia Quiz',
+          spin: 'Spin Wheel',
+          click: 'Click Game',
+          other: 'Other Game'
+        };
+        tg?.showPopup({
+          title: 'Game Launching', 
+          message: `Starting ${labels[type] || 'Game'}`,
+          buttons: [{id: 'ok', type: 'ok'}]
+        });
+      } catch (e) {
+        console.error('Game launch failed:', e);
+      }
     }
 
     // Quests
-    function shareMission(){
-      tg?.showPopup({title:'Share',message:'Thanks for sharing!',buttons:[{id:'ok',type:'ok'}]});
+    function shareMission() {
+      try {
+        tg?.showPopup({
+          title: 'Share', 
+          message: 'Thanks for sharing!',
+          buttons: [{id: 'ok', type: 'ok'}]
+        });
+      } catch (e) {
+        console.error('Share failed:', e);
+      }
     }
 
     // OTC
     function swapTon() {
-      const amt=+document.getElementById('otc-amount').value||0;
-      const cur=document.getElementById('otc-currency').value;
-      tg?.showPopup({title:'Swapped',message:`${amt} TON → ${cur}`,buttons:[{id:'ok',type:'ok'}]});
+      try {
+        const amt = +document.getElementById('otc-amount').value || 0;
+        const cur = document.getElementById('otc-currency').value;
+        tg?.showPopup({
+          title: 'Swapped', 
+          message: `${amt} TON → ${cur}`,
+          buttons: [{id: 'ok', type: 'ok'}]
+        });
+      } catch (e) {
+        console.error('Swap failed:', e);
+      }
     }
 
     // Referrals
-    function copyReferralLink(){
-      navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
-      tg?.showPopup({title:'Copied',message:'Referral link copied',buttons:[{id:'ok',type:'ok'}]});
+    function copyReferralLink() {
+      try {
+        navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
+        tg?.showPopup({
+          title: 'Copied', 
+          message: 'Referral link copied',
+          buttons: [{id: 'ok', type: 'ok'}]
+        });
+      } catch (e) {
+        console.error('Copy failed:', e);
+      }
     }
 
     // Profile Info
-    function showHelp(){ tg?.showPopup({title:'Help',message:'support@cryptogamer.com',buttons:[{id:'ok',type:'ok'}]}); }
-    function showAbout(){ tg?.showPopup({title:'About',message:'CryptoGameMiner v1.0',buttons:[{id:'ok',type:'ok'}]}); }
-    function showTerms(){ tg?.showPopup({title:'TOS',message:'Our terms...',buttons:[{id:'ok',type:'ok'}]}); }
-    function showPrivacy(){ tg?.showPopup({title:'Privacy',message:'Our policy...',buttons:[{id:'ok',type:'ok'}]}); }
+    function showHelp() { 
+      tg?.showPopup({
+        title: 'Help', 
+        message: 'support@cryptogamer.com',
+        buttons: [{id: 'ok', type: 'ok'}]
+      }); 
+    }
+    
+    function showAbout() { 
+      tg?.showPopup({
+        title: 'About', 
+        message: 'CryptoGameMiner v1.0',
+        buttons: [{id: 'ok', type: 'ok'}]
+      }); 
+    }
+    
+    function showTerms() { 
+      tg?.showPopup({
+        title: 'TOS', 
+        message: 'Our terms...',
+        buttons: [{id: 'ok', type: 'ok'}]
+      }); 
+    }
+    
+    function showPrivacy() { 
+      tg?.showPopup({
+        title: 'Privacy', 
+        message: 'Our policy...',
+        buttons: [{id: 'ok', type: 'ok'}]
+      }); 
+    }
 
-    // Init
-    document.addEventListener('DOMContentLoaded',()=>{
-      tg?.ready();
-      updateUI();
-      tg?.showPopup({title:'Welcome!',message:'Let’s earn TON!',buttons:[{id:'ok',type:'ok'}]});
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        tg.ready();
+        tg.expand();
+        
+        // Get user data
+        const user_id = tg.initDataUnsafe.user?.id;
+        if (!user_id) throw new Error('User ID missing');
+        
+        // Mock API response - replace with actual API call
+        userData = {
+          id: user_id,
+          username: `CryptoGamer${user_id.toString().slice(-4)}`,
+          balance: 0.75,
+          clicks: 15,
+          referrals: 3,
+          refEarnings: 0.12,
+          bonusClaimed: false,
+          lastSecurityCheck: 0
+        };
+        
+        // Update UI
+        updateUI();
+        
+        // Start security monitoring
+        startSecurityMonitoring();
+        
+        // Show welcome message
+        tg.showPopup({
+          title: 'Welcome!', 
+          message: `Let's earn TON, ${userData.username}!`,
+          buttons: [{id: 'ok', type: 'ok'}]
+        });
+      } catch (error) {
+        console.error('Initialization failed:', error);
+        tg.showAlert('Failed to initialize app. Please try again.');
+      }
+    });
+
+    // Cleanup on exit
+    window.addEventListener('beforeunload', () => {
+      if (securityTimer) clearInterval(securityTimer);
     });
   </script>
 </body>

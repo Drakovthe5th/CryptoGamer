@@ -6,15 +6,15 @@ import json
 from telegram import Update
 from telegram.ext import Application
 from src.database.firebase import initialize_firebase
-from src.integrations.ton import initialize_ton_wallet
+from src.integrations.ton import initialize_ton_wallet, close_ton_wallet
 from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler
-from src.features import withdrawal
 from src.features.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
-from src.web.flask_app import create_app
-from config import Config
+from app import create_app
+from config import config
 from waitress import serve
+import atexit
 
 # Configure logging
 logging.basicConfig(
@@ -28,7 +28,7 @@ telegram_application = None
 def run_web_server():
     try:
         app = create_app()
-        port = int(os.environ.get('PORT', Config.PORT))
+        port = int(os.environ.get('PORT', config.PORT))
         logger.info(f"🌐 Starting web server on port {port}")
         serve(app, host='0.0.0.0', port=port)
     except Exception as e:
@@ -36,10 +36,10 @@ def run_web_server():
 
 async def set_webhook():
     try:
-        webhook_url = f"https://{Config.RENDER_EXTERNAL_URL}/webhook"
+        webhook_url = f"https://{config.RENDER_EXTERNAL_URL}/webhook"
         await telegram_application.bot.set_webhook(
             webhook_url,
-            secret_token=Config.TELEGRAM_SECRET,
+            secret_token=config.TELEGRAM_SECRET,
             drop_pending_updates=True
         )
         logger.info(f"Webhook configured: {webhook_url}")
@@ -61,8 +61,31 @@ def initialize_background_services():
         
         threading.Thread(target=start_withdrawal_processor, daemon=True).start()
         logger.info("💸 Withdrawal processor started")
+        
+        if config.ENABLE_SECURITY_MONITOR:
+            from src.utils.security import start_security_monitoring
+            threading.Thread(target=start_security_monitoring, daemon=True).start()
+            logger.info("🔒 Security monitoring started")
     except Exception as e:
         logger.error(f"Failed to start background services: {e}")
+
+def shutdown_app():
+    """Shutdown application components"""
+    logger.info("Shutting down application...")
+    
+    # Close TON wallet connection
+    if config.TON_ENABLED:
+        logger.info("Closing TON wallet...")
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(close_ton_wallet())
+        except Exception as e:
+            logger.error(f"Error closing TON wallet: {e}")
+        finally:
+            loop.close()
+    
+    logger.info("Application shutdown complete")
 
 def run_bot():
     global telegram_application
@@ -70,14 +93,14 @@ def run_bot():
     logger.info("🤖 Initializing Telegram bot services...")
     
     try:
-        creds_str = os.environ.get('FIREBASE_CREDS', Config.FIREBASE_CREDS)
+        creds_str = os.environ.get('FIREBASE_CREDS', config.FIREBASE_CREDS)
         firebase_creds = json.loads(creds_str) if isinstance(creds_str, str) else creds_str
         
         if not initialize_firebase(firebase_creds):
             raise RuntimeError("Firebase initialization failed")
         logger.info("🔥 Firebase initialized")
         
-        if Config.TON_ENABLED:
+        if config.TON_ENABLED:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(initialize_ton_wallet())
@@ -88,12 +111,12 @@ def run_bot():
         initialize_background_services()
         
         telegram_application = Application.builder() \
-            .token(Config.TELEGRAM_BOT_TOKEN) \
+            .token(config.TELEGRAM_BOT_TOKEN) \
             .build()
         setup_handlers(telegram_application)
         logger.info("📱 Telegram handlers configured")
         
-        if Config.ENV == 'production':
+        if config.ENV == 'production':
             logger.info("🚀 Starting in PRODUCTION mode")
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -113,8 +136,14 @@ def run_bot():
         raise
 
 if __name__ == '__main__':
+    # Register shutdown handler
+    atexit.register(shutdown_app)
+    
+    # Start bot in background thread
     bot_thread = threading.Thread(target=run_bot)
     bot_thread.daemon = True
     bot_thread.start()
     logger.info("🤖 Bot started in background thread")
+    
+    # Start web server in main thread
     run_web_server()

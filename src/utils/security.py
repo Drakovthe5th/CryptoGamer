@@ -1,105 +1,132 @@
-import os
 import hashlib
 import hmac
-import urllib.parse
-import jwt
-import random
-from datetime import datetime, timedelta
+import re
+import os
+import time
+from urllib.parse import parse_qsl
 from flask import request
-from config import Config
-from src.database.firebase import db
+from config import config
+import logging
+from datetime import datetime, timedelta
+from google.cloud.firestore_v1.base_query import FieldFilter
+from src.database.firebase import get_firestore_db
 
-def validate_telegram_hash(init_data: str, bot_token: str) -> bool:
-    """Validate Telegram WebApp initData hash"""
+logger = logging.getLogger(__name__)
+
+def get_user_id():
+    """Extract user ID from Telegram WebApp initData"""
+    init_data = request.headers.get('X-Telegram-InitData', '')
+    parsed_data = parse_qsl(init_data)
+    user_data = {}
+    
+    for key, value in parsed_data:
+        if key == 'user':
+            try:
+                user_data = json.loads(value)
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse user data")
+    
+    return user_data.get('id') if user_data else None
+
+def validate_telegram_hash(init_data, bot_token):
+    """Verify Telegram WebApp authentication"""
     if not init_data:
         return False
-        
-    # Parse the query string
-    parsed_data = urllib.parse.parse_qsl(init_data)
-    data_dict = {k: v for k, v in parsed_data}
-    
-    # Extract hash and remove from dict
-    received_hash = data_dict.pop('hash', '')
-    if not received_hash:
-        return False
-        
-    # Create data check string
-    data_check_string = "\n".join(
-        f"{k}={v}" for k, v in sorted(data_dict.items()))
-    
-    # Calculate expected hash
-    secret_key = hashlib.sha256(bot_token.encode()).digest()
-    expected_hash = hmac.new(
-        secret_key, 
-        data_check_string.encode(), 
-        hashlib.sha256
-    ).hexdigest()
-    
-    return received_hash == expected_hash
-
-def get_user_id(req=request) -> int:
-    """Extract user ID from JWT token in Authorization header"""
-    auth_header = req.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith('Bearer '):
-        return 0
     
     try:
-        token = auth_header.split(' ')[1]
-        payload = jwt.decode(
-            token,
-            Config.JWT_SECRET_KEY,
-            algorithms=['HS256'],
-            options={'verify_exp': True}
+        parsed_data = parse_qsl(init_data)
+        data_dict = {}
+        hash_value = None
+        
+        for key, value in parsed_data:
+            if key == 'hash':
+                hash_value = value
+            else:
+                data_dict[key] = value
+        
+        if not hash_value:
+            return False
+        
+        data_check_string = "\n".join(
+            [f"{key}={value}" for key, value in sorted(data_dict.items())]
         )
-        return payload.get('user_id', 0)
-    except jwt.ExpiredSignatureError:
-        return 0
-    except jwt.InvalidTokenError:
-        return 0
+        
+        secret_key = hmac.new(
+            key=b"WebAppData", 
+            msg=bot_token.encode(), 
+            digestmod=hashlib.sha256
+        ).digest()
+        
+        calculated_hash = hmac.new(
+            key=secret_key,
+            msg=data_check_string.encode(),
+            digestmod=hashlib.sha256
+        ).hexdigest()
+        
+        return calculated_hash == hash_value
+    except Exception as e:
+        logger.error(f"Telegram auth verification failed: {str(e)}")
+        return False
 
-# def generate_2fa_code(user_id: int) -> str:
-#     """Generate a 6-digit 2FA code and store it in Firestore with expiration"""
-#     try:
-#         db = get_firestore_db()
-#         code = ''.join(random.choices('0123456789', k=6))
-#         expires_at = datetime.utcnow() + timedelta(minutes=5)
+def is_abnormal_activity(user_id):
+    """Check for abnormal activity patterns"""
+    try:
+        db = get_firestore_db()
         
-#         # Store code in Firestore
-#         db.collection('two_factor_codes').document(str(user_id)).set({
-#             'code': code,
-#             'expires_at': expires_at
-#         })
+        # Get last 10 transactions
+        transactions_ref = db.collection('transactions')
+        query = transactions_ref.where('user_id', '==', str(user_id)) \
+            .order_by('timestamp', direction=firestore.Query.DESCENDING) \
+            .limit(10)
         
-#         return code
-#     except Exception as e:
-#         print(f"2FA generation error: {e}")
-#         return "000000"  # Fallback code
-
-# def verify_2fa_code(user_id: int, code: str) -> bool:
-#     """Verify if the 2FA code is valid and not expired"""
-#     try:
-#         db = get_firestore_db()
-#         doc_ref = db.collection('two_factor_codes').document(str(user_id))
-#         doc = doc_ref.get()
+        transactions = [doc.to_dict() for doc in query.stream()]
         
-#         if not doc.exists:
-#             return False
+        # Check for rapid consecutive actions
+        if len(transactions) > 5:
+            last_timestamp = transactions[0]['timestamp']
+            first_timestamp = transactions[-1]['timestamp']
+            time_diff = (last_timestamp - first_timestamp).total_seconds()
             
-#         data = doc.to_dict()
-#         stored_code = data.get('code', '')
-#         expires_at = data.get('expires_at')
+            if time_diff < 10:  # 10 seconds for 10 actions
+                return True
         
-#         # Check if code matches and is not expired
-#         if stored_code == code and datetime.utcnow() < expires_at:
-#             # Delete the code after successful verification
-#             doc_ref.delete()
-#             return True
-#         return False
-#     except Exception as e:
-#         print(f"2FA verification error: {e}")
-#         return False
+        # Check for large withdrawal requests
+        withdrawals_ref = db.collection('withdrawals')
+        withdrawal_query = withdrawals_ref.where('user_id', '==', str(user_id)) \
+            .where('status', '==', 'pending') \
+            .where('timestamp', '>', datetime.utcnow() - timedelta(minutes=5))
+        
+        withdrawal_amount = sum(
+            [doc.get('amount', 0) for doc in withdrawal_query.stream()]
+        )
+        
+        if withdrawal_amount > config.USER_DAILY_WITHDRAWAL_LIMIT / 2:
+            return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"Abnormal activity check failed: {str(e)}")
+        return False
 
-def is_abnormal_activity(user_id: int) -> bool:
-    """Detect abnormal activity patterns (stub implementation)"""
-    # In production, this would analyze login patterns, locations, etc.
-    return False
+def validate_ton_address(address: str) -> bool:
+    """Validate TON wallet address format"""
+    pattern = r'^EQ[0-9a-zA-Z]{48}$'
+    return re.match(pattern, address) is not None
+
+def validate_mpesa_number(number: str) -> bool:
+    """Validate M-Pesa number format (Kenya)"""
+    pattern = r'^2547\d{8}$'
+    return re.match(pattern, number) is not None
+
+def validate_email(email: str) -> bool:
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_amount(amount: str, min_amount: float) -> bool:
+    """Validate amount format and minimum"""
+    try:
+        amount_float = float(amount)
+        return amount_float >= min_amount
+    except ValueError:
+        return False

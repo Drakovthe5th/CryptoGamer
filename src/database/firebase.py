@@ -4,6 +4,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from datetime import datetime, timedelta
 import os
 import logging
+from config import config
 
 logger = logging.getLogger(__name__)
 
