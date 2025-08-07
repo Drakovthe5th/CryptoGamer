@@ -311,6 +311,7 @@
   </div>
 
   <script>
+    
     // Global state
     const SECURITY_CHECK_INTERVAL = 30000; // 30 seconds
     const tg = window.Telegram.WebApp;
@@ -335,7 +336,7 @@
       };
       
       try {
-        const response = await fetch(`/api${endpoint}`, {
+        const response = await fetch(endpoint, {
           method,
           headers,
           body: body ? JSON.stringify(body) : null,
@@ -372,7 +373,7 @@
     function startSecurityMonitoring() {
       securityTimer = setInterval(async () => {
         try {
-          const response = await apiRequest('/security/check');
+          const response = await apiRequest('/api/security/check');
           if (response && response.restricted) {
             document.getElementById('security-alert').style.display = 'block';
           }
@@ -407,16 +408,34 @@
       });
     }
 
+    // Load user data from backend
+    async function loadUserData() {
+      try {
+        const data = await apiRequest('/api/user/data');
+        if (data) {
+          userData.balance = data.balance || 0;
+          userData.clicks = data.clicks_today || 0;
+          userData.bonusClaimed = data.bonus_claimed || false;
+          userData.username = data.username || 'Player';
+          updateUI();
+        }
+      } catch (error) {
+        console.error('Failed to load user data:', error);
+      }
+    }
+
     // Claim daily bonus with security check
     async function claimDailyBonus() {
       try {
-        const response = await apiRequest('/security/check');
+        const response = await apiRequest('/api/security/check');
         if (response && response.restricted) {
           tg.showAlert('Account restricted. Cannot claim bonus.');
           return;
         }
         
-        const result = await apiRequest('/quests/claim_bonus', 'POST');
+        const result = await apiRequest('/api/quests/claim_bonus', 'POST', {
+          user_id: userData.id
+        });
         
         if (result && result.success) {
           userData.balance = result.new_balance;
@@ -436,7 +455,7 @@
     // Earn from click with security check
     async function earnFromClick() {
       try {
-        const response = await apiRequest('/security/check');
+        const response = await apiRequest('/api/security/check');
         if (response && response.restricted) {
           tg.showAlert('Account restricted. Cannot earn from clicks.');
           return;
@@ -450,7 +469,9 @@
           });
         }
         
-        const result = await apiRequest('/quests/record_click', 'POST');
+        const result = await apiRequest('/api/quests/record_click', 'POST', {
+          user_id: userData.id
+        });
         
         if (result) {
           userData.clicks = result.clicks;
@@ -470,7 +491,7 @@
     // Watch ad and get rewarded with security
     async function rewardedInterstitial() {
       try {
-        const response = await apiRequest('/security/check');
+        const response = await apiRequest('/api/security/check');
         if (response && response.restricted) {
           tg.showAlert('Account restricted. Cannot watch ads.');
           return;
@@ -480,7 +501,7 @@
         await show_9644715();
         
         // Record ad view and get reward
-        const result = await apiRequest('/ads/reward', 'POST', {
+        const result = await apiRequest('/api/ads/reward', 'POST', {
           user_id: userData.id,
           ad_id: 'monetag_9644715'
         });
@@ -634,24 +655,12 @@
         tg.ready();
         tg.expand();
         
-        // Get user data
-        const user_id = tg.initDataUnsafe.user?.id;
-        if (!user_id) throw new Error('User ID missing');
+        // Get user ID from Telegram
+        userData.id = tg.initDataUnsafe.user?.id;
+        if (!userData.id) throw new Error('User ID missing');
         
-        // Mock API response - replace with actual API call
-        userData = {
-          id: user_id,
-          username: `CryptoGamer${user_id.toString().slice(-4)}`,
-          balance: 0.75,
-          clicks: 15,
-          referrals: 3,
-          refEarnings: 0.12,
-          bonusClaimed: false,
-          lastSecurityCheck: 0
-        };
-        
-        // Update UI
-        updateUI();
+        // Load user data from backend
+        await loadUserData();
         
         // Start security monitoring
         startSecurityMonitoring();

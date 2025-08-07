@@ -3,7 +3,7 @@ import datetime
 import asyncio
 import logging
 import atexit
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.integrations.ton import (
@@ -25,6 +25,7 @@ from src.utils.maintenance import (
 from config import config
 from src.web.routes import configure_routes
 from src.database.firebase import initialize_firebase
+from miniapp import miniapp_bp  # Import the miniapp blueprint
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +35,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, template_folder='templates')
 socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
+
+# Register miniapp blueprint
+app.register_blueprint(miniapp_bp, url_prefix='/api')
 
 def initialize_app():
     """Initialize application components"""
@@ -89,7 +93,7 @@ atexit.register(shutdown_app)
 def serve_miniapp():
     return render_template('miniapp.html')
 
-# API status endpoint (renamed to avoid conflict)
+# API status endpoint
 @app.route('/status')
 def api_status():
     return jsonify({
