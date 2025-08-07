@@ -25,7 +25,7 @@ from src.utils.maintenance import (
 from config import config
 from src.web.routes import configure_routes
 from src.database.firebase import initialize_firebase
-from miniapp import miniapp_bp  # Import the miniapp blueprint
+from src.telegram.miniapp import miniapp_bp  # Import the miniapp blueprint
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
