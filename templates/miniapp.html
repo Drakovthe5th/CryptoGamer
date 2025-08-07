@@ -1,16 +1,90 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoGameMiner</title>
-    <link rel="stylesheet" href="/static/css/miniapp.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script defer src="/static/js/miniapp.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>CryptoGameMiner</title>
+  <link rel="stylesheet" href="/static/css/miniapp.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script defer src="/static/js/miniapp.js"></script>
 </head>
 <body>
-    <div class="container">
-        <!-- Full MiniApp UI content -->
+  <div class="container">
+    <!-- App Header -->
+    <header class="app-header">
+      <button class="profile-btn" onclick="showPage('profile')">
+        <span>👤</span>
+        <span id="username">User123</span>
+      </button>
+      <div class="balance-display">
+        <span id="balance">0.00</span> TON
+      </div>
+    </header>
+
+    <!-- Home Page -->
+    <div id="home-page" class="page active">
+      <div class="section">
+        <h2 class="section-title">Daily Bonus</h2>
+        <p>Claim your daily reward!</p>
+        <button class="btn mt-10" onclick="claimDailyBonus()">
+          🎁 Claim 0.05 TON
+        </button>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Click & Earn</h2>
+        <div class="click-area" onclick="earnFromClick()">
+          <div class="click-text">CLICK TO EARN</div>
+        </div>
+        <p class="text-center">
+          Clicks today: <span id="click-count">0</span>/100
+        </p>
+      </div>
+
+      <div class="section">
+        <h2 class="section-title">Featured Games</h2>
+        <button class="btn" onclick="showPage('games')">
+          🎮 Play Trivia
+        </button>
+        <button class="btn" onclick="showPage('games')">
+          🎡 Spin Wheel
+        </button>
+      </div>
     </div>
+
+    <!-- Placeholder for other pages -->
+    <div id="watch-page" class="page"></div>
+    <div id="wallet-page" class="page"></div>
+    <div id="games-page" class="page"></div>
+    <div id="quests-page" class="page"></div>
+    <div id="otc-page" class="page"></div>
+    <div id="referrals-page" class="page"></div>
+    <div id="profile-page" class="page"></div>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar">
+      <button class="nav-btn active" onclick="showPage('home')">
+        <span>🏠</span><span>Home</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('watch')">
+        <span>📺</span><span>Watch</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('wallet')">
+        <span>💰</span><span>Wallet</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('games')">
+        <span>🎮</span><span>Games</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('quests')">
+        <span>📝</span><span>Quests</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('otc')">
+        <span>💱</span><span>OTC Desk</span>
+      </button>
+      <button class="nav-btn" onclick="showPage('referrals')">
+        <span>👥</span><span>Referrals</span>
+      </button>
+    </div>
+  </div>
 </body>
 </html>

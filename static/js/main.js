@@ -170,8 +170,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-// Telegram MiniApp logic
-document.addEventListener('DOMContentLoaded', function() {
-    // initApp, showPage, click handlers...
-});
