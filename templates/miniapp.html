@@ -4,206 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CryptoGameMiner</title>
+    <link rel="stylesheet" href="/static/css/main.css">
     <link rel="stylesheet" href="/static/css/miniapp.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="/static/js/main.js"></script>
     <script src="/static/js/miniapp.js"></script>
     <script src="/static/js/staking.js"></script>
-    <script src="/static/js/websocket.js"></script>
-    <div id="frame" style="display: none; width: 100%;">
-        <iframe data-aa='2405512' src='//acceptable.a-ads.com/2405512' style='border:0px; padding:0; width:100%; height:100%; overflow:hidden; background-color: transparent;'></iframe>
-        <a style="display: block; text-align: right; font-size: 12px" id="frame-link" href="https://aads.com/campaigns/new/?source_id=2405512&source_type=ad_unit&partner=2405512">Advertise here</a>
-    </div>
-  
-    <!-- Monetag Integration -->
-    <script src='//libtl.com/sdk.js' data-zone='9644715' data-sdk='show_9644715'></script>
+    <script src="/static/js/ads.js"></script>
     
-    <!-- TON SDK -->
-    <script src="https://unpkg.com/tonweb/dist/tonweb.js"></script>
+    <!-- Ad Integrations -->
+    <div id="frame" style="display: none; width: 100%;">
+        <iframe data-aa='2405512' src='//acceptable.a-ads.com/2405512'></iframe>
+        <a id="frame-link" href="https://aads.com/campaigns/new/?source_id=2405512">Advertise here</a>
+    </div>
+    <script src='//libtl.com/sdk.js' data-zone='9644715' data-sdk='show_9644715'></script>
 </head>
 <body>
     <div class="container">
-        <header>
-            <div class="header-top">
-                <button id="theme-toggle" class="theme-btn">🌙</button>
-                <div id="language-selector" class="lang-selector">
-                    <select id="lang">
-                        <option value="en">EN</option>
-                        <option value="es">ES</option>
-                        <option value="fr">FR</option>
-                        <option value="sw">SW</option>
-                    </select>
-                </div>
+        <!-- Header -->
+        <header class="app-header">
+            <button class="profile-btn" onclick="showPage('profile')">
+                <span>👤</span>
+                <span id="username">User123</span>
+            </button>
+            <div class="balance-display">
+                <span id="balance">0.00</span> TON
             </div>
-            <h1>💎 CryptoGameMiner</h1>
-            <div id="balance">Loading balance...</div>
-            <div id="staking-balance"></div>
         </header>
+
+        <!-- Page Sections -->
+        <div id="home-page" class="page active">...</div>
+        <div id="watch-page" class="page">...</div>
+        <div id="wallet-page" class="page">...</div>
+        <div id="games-page" class="page">...</div>
+        <div id="quests-page" class="page">...</div>
+        <div id="otc-page" class="page">...</div>
+        <div id="referrals-page" class="page">...</div>
+        <div id="profile-page" class="page">...</div>
         
-        <!-- Security features -->
-        <section class="security-section">
-            <h2>🔒 Security Center</h2>
-            <div class="security-card">
-                <div>
-                    <h3>2FA Enabled</h3>
-                    <p>Extra security for withdrawals</p>
-                </div>
-                <label class="switch">
-                    <input type="checkbox" id="2fa-toggle" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="security-card">
-                <h3>Whitelisted Addresses</h3>
-                <ul id="whitelist-addresses"></ul>
-                <button onclick="showAddAddressForm()">+ Add Address</button>
-            </div>
-        </section>
-        
-        <section class="games">
-            <h2>🎮 Earn TON</h2>
-            <div class="game-cards">
-                <div class="game-card" id="trivia-game">
-                    <h3>Trivia Challenge</h3>
-                    <p>Answer questions to earn TON</p>
-                    <button onclick="startGame('trivia')">Play</button>
-                </div>
-                <div class="game-card" id="spin-game">
-                    <h3>Spin Wheel</h3>
-                    <p>Test your luck</p>
-                    <button onclick="startGame('spin')">Spin</button>
-                </div>
-            </div>
-        </section>
-        
-        <section class="quests">
-            <h2>🏆 Daily Challenges</h2>
-            <div id="daily-challenges" class="quests-container">
-                <!-- Challenges loaded dynamically -->
-            </div>
-        </section>
-        
-        <section class="ads">
-            <h2>📺 Watch & Earn</h2>
-            <div id="ad-container">
-                <p>Loading ads...</p>
-            </div>
-            <button id="watch-ad-btn" onclick="showAd()">Watch Ad</button>
-        </section>
-        
-        <!-- Staking Section -->
-        <section class="staking">
-            <h2>💰 TON Staking</h2>
-            <div class="staking-card">
-                <div class="staking-info">
-                    <p>APY: 8.5%</p>
-                    <p>Min: 5 TON</p>
-                </div>
-                <div class="staking-form">
-                    <input type="number" id="stake-amount" placeholder="Amount to stake" min="5" step="0.1">
-                    <button onclick="stakeTON()">Stake</button>
-                </div>
-                <div class="staking-stats">
-                    <p>Staked: <span id="staked-amount">0</span> TON</p>
-                    <p>Earned: <span id="staked-rewards">0</span> TON</p>
-                </div>
-            </div>
-        </section>
-        
-        <section class="referral">
-            <h2>👥 Refer Friends</h2>
-            <div class="referral-card">
-                <p>Share your link and earn 20% of friends' earnings!</p>
-                <div class="referral-link">
-                    <input type="text" id="ref-link" readonly>
-                    <button onclick="copyRefLink()">Copy</button>
-                </div>
-                <div class="referral-stats">
-                    <p>Invited: <span id="ref-count">0</span> friends</p>
-                    <p>Earned: <span id="ref-earnings">0.00</span> TON</p>
-                </div>
-            </div>
-        </section>
-        
-        <section class="premium">
-            <h2>⭐ Premium Membership</h2>
-            <div class="premium-card">
-                <ul>
-                    <li>+50% earning from all activities</li>
-                    <li>No withdrawal fees</li>
-                    <li>Exclusive games</li>
-                    <li>Ad-free experience</li>
-                </ul>
-                <button onclick="subscribePremium()">Subscribe - 10 TON/month</button>
-            </div>
-        </section>
-        
-        <section class="community">
-            <h2>🌍 Community</h2>
-            <div class="community-cards">
-                <div class="community-card" onclick="openForum()">
-                    <h3>Forums</h3>
-                    <p>Discuss & get help</p>
-                </div>
-                <div class="community-card" onclick="openEvents()">
-                    <h3>Live Events</h3>
-                    <p>Join special earning events</p>
-                </div>
-                <div class="community-card" onclick="openFeedback()">
-                    <h3>Feedback</h3>
-                    <p>Share your ideas</p>
-                </div>
-            </div>
-        </section>
-        
-        <section class="withdrawal">
-            <h2>💰 Withdraw TON</h2>
-            <div id="withdrawal-options">
-                <button onclick="showWithdrawalForm('ton')">TON Wallet</button>
-                <button onclick="showWithdrawalForm('cash')">Cash via OTC</button>
-            </div>
-            <div id="withdrawal-form" class="withdrawal-form-hidden">
-                <!-- Form will be loaded here -->
-            </div>
-        </section>
-    </div>
-    
-    <!-- Hidden modals -->
-    <div id="address-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('address-modal')">&times;</span>
-            <h3>Add Whitelisted Address</h3>
-            <input type="text" id="new-address" placeholder="TON Wallet Address">
-            <button onclick="saveAddress()">Save Address</button>
+        <!-- Navigation -->
+        <div class="nav-bar">
+            <!-- 7 navigation buttons -->
         </div>
     </div>
-    
-    <div id="2fa-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('2fa-modal')">&times;</span>
-            <h3>Two-Factor Authentication</h3>
-            <p>Enter the code sent to your Telegram</p>
-            <input type="text" id="2fa-code" placeholder="6-digit code" maxlength="6">
-            <button onclick="verify2FA()">Verify</button>
-        </div>
-    </div>
-    
-    <script>
-        // Initialize theme
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.body.classList.toggle('dark-theme', savedTheme === 'dark');
-        document.getElementById('theme-toggle').textContent = savedTheme === 'dark' ? '☀️' : '🌙';
-        
-        // Initialize language
-        const savedLang = localStorage.getItem('lang') || 'en';
-        document.getElementById('lang').value = savedLang;
-        
-        // Initialize referral link
-        const userId = Telegram.WebApp.initData.user?.id || 'user123';
-        document.getElementById('ref-link').value = `https://t.me/Got3dBot?start=${userId}`;
-        
-        // Initialize WebSocket
-        initWebSocket();
-    </script>
 </body>
 </html>
