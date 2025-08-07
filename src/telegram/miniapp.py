@@ -4,7 +4,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
 from src.telegram.auth import validate_telegram_hash
-from src.utils import security, validation
+from src.utils import security, validators
 from config import Config
 import logging
 
