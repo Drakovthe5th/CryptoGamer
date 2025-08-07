@@ -72,7 +72,7 @@ class TONWallet:
             # Convert both to raw format for comparison
             if wallet_address.startswith('UQ'):
                 wallet_address = Address(wallet_address).to_str(is_user_friendly=False)
-            if config_addrsess.startswith('UQ'):
+            if config_address.startswith('UQ'):
                 config_address = Address(config_address).to_str(is_user_friendly=False)
 
             if wallet_address != config_address:
