@@ -47,8 +47,8 @@ def create_app():
             except:
                 return jsonify({'error': 'Invalid security token'}), 401
     
-    # MiniApp Endpoint
-    @app.route('/miniapp')
+    # MiniApp Endpoint - Changed to avoid conflict with server.py
+    @app.route('/alt-miniapp')
     def serve_miniapp():
         return send_from_directory('templates', 'miniapp.html')
     
@@ -154,8 +154,8 @@ def create_app():
             logging.error(f"Security check error: {str(e)}")
             return jsonify({'error': 'Security check failed'}), 500
 
-    # Health Check Endpoint
-    @app.route('/health')
+    # Health Check Endpoint - Changed to avoid conflict
+    @app.route('/health-check')
     def health_status():
         return jsonify({
             'status': 'healthy',

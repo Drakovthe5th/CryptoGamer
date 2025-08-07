@@ -3,7 +3,7 @@ import datetime
 import asyncio
 import logging
 import atexit
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.integrations.ton import (
@@ -30,7 +30,8 @@ from src.database.firebase import initialize_firebase
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Create Flask app with template folder
+app = Flask(__name__, template_folder='templates')
 socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
 
@@ -83,16 +84,20 @@ initialize_app()
 # Register shutdown function
 atexit.register(shutdown_app)
 
-# Root endpoint (renamed to avoid conflict)
+# Serve miniapp HTML at root endpoint
 @app.route('/')
-def app_home():  # Changed from 'index'
+def serve_miniapp():
+    return render_template('miniapp.html')
+
+# API status endpoint (renamed to avoid conflict)
+@app.route('/status')
+def api_status():
     return jsonify({
         "status": "running",
         "service": "CryptoGameMiner",
         "version": "1.0.0",
         "crypto": "TON"
     }), 200
-
 
 # Configure all routes
 configure_routes(app)
@@ -190,7 +195,7 @@ def run_load_test():
 
 # Health Check Endpoint
 @app.route('/health')
-def health_status():  # Changed from 'health_check'
+def health_status():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.datetime.utcnow().isoformat()
