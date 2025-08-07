@@ -3,45 +3,133 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>CryptoGameMiner</title>
+  <title>🙌 CryptoGameMiner</title>
+
+  <!-- Monetag SDK for rewarded ads -->
+  <script src="//libtl.com/sdk.js" data-zone="9644715" data-sdk="show_9644715"></script>
+
+  <!-- Telegram WebApp API -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
+    /* ==== ROOT VARIABLES ==== */
     :root {
-      --bg-dark: #121212;
-      --text-light: #fff;
-      --primary-yellow: #FFD700;
-      --secondary-gray: #2A2A2A;
-      --accent-green: #00C853;
+      --bg-dark: #0d0d0d;
+      --text-light: #f5f5f5;
+      --primary-yellow: #ffcc00;
+      --secondary-gray: #1a1a1a;
+      --accent-green: #00e676;
+      --gradient-purple: linear-gradient(135deg,#3f51b5,#9c27b0);
+      --texture: url('data:image/png;base64,iVBORw0K...'); /* you can replace with real texture */
     }
-    * { margin:0; padding:0; box-sizing:border-box; font-family:'Roboto',sans-serif; }
-    body { background:var(--bg-dark); color:var(--text-light); min-height:100vh; padding-bottom:60px; }
-    .container { max-width:480px; margin:0 auto; padding:10px; }
-    .app-header { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid var(--secondary-gray); }
-    .profile-btn { background:none; border:none; color:var(--text-light); font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px; }
-    .balance-display { background:var(--secondary-gray); padding:8px 15px; border-radius:20px; font-weight:bold; color:var(--primary-yellow); }
-    .page { display:none; padding:15px; }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+    body {
+      background: var(--bg-dark) var(--texture) fixed;
+      color: var(--text-light);
+      min-height: 100vh;
+      padding-bottom: 70px;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    /* ==== HEADER ==== */
+    .app-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:16px; background: var(--secondary-gray);
+      border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.5);
+    }
+    .profile-btn {
+      background: var(--gradient-purple);
+      padding:8px 12px; border:none; border-radius:20px;
+      color:#fff; font-weight:600; cursor:pointer;
+      display:flex; align-items:center; gap:6px;
+      box-shadow:0 2px 8px rgba(0,0,0,.4);
+      transition:transform .2s;
+    }
+    .profile-btn:hover { transform:scale(1.05) }
+    .balance-display {
+      background: var(--accent-green); padding:8px 16px;
+      border-radius:20px; font-weight:600; color:#000;
+      box-shadow:0 2px 8px rgba(0,0,0,.4);
+    }
+    /* ==== PAGES ==== */
+    .page { display:none; padding:16px; animation:fadeIn .3s ease-in; }
     .page.active { display:block; }
-    .section { background:var(--secondary-gray); border-radius:12px; padding:15px; margin-bottom:15px; }
-    .section-title { font-size:1.2rem; margin-bottom:15px; color:var(--primary-yellow); }
-    .btn { background:var(--primary-yellow); color:var(--bg-dark); border:none; border-radius:8px; padding:12px 20px; font-weight:bold; cursor:pointer; width:100%; margin:5px 0; transition:opacity .3s; }
-    .btn:hover { opacity:.9; }
-    .btn-secondary { background:var(--secondary-gray); color:var(--text-light); border:1px solid var(--primary-yellow); }
-    .click-area { background:#1E1E1E; height:150px; border-radius:12px; display:flex; justify-content:center; align-items:center; margin:20px 0; cursor:pointer; border:2px solid var(--primary-yellow); }
-    .click-text { font-size:1.5rem; font-weight:bold; color:var(--primary-yellow); }
-    .nav-bar { position:fixed; bottom:0; left:0; right:0; background:var(--secondary-gray); display:flex; justify-content:space-around; padding:10px 0; border-top:1px solid #333; }
-    .nav-btn { background:none; border:none; color:var(--text-light); display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; font-size:0.8rem; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    /* ==== SECTION ==== */
+    .section {
+      background: var(--secondary-gray);
+      border-radius:12px; padding:16px;
+      margin-bottom:16px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,.3);
+    }
+    .section-title {
+      font-size:1.3rem; margin-bottom:12px;
+      background: var(--gradient-purple);
+      -webkit-background-clip: text; color: transparent;
+    }
+    /* ==== BUTTONS ==== */
+    .btn {
+      background: var(--primary-yellow);
+      color: #000; border:none; border-radius:8px;
+      padding:12px; font-weight:700; font-size:1rem;
+      width:100%; cursor:pointer; margin:8px 0;
+      box-shadow:0 3px 8px rgba(0,0,0,.4);
+      transition:transform .2s, box-shadow .2s;
+    }
+    .btn:hover {
+      transform:translateY(-2px);
+      box-shadow:0 6px 12px rgba(0,0,0,.5);
+    }
+    .btn-secondary {
+      background:transparent; color:var(--primary-yellow);
+      border:2px solid var(--primary-yellow);
+    }
+    /* ==== CLICK AREA ==== */
+    .click-area {
+      background: #111; border:3px dashed var(--primary-yellow);
+      height:160px; border-radius:12px;
+      display:flex;justify-content:center;align-items:center;
+      cursor:pointer; transition:background .2s;
+    }
+    .click-area:hover { background:#222 }
+    .click-text { color:var(--primary-yellow); font-size:1.6rem; font-weight:800; }
+    /* ==== NAVIGATION ==== */
+    .nav-bar {
+      position:fixed; bottom:0; left:0; right:0;
+      background: var(--secondary-gray); display:flex;
+      justify-content:space-around; padding:10px 0;
+      box-shadow:0 -3px 12px rgba(0,0,0,.5);
+    }
+    .nav-btn {
+      background:none; border:none; color:var(--text-light);
+      display:flex; flex-direction:column; align-items:center;
+      font-size:0.8rem; cursor:pointer; transition:color .2s;
+    }
     .nav-btn.active { color:var(--primary-yellow); }
-    .referral-box { background:linear-gradient(135deg,#1a2a6c,#b21f1f,#1a2a6c); border-radius:12px; padding:15px; margin:15px 0; text-align:center; }
-    .referral-link { background:#fff; color:#000; padding:10px; border-radius:8px; margin:10px 0; word-break:break-all; }
-    .mt-10 { margin-top:10px; }
-    .text-center { text-align:center; }
-    .quest-item, .mission-item { display:flex; justify-content:space-between; align-items:center; margin:10px 0; }
-    input, select { width:100%; padding:10px; border-radius:8px; border:none; background:#333; color:#fff; margin-top:5px; }
+    /* ==== REFERRAL BOX ==== */
+    .referral-box {
+      background: var(--gradient-purple); padding:16px;
+      border-radius:12px; text-align:center; color:#fff;
+      box-shadow:0 4px 12px rgba(0,0,0,.5);
+    }
+    .referral-link {
+      background: #000; color:var(--primary-yellow);
+      padding:8px; border-radius:6px; margin:12px 0;
+      display:block; word-break:break-all;
+    }
+    /* ==== FORMS ==== */
+    input, select {
+      width:100%; padding:10px; margin-top:6px; border:none;
+      border-radius:6px; background:#222; color:#fff;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- App Header -->
+    <!-- HEADER -->
     <header class="app-header">
       <button class="profile-btn" onclick="showPage('profile')">
         <span>👤</span><span id="profile-username">User123</span>
@@ -53,8 +141,8 @@
     <div id="home-page" class="page active">
       <div class="section">
         <h2 class="section-title">Daily Bonus</h2>
-        <p>Claim your daily reward!</p>
-        <button class="btn mt-10" onclick="claimDailyBonus()">🎁 Claim 0.05 TON</button>
+        <p>Grab your daily reward and keep the fun rolling!</p>
+        <button class="btn" onclick="claimDailyBonus()">🎁 Claim 0.05 TON</button>
       </div>
       <div class="section">
         <h2 class="section-title">Click & Earn</h2>
@@ -74,13 +162,18 @@
     <div id="watch-page" class="page">
       <div class="section">
         <h2 class="section-title">Watch & Earn</h2>
-        <p>Watch ads to earn TON coins</p>
-        <button class="btn mt-10" onclick="watchAd()">📺 Watch Ad (0.1 TON)</button>
+        <p>Watch video ads and boost your TON balance.</p>
+        <button class="btn" onclick="rewardedInterstitial()">▶️ Watch & Earn 0.1 TON</button>
       </div>
-      <div class="section">
-        <h2 class="section-title">Video Offers</h2>
-        <div style="background:#333;height:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
-          <p>Video Ad Placeholder</p>
+      <div class="section" style="padding:0;overflow:hidden;">
+        <!-- A-ADS Banner -->
+        <div id="frame" style="width:100%;height:200px;">
+          <iframe data-aa="2405512" src="//acceptable.a-ads.com/2405512"
+                  style="border:0;width:100%;height:100%;"></iframe>
+          <a style="display:block;text-align:right;font-size:10px;color:#888;"
+             href="https://aads.com/campaigns/new/?source_id=2405512">
+            Advertise here
+          </a>
         </div>
       </div>
     </div>
@@ -88,19 +181,18 @@
     <!-- WALLET -->
     <div id="wallet-page" class="page">
       <div class="section">
-        <h2 class="section-title">Wallet Balance</h2>
+        <h2 class="section-title">Wallet</h2>
         <p class="text-center" style="font-size:2rem;"><span id="wallet-balance">0.00</span> TON</p>
-        <div style="display:flex;justify-content:space-between;gap:5px;">
-          <button class="btn-secondary btn" onclick="receive()">Receive</button>
-          <button class="btn-secondary btn" onclick="send()">Send</button>
-          <button class="btn-secondary btn" onclick="showPage('otc')">Sell</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-secondary btn" onclick="receive()">📥 Receive</button>
+          <button class="btn-secondary btn" onclick="send()">📤 Send</button>
+          <button class="btn-secondary btn" onclick="showPage('otc')">💱 Sell</button>
         </div>
       </div>
       <div class="section">
         <h2 class="section-title">Staking</h2>
-        <p>APY: <span style="color:var(--accent-green)">8.5%</span></p>
-        <p>Min: 5 TON</p>
-        <button class="btn mt-10" onclick="stake()">💰 Stake TON</button>
+        <p>Earn <span style="color:var(--accent-green)">8.5% APY</span> on 5+ TON</p>
+        <button class="btn" onclick="stake()">💰 Stake Now</button>
       </div>
     </div>
 
@@ -108,14 +200,10 @@
     <div id="games-page" class="page">
       <div class="section">
         <h2 class="section-title">Games</h2>
-        <button class="btn" onclick="playGame('trivia')">❓ Trivia Quiz</button>
-        <button class="btn" onclick="playGame('spin')">🎡 Spin Wheel</button>
-        <button class="btn" onclick="playGame('click')">🖱️ Click Challenge</button>
-        <button class="btn" onclick="playGame('other')">🎲 Other Game</button>
-      </div>
-      <div class="section">
-        <h2 class="section-title">Active Games</h2>
-        <p>No active games. Start playing!</p>
+        <button class="btn" onclick="playGame('trivia')">❓ Trivia</button>
+        <button class="btn" onclick="playGame('spin')">🎡 Spin</button>
+        <button class="btn" onclick="playGame('click')">🖱️ Click</button>
+        <button class="btn" onclick="playGame('other')">🎲 Other</button>
       </div>
     </div>
 
@@ -123,44 +211,26 @@
     <div id="quests-page" class="page">
       <div class="section">
         <h2 class="section-title">Daily Quests</h2>
-        <div class="quest-item">
-          <span>✅ Claim daily bonus</span>
-          <button class="btn-secondary btn" disabled>Done</button>
-        </div>
-        <div class="quest-item">
-          <span>⏳ Watch 3 ads (<span id="quest-ads">1</span>/3)</span>
-          <button class="btn btn-secondary" onclick="watchAd()">Watch</button>
-        </div>
-        <div class="quest-item">
-          <span>⏳ Invite 1 friend (<span id="quest-invite">0</span>/1)</span>
-          <button class="btn" onclick="showPage('referrals')">Invite</button>
-        </div>
+        <div class="quest-item"><span>✅ Claim bonus</span><button class="btn-secondary btn" disabled>Done</button></div>
+        <div class="quest-item"><span>⏳ Watch 3 ads (<span id="quest-ads">0</span>/3)</span><button class="btn btn-secondary" onclick="rewardedInterstitial()">Watch</button></div>
+        <div class="quest-item"><span>⏳ Invite friend (<span id="quest-invite">0</span>/1)</span><button class="btn" onclick="showPage('referrals')">Invite</button></div>
       </div>
       <div class="section">
         <h2 class="section-title">Missions</h2>
-        <div class="mission-item">
-          <span>📱 Share on social media</span>
-          <button class="btn" onclick="shareMission()">Share & Earn</button>
-        </div>
+        <button class="btn" onclick="shareMission()">📱 Share & Earn</button>
       </div>
     </div>
 
-    <!-- OTC_DESK -->
+    <!-- OTC DESK -->
     <div id="otc-page" class="page">
       <div class="section">
         <h2 class="section-title">OTC Exchange</h2>
-        <label>Amount (TON)</label>
-        <input type="number" id="otc-amount" placeholder="0.00" min="1" />
-        <label>Receive Currency</label>
-        <select id="otc-currency">
-          <option>USDT</option>
-          <option>KES</option>
-          <option>USD</option>
-        </select>
-        <button class="btn mt-10" onclick="swapTon()">💱 Swap TON for Cash</button>
+        <label>Amount (TON)</label><input type="number" id="otc-amount" placeholder="0.00" />
+        <label>Currency</label><select id="otc-currency"><option>USDT</option><option>KES</option><option>USD</option></select>
+        <button class="btn" onclick="swapTon()">💱 Swap TON</button>
       </div>
       <div class="section">
-        <h2 class="section-title">Exchange Rate</h2>
+        <h2 class="section-title">Rates</h2>
         <p>1 TON = $5.82 USD</p>
         <p>1 TON = 750 KES</p>
       </div>
@@ -169,21 +239,20 @@
     <!-- REFERRALS -->
     <div id="referrals-page" class="page">
       <div class="referral-box">
-        <h2>Invite Friends & Earn</h2>
-        <p>Get 20% of your friends' earnings</p>
-        <div class="referral-link" id="ref-link">https://t.me/CryptoGameMinerBot?start=ref-user123</div>
+        <h2>Invite & Earn</h2>
+        <p>20% of friend’s earnings</p>
+        <div class="referral-link" id="ref-link">https://t.me/CryptoGameMinerBot?start=ref-xyz</div>
         <button class="btn" onclick="copyReferralLink()">📋 Copy Link</button>
       </div>
       <div class="section">
         <h2 class="section-title">Your Referrals</h2>
-        <p>Invited: <span id="ref-count">0</span> friends</p>
+        <p>Invited: <span id="ref-count">0</span></p>
         <p>Earned: <span id="ref-earnings">0.00</span> TON</p>
-        <h3>Reward Tiers</h3>
-        <ul style="padding-left:20px;margin-top:10px;">
-          <li>3 friends → 0.01 TON</li>
-          <li>10 friends → 0.03 TON</li>
-          <li>50 friends → 0.20 TON</li>
-          <li>100 friends → 0.50 TON</li>
+        <ul style="margin-top:8px;padding-left:20px;list-style-type:disc;color:var(--text-light);">
+          <li>3 → 0.01 TON</li>
+          <li>10 → 0.03 TON</li>
+          <li>50 → 0.20 TON</li>
+          <li>100 → 0.50 TON</li>
         </ul>
       </div>
     </div>
@@ -192,28 +261,29 @@
     <div id="profile-page" class="page">
       <div class="section">
         <h2 class="section-title">Profile</h2>
-        <p>Username: <span id="profile-name">User123</span></p>
-        <p>Balance: <span id="profile-balance">0.00</span> TON</p>
+        <p><strong>Username:</strong> <span id="profile-name">User123</span></p>
+        <p><strong>Balance:</strong> <span id="profile-balance">0.00</span> TON</p>
       </div>
       <div class="section">
         <h2 class="section-title">Achievements</h2>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <div class="btn-secondary btn">🏆 Daily Streak</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="btn-secondary btn">🏆 Streak</div>
           <div class="btn-secondary btn">⭐ First Win</div>
           <div class="btn-secondary btn">💎 Top Earner</div>
         </div>
       </div>
       <div class="section">
-        <h2 class="section-title">Settings & Info</h2>
-        <button class="btn-secondary btn" onclick="showHelp()">❓ Help & Support</button>
-        <button class="btn-secondary btn" onclick="showInvite()">👥 Invite Friends</button>
-        <button class="btn-secondary btn" onclick="showAbout()">📜 About CryptoGamer</button>
-        <button class="btn-secondary btn" onclick="showTerms()">📄 Terms of Service</button>
-        <button class="btn-secondary btn" onclick="showPrivacy()">🔒 Privacy Policy</button>
+        <h2 class="section-title">Info & Settings</h2>
+        <button class="btn-secondary btn" onclick="showHelp()">❓ Help</button>
+        <button class="btn-secondary btn" onclick="showAbout()">📜 About</button>
+        <button class="btn-secondary btn" onclick="showTerms()">📄 Terms</button>
+        <button class="btn-secondary btn" onclick="showPrivacy()">🔒 Privacy</button>
       </div>
     </div>
+
   </div>
 
+  <!-- NAV -->
   <div class="nav-bar">
     <button class="nav-btn active" onclick="showPage('home')">🏠<br/>Home</button>
     <button class="nav-btn" onclick="showPage('watch')">📺<br/>Watch</button>
@@ -226,110 +296,94 @@
 
   <script>
     const tg = window.Telegram.WebApp;
-    // State
     let userData = {
-      balance: 0.5,
-      clicks: 0,
-      referrals: 0,
-      refEarnings: 0,
-      username: 'CryptoGamer',
-      bonusClaimed: false
+      balance:0.5, clicks:0, referrals:0, refEarnings:0,
+      username:'CryptoGamer', bonusClaimed:false
     };
 
-    // Helpers
+    // UI update
     function updateUI() {
       document.querySelectorAll('#balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
       document.getElementById('wallet-balance').textContent = userData.balance.toFixed(2);
       document.getElementById('click-count').textContent = userData.clicks;
+      document.querySelectorAll('#username,#profile-name,#profile-username')
+              .forEach(el=>el.textContent=userData.username);
       document.getElementById('ref-count').textContent = userData.referrals;
       document.getElementById('ref-earnings').textContent = userData.refEarnings.toFixed(2);
-      document.querySelectorAll('#username,#profile-name,#profile-username').forEach(el=>el.textContent=userData.username);
       document.querySelectorAll('#profile-balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
     }
-    function showPopup(opts) { tg && tg.showPopup(opts); }
 
     // Navigation
     function showPage(id) {
       document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
       document.getElementById(id+'-page').classList.add('active');
       document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.remove('active'));
-      ['home','watch','wallet','games','quests','otc','referrals'].forEach((pg,i)=>{
-        if(pg===id) document.querySelectorAll('.nav-btn')[i].classList.add('active');
-      });
+      ['home','watch','wallet','games','quests','otc','referrals']
+        .forEach((pg,i)=>{ if(pg===id) document.querySelectorAll('.nav-btn')[i].classList.add('active'); });
     }
 
     // Home
     function claimDailyBonus() {
       if(userData.bonusClaimed) return;
-      userData.balance += 0.05;
-      userData.bonusClaimed = true;
-      updateUI();
-      showPopup({ title:'Daily Bonus Claimed!', message:'You got 0.05 TON', buttons:[{id:'ok',type:'ok'}] });
+      userData.balance+=0.05; userData.bonusClaimed=true; updateUI();
+      tg?.showPopup({title:'Bonus!',message:'+0.05 TON',buttons:[{id:'ok',type:'ok'}]});
     }
     function earnFromClick() {
-      if(userData.clicks>=100) return showPopup({ title:'Limit Reached', message:'Tomorrow more!', buttons:[{id:'ok',type:'ok'}] });
-      userData.clicks++; userData.balance += 0.01; updateUI();
+      if(userData.clicks>=100) return tg?.showPopup({title:'Limit!',message:'Try tomorrow',buttons:[{id:'ok',type:'ok'}]});
+      userData.clicks++; userData.balance+=0.01; updateUI();
       const a=document.querySelector('.click-area'); a.style.transform='scale(.95)';
-      setTimeout(()=>a.style.transform='scale(1)',100);
+      setTimeout(()=>a.style.transform='scale(1)',120);
     }
 
-    // Watch
-    function watchAd() {
-      showPopup({
-        title:'Watch Ad',
-        message:'Earn 0.1 TON',
-        buttons:[{id:'cancel',type:'cancel'},{id:'watch',type:'default',text:'Watch'}]
-      }, btn=>{
-        if(btn==='watch'){
-          setTimeout(()=>{
-            userData.balance+=0.1; updateUI();
-            showPopup({ title:'Reward!', message:'+0.1 TON', buttons:[{id:'ok',type:'ok'}] });
-          },2000);
-        }
+    // Watch: rewarded interstitial
+    function rewardedInterstitial() {
+      // using Monetag SDK
+      show_9644715().then(()=>{
+        userData.balance+=0.1; updateUI();
+        tg?.showPopup({title:'Reward!',message:'+0.1 TON',buttons:[{id:'ok',type:'ok'}]});
       });
     }
 
-    // Wallet
-    function receive(){ tg && tg.openInvoice && tg.openInvoice(/*...*/); }
-    function send(){ tg && tg.sendData && tg.sendData('send'); }
-    function stake(){ showPopup({title:'Stake',message:'Stake 5 TON min at 8.5%',buttons:[{id:'ok',type:'ok'}]}); }
+    // Wallet stubs
+    function receive(){ tg?.showInvoice && tg.showInvoice(); }
+    function send(){ tg?.sendData && tg.sendData('send'); }
+    function stake(){ tg?.showPopup({title:'Stake',message:'Stake 5 TON @8.5% APY',buttons:[{id:'ok',type:'ok'}]}); }
 
     // Games
-    function playGame(type){
-      const msgs={ trivia:'Trivia Quiz', spin:'Spin Wheel', click:'Click Challenge', other:'Other Game' };
-      showPopup({ title:'Game', message:`Launching ${msgs[type]}`, buttons:[{id:'ok',type:'ok'}] });
+    function playGame(type) {
+      const labels={trivia:'Trivia',spin:'Spin',click:'Click',other:'Other'};
+      tg?.showPopup({title:'Game',message:`Launching ${labels[type]}`,buttons:[{id:'ok',type:'ok'}]});
     }
 
     // Quests
     function shareMission(){
-      showPopup({ title:'Share', message:'Thanks for sharing!', buttons:[{id:'ok',type:'ok'}] });
+      tg?.showPopup({title:'Share',message:'Thanks for sharing!',buttons:[{id:'ok',type:'ok'}]});
     }
 
     // OTC
-    function swapTon(){
-      const amt=parseFloat(document.getElementById('otc-amount').value)||0;
+    function swapTon() {
+      const amt=+document.getElementById('otc-amount').value||0;
       const cur=document.getElementById('otc-currency').value;
-      showPopup({ title:'Swap', message:`Swapped ${amt} TON for ${cur}`, buttons:[{id:'ok',type:'ok'}] });
+      tg?.showPopup({title:'Swapped',message:`${amt} TON → ${cur}`,buttons:[{id:'ok',type:'ok'}]});
     }
 
     // Referrals
     function copyReferralLink(){
       navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
-      showPopup({ title:'Copied!', message:'Referral link copied', buttons:[{id:'ok',type:'ok'}] });
+      tg?.showPopup({title:'Copied',message:'Referral link copied',buttons:[{id:'ok',type:'ok'}]});
     }
 
-    // Profile (stubs)
-    function showHelp(){ showPopup({ title:'Help', message:'Contact support@example.com', buttons:[{id:'ok',type:'ok'}] }); }
-    function showInvite(){ showPopup({ title:'Invite', message:'Share your link!', buttons:[{id:'ok',type:'ok'}] }); }
-    function showAbout(){ showPopup({ title:'About', message:'CryptoGameMiner v1.0', buttons:[{id:'ok',type:'ok'}] }); }
-    function showTerms(){ showPopup({ title:'TOS', message:'Terms go here...', buttons:[{id:'ok',type:'ok'}] }); }
-    function showPrivacy(){ showPopup({ title:'Privacy', message:'Privacy policy...', buttons:[{id:'ok',type:'ok'}] }); }
+    // Profile Info
+    function showHelp(){ tg?.showPopup({title:'Help',message:'support@cryptogamer.com',buttons:[{id:'ok',type:'ok'}]}); }
+    function showAbout(){ tg?.showPopup({title:'About',message:'CryptoGameMiner v1.0',buttons:[{id:'ok',type:'ok'}]}); }
+    function showTerms(){ tg?.showPopup({title:'TOS',message:'Our terms...',buttons:[{id:'ok',type:'ok'}]}); }
+    function showPrivacy(){ tg?.showPopup({title:'Privacy',message:'Our policy...',buttons:[{id:'ok',type:'ok'}]}); }
 
     // Init
     document.addEventListener('DOMContentLoaded',()=>{
-      tg && tg.ready();
+      tg?.ready();
       updateUI();
-      showPopup({ title:'Welcome!', message:'Start earning TON!', buttons:[{id:'ok',type:'ok'}] });
+      tg?.showPopup({title:'Welcome!',message:'Let’s earn TON!',buttons:[{id:'ok',type:'ok'}]});
     });
   </script>
 </body>
