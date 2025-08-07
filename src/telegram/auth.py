@@ -2,7 +2,7 @@ import hashlib
 import hmac
 from urllib.parse import parse_qsl
 from flask import current_app
-from src.config import config
+from config import Config
 
 def validate_telegram_hash(init_data, bot_token):
     if not init_data:
