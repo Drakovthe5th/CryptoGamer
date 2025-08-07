@@ -8,7 +8,7 @@
   <style>
     :root {
       --bg-dark: #121212;
-      --text-light: #FFFFFF;
+      --text-light: #fff;
       --primary-yellow: #FFD700;
       --secondary-gray: #2A2A2A;
       --accent-green: #00C853;
@@ -31,19 +31,25 @@
     .nav-bar { position:fixed; bottom:0; left:0; right:0; background:var(--secondary-gray); display:flex; justify-content:space-around; padding:10px 0; border-top:1px solid #333; }
     .nav-btn { background:none; border:none; color:var(--text-light); display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; font-size:0.8rem; }
     .nav-btn.active { color:var(--primary-yellow); }
+    .referral-box { background:linear-gradient(135deg,#1a2a6c,#b21f1f,#1a2a6c); border-radius:12px; padding:15px; margin:15px 0; text-align:center; }
+    .referral-link { background:#fff; color:#000; padding:10px; border-radius:8px; margin:10px 0; word-break:break-all; }
     .mt-10 { margin-top:10px; }
     .text-center { text-align:center; }
+    .quest-item, .mission-item { display:flex; justify-content:space-between; align-items:center; margin:10px 0; }
+    input, select { width:100%; padding:10px; border-radius:8px; border:none; background:#333; color:#fff; margin-top:5px; }
   </style>
 </head>
 <body>
   <div class="container">
     <!-- App Header -->
     <header class="app-header">
-      <button class="profile-btn" onclick="showPage('profile')"><span>👤</span><span id="username">User123</span></button>
+      <button class="profile-btn" onclick="showPage('profile')">
+        <span>👤</span><span id="profile-username">User123</span>
+      </button>
       <div class="balance-display"><span id="balance">0.00</span> TON</div>
     </header>
 
-    <!-- Home Page -->
+    <!-- HOME -->
     <div id="home-page" class="page active">
       <div class="section">
         <h2 class="section-title">Daily Bonus</h2>
@@ -59,71 +65,271 @@
       </div>
       <div class="section">
         <h2 class="section-title">Featured Games</h2>
-        <button class="btn" onclick="showPage('games')">🎮 Play Trivia</button>
+        <button class="btn" onclick="showPage('games')">🎮 Trivia Quiz</button>
         <button class="btn" onclick="showPage('games')">🎡 Spin Wheel</button>
       </div>
     </div>
 
-    <!-- Other pages empty for now -->
-    <div id="watch-page" class="page"></div>
-    <div id="wallet-page" class="page"></div>
-    <div id="games-page" class="page"></div>
-    <div id="quests-page" class="page"></div>
-    <div id="otc-page" class="page"></div>
-    <div id="referrals-page" class="page"></div>
-    <div id="profile-page" class="page"></div>
-
-    <!-- Navigation Bar -->
-    <div class="nav-bar">
-      <button class="nav-btn active" onclick="showPage('home')">🏠<br/>Home</button>
-      <button class="nav-btn" onclick="showPage('watch')">📺<br/>Watch</button>
-      <button class="nav-btn" onclick="showPage('wallet')">💰<br/>Wallet</button>
-      <button class="nav-btn" onclick="showPage('games')">🎮<br/>Games</button>
-      <button class="nav-btn" onclick="showPage('quests')">📝<br/>Quests</button>
-      <button class="nav-btn" onclick="showPage('otc')">💱<br/>OTC</button>
-      <button class="nav-btn" onclick="showPage('referrals')">👥<br/>Referrals</button>
+    <!-- WATCH -->
+    <div id="watch-page" class="page">
+      <div class="section">
+        <h2 class="section-title">Watch & Earn</h2>
+        <p>Watch ads to earn TON coins</p>
+        <button class="btn mt-10" onclick="watchAd()">📺 Watch Ad (0.1 TON)</button>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Video Offers</h2>
+        <div style="background:#333;height:150px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <p>Video Ad Placeholder</p>
+        </div>
+      </div>
     </div>
+
+    <!-- WALLET -->
+    <div id="wallet-page" class="page">
+      <div class="section">
+        <h2 class="section-title">Wallet Balance</h2>
+        <p class="text-center" style="font-size:2rem;"><span id="wallet-balance">0.00</span> TON</p>
+        <div style="display:flex;justify-content:space-between;gap:5px;">
+          <button class="btn-secondary btn" onclick="receive()">Receive</button>
+          <button class="btn-secondary btn" onclick="send()">Send</button>
+          <button class="btn-secondary btn" onclick="showPage('otc')">Sell</button>
+        </div>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Staking</h2>
+        <p>APY: <span style="color:var(--accent-green)">8.5%</span></p>
+        <p>Min: 5 TON</p>
+        <button class="btn mt-10" onclick="stake()">💰 Stake TON</button>
+      </div>
+    </div>
+
+    <!-- GAMES -->
+    <div id="games-page" class="page">
+      <div class="section">
+        <h2 class="section-title">Games</h2>
+        <button class="btn" onclick="playGame('trivia')">❓ Trivia Quiz</button>
+        <button class="btn" onclick="playGame('spin')">🎡 Spin Wheel</button>
+        <button class="btn" onclick="playGame('click')">🖱️ Click Challenge</button>
+        <button class="btn" onclick="playGame('other')">🎲 Other Game</button>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Active Games</h2>
+        <p>No active games. Start playing!</p>
+      </div>
+    </div>
+
+    <!-- QUESTS -->
+    <div id="quests-page" class="page">
+      <div class="section">
+        <h2 class="section-title">Daily Quests</h2>
+        <div class="quest-item">
+          <span>✅ Claim daily bonus</span>
+          <button class="btn-secondary btn" disabled>Done</button>
+        </div>
+        <div class="quest-item">
+          <span>⏳ Watch 3 ads (<span id="quest-ads">1</span>/3)</span>
+          <button class="btn btn-secondary" onclick="watchAd()">Watch</button>
+        </div>
+        <div class="quest-item">
+          <span>⏳ Invite 1 friend (<span id="quest-invite">0</span>/1)</span>
+          <button class="btn" onclick="showPage('referrals')">Invite</button>
+        </div>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Missions</h2>
+        <div class="mission-item">
+          <span>📱 Share on social media</span>
+          <button class="btn" onclick="shareMission()">Share & Earn</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OTC_DESK -->
+    <div id="otc-page" class="page">
+      <div class="section">
+        <h2 class="section-title">OTC Exchange</h2>
+        <label>Amount (TON)</label>
+        <input type="number" id="otc-amount" placeholder="0.00" min="1" />
+        <label>Receive Currency</label>
+        <select id="otc-currency">
+          <option>USDT</option>
+          <option>KES</option>
+          <option>USD</option>
+        </select>
+        <button class="btn mt-10" onclick="swapTon()">💱 Swap TON for Cash</button>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Exchange Rate</h2>
+        <p>1 TON = $5.82 USD</p>
+        <p>1 TON = 750 KES</p>
+      </div>
+    </div>
+
+    <!-- REFERRALS -->
+    <div id="referrals-page" class="page">
+      <div class="referral-box">
+        <h2>Invite Friends & Earn</h2>
+        <p>Get 20% of your friends' earnings</p>
+        <div class="referral-link" id="ref-link">https://t.me/CryptoGameMinerBot?start=ref-user123</div>
+        <button class="btn" onclick="copyReferralLink()">📋 Copy Link</button>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Your Referrals</h2>
+        <p>Invited: <span id="ref-count">0</span> friends</p>
+        <p>Earned: <span id="ref-earnings">0.00</span> TON</p>
+        <h3>Reward Tiers</h3>
+        <ul style="padding-left:20px;margin-top:10px;">
+          <li>3 friends → 0.01 TON</li>
+          <li>10 friends → 0.03 TON</li>
+          <li>50 friends → 0.20 TON</li>
+          <li>100 friends → 0.50 TON</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PROFILE -->
+    <div id="profile-page" class="page">
+      <div class="section">
+        <h2 class="section-title">Profile</h2>
+        <p>Username: <span id="profile-name">User123</span></p>
+        <p>Balance: <span id="profile-balance">0.00</span> TON</p>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Achievements</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="btn-secondary btn">🏆 Daily Streak</div>
+          <div class="btn-secondary btn">⭐ First Win</div>
+          <div class="btn-secondary btn">💎 Top Earner</div>
+        </div>
+      </div>
+      <div class="section">
+        <h2 class="section-title">Settings & Info</h2>
+        <button class="btn-secondary btn" onclick="showHelp()">❓ Help & Support</button>
+        <button class="btn-secondary btn" onclick="showInvite()">👥 Invite Friends</button>
+        <button class="btn-secondary btn" onclick="showAbout()">📜 About CryptoGamer</button>
+        <button class="btn-secondary btn" onclick="showTerms()">📄 Terms of Service</button>
+        <button class="btn-secondary btn" onclick="showPrivacy()">🔒 Privacy Policy</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <button class="nav-btn active" onclick="showPage('home')">🏠<br/>Home</button>
+    <button class="nav-btn" onclick="showPage('watch')">📺<br/>Watch</button>
+    <button class="nav-btn" onclick="showPage('wallet')">💰<br/>Wallet</button>
+    <button class="nav-btn" onclick="showPage('games')">🎮<br/>Games</button>
+    <button class="nav-btn" onclick="showPage('quests')">📝<br/>Quests</button>
+    <button class="nav-btn" onclick="showPage('otc')">💱<br/>OTC</button>
+    <button class="nav-btn" onclick="showPage('referrals')">👥<br/>Referrals</button>
   </div>
 
   <script>
     const tg = window.Telegram.WebApp;
-    let userData = { balance:0.5, clicks:0, referrals:0, refEarnings:0, username:"CryptoGamer" };
+    // State
+    let userData = {
+      balance: 0.5,
+      clicks: 0,
+      referrals: 0,
+      refEarnings: 0,
+      username: 'CryptoGamer',
+      bonusClaimed: false
+    };
 
-    // Update UI
+    // Helpers
     function updateUI() {
       document.querySelectorAll('#balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
-      document.getElementById('click-count').textContent=userData.clicks;
-      document.querySelectorAll('#username').forEach(el=>el.textContent=userData.username);
+      document.getElementById('wallet-balance').textContent = userData.balance.toFixed(2);
+      document.getElementById('click-count').textContent = userData.clicks;
+      document.getElementById('ref-count').textContent = userData.referrals;
+      document.getElementById('ref-earnings').textContent = userData.refEarnings.toFixed(2);
+      document.querySelectorAll('#username,#profile-name,#profile-username').forEach(el=>el.textContent=userData.username);
+      document.querySelectorAll('#profile-balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
     }
+    function showPopup(opts) { tg && tg.showPopup(opts); }
 
+    // Navigation
     function showPage(id) {
       document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
       document.getElementById(id+'-page').classList.add('active');
       document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.remove('active'));
-      const idx=['home','watch','wallet','games','quests','otc','referrals'].indexOf(id);
-      if(idx>=0) document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+      ['home','watch','wallet','games','quests','otc','referrals'].forEach((pg,i)=>{
+        if(pg===id) document.querySelectorAll('.nav-btn')[i].classList.add('active');
+      });
     }
 
+    // Home
     function claimDailyBonus() {
-      userData.balance+=0.05; updateUI();
-      tg && tg.showPopup({title:'Daily Bonus Claimed!',message:'You received 0.05 TON',buttons:[{id:'ok',type:'ok'}]});
+      if(userData.bonusClaimed) return;
+      userData.balance += 0.05;
+      userData.bonusClaimed = true;
+      updateUI();
+      showPopup({ title:'Daily Bonus Claimed!', message:'You got 0.05 TON', buttons:[{id:'ok',type:'ok'}] });
     }
-
     function earnFromClick() {
-      if(userData.clicks<100){
-        userData.clicks++; userData.balance+=0.01; updateUI();
-        const area=document.querySelector('.click-area');
-        area.style.transform='scale(0.95)';
-        setTimeout(()=>area.style.transform='scale(1)',100);
-      } else {
-        tg && tg.showPopup({title:'Daily Limit Reached',message:'Come back tomorrow for more clicks!',buttons:[{id:'ok',type:'ok'}]});
-      }
+      if(userData.clicks>=100) return showPopup({ title:'Limit Reached', message:'Tomorrow more!', buttons:[{id:'ok',type:'ok'}] });
+      userData.clicks++; userData.balance += 0.01; updateUI();
+      const a=document.querySelector('.click-area'); a.style.transform='scale(.95)';
+      setTimeout(()=>a.style.transform='scale(1)',100);
     }
 
+    // Watch
+    function watchAd() {
+      showPopup({
+        title:'Watch Ad',
+        message:'Earn 0.1 TON',
+        buttons:[{id:'cancel',type:'cancel'},{id:'watch',type:'default',text:'Watch'}]
+      }, btn=>{
+        if(btn==='watch'){
+          setTimeout(()=>{
+            userData.balance+=0.1; updateUI();
+            showPopup({ title:'Reward!', message:'+0.1 TON', buttons:[{id:'ok',type:'ok'}] });
+          },2000);
+        }
+      });
+    }
+
+    // Wallet
+    function receive(){ tg && tg.openInvoice && tg.openInvoice(/*...*/); }
+    function send(){ tg && tg.sendData && tg.sendData('send'); }
+    function stake(){ showPopup({title:'Stake',message:'Stake 5 TON min at 8.5%',buttons:[{id:'ok',type:'ok'}]}); }
+
+    // Games
+    function playGame(type){
+      const msgs={ trivia:'Trivia Quiz', spin:'Spin Wheel', click:'Click Challenge', other:'Other Game' };
+      showPopup({ title:'Game', message:`Launching ${msgs[type]}`, buttons:[{id:'ok',type:'ok'}] });
+    }
+
+    // Quests
+    function shareMission(){
+      showPopup({ title:'Share', message:'Thanks for sharing!', buttons:[{id:'ok',type:'ok'}] });
+    }
+
+    // OTC
+    function swapTon(){
+      const amt=parseFloat(document.getElementById('otc-amount').value)||0;
+      const cur=document.getElementById('otc-currency').value;
+      showPopup({ title:'Swap', message:`Swapped ${amt} TON for ${cur}`, buttons:[{id:'ok',type:'ok'}] });
+    }
+
+    // Referrals
+    function copyReferralLink(){
+      navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
+      showPopup({ title:'Copied!', message:'Referral link copied', buttons:[{id:'ok',type:'ok'}] });
+    }
+
+    // Profile (stubs)
+    function showHelp(){ showPopup({ title:'Help', message:'Contact support@example.com', buttons:[{id:'ok',type:'ok'}] }); }
+    function showInvite(){ showPopup({ title:'Invite', message:'Share your link!', buttons:[{id:'ok',type:'ok'}] }); }
+    function showAbout(){ showPopup({ title:'About', message:'CryptoGameMiner v1.0', buttons:[{id:'ok',type:'ok'}] }); }
+    function showTerms(){ showPopup({ title:'TOS', message:'Terms go here...', buttons:[{id:'ok',type:'ok'}] }); }
+    function showPrivacy(){ showPopup({ title:'Privacy', message:'Privacy policy...', buttons:[{id:'ok',type:'ok'}] }); }
+
+    // Init
     document.addEventListener('DOMContentLoaded',()=>{
       tg && tg.ready();
       updateUI();
-      tg && tg.showPopup({title:'Welcome to CryptoGameMiner!',message:'Start earning TON by playing games and completing quests.',buttons:[{id:'ok',type:'ok'}]});
+      showPopup({ title:'Welcome!', message:'Start earning TON!', buttons:[{id:'ok',type:'ok'}] });
     });
   </script>
 </body>
