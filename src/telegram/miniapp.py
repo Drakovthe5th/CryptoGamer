@@ -4,8 +4,8 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
 from src.telegram.auth import validate_telegram_hash
-from src.utils.security import security, validation
-from src.config import config
+from src.utils.validators import security, validation
+from config import Config
 import logging
 
 miniapp_bp = Blueprint('miniapp', __name__)
