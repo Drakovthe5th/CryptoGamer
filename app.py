@@ -50,7 +50,7 @@ def create_app():
     # MiniApp Endpoint
     @app.route('/miniapp')
     def serve_miniapp():
-        return send_from_directory('static', 'miniapp.html')
+        return send_from_directory('templates', 'miniapp.html')
     
     # API Endpoints
     @app.route('/api/user/data', methods=['GET'])
