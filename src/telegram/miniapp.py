@@ -26,7 +26,7 @@ def miniapp_security():
     if not validate_telegram_hash(init_data, config.TELEGRAM_BOT_TOKEN):
         return jsonify({'error': 'Invalid Telegram authentication'}), 401
         
-    # Security token validation
+    # Security token validators
     security_token = request.headers.get('X-Security-Token')
     if not security_token:
         return jsonify({'error': 'Security token missing'}), 401
@@ -70,7 +70,7 @@ def get_user_data_api():
     })
 
 @miniapp_bp.route('/quests/claim_bonus', methods=['POST'])
-@validation.validate_json_input({'user_id': {'type': 'int', 'required': True}})
+@validators.validate_json_input({'user_id': {'type': 'int', 'required': True}})
 def claim_daily():
     data = request.get_json()
     user_id = data['user_id']
@@ -93,7 +93,7 @@ def claim_daily():
         return jsonify({'error': 'Internal server error'}), 500
 
 @miniapp_bp.route('/quests/record_click', methods=['POST'])
-@validation.validate_json_input({'user_id': {'type': 'int', 'required': True}})
+@validators.validate_json_input({'user_id': {'type': 'int', 'required': True}})
 def record_click():
     data = request.get_json()
     user_id = data['user_id']
@@ -116,7 +116,7 @@ def record_click():
         return jsonify({'error': 'Internal server error'}), 500
 
 @miniapp_bp.route('/ads/reward', methods=['POST'])
-@validation.validate_json_input({
+@validators.validate_json_input({
     'user_id': {'type': 'int', 'required': True},
     'ad_id': {'type': 'str', 'required': True}
 })
