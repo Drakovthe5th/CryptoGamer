@@ -4,21 +4,43 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <title>CryptoGameMiner</title>
-  <link rel="stylesheet" href="/static/css/miniapp.css" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script defer src="/static/js/miniapp.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121212;
+      --text-light: #FFFFFF;
+      --primary-yellow: #FFD700;
+      --secondary-gray: #2A2A2A;
+      --accent-green: #00C853;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Roboto',sans-serif; }
+    body { background:var(--bg-dark); color:var(--text-light); min-height:100vh; padding-bottom:60px; }
+    .container { max-width:480px; margin:0 auto; padding:10px; }
+    .app-header { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid var(--secondary-gray); }
+    .profile-btn { background:none; border:none; color:var(--text-light); font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:8px; }
+    .balance-display { background:var(--secondary-gray); padding:8px 15px; border-radius:20px; font-weight:bold; color:var(--primary-yellow); }
+    .page { display:none; padding:15px; }
+    .page.active { display:block; }
+    .section { background:var(--secondary-gray); border-radius:12px; padding:15px; margin-bottom:15px; }
+    .section-title { font-size:1.2rem; margin-bottom:15px; color:var(--primary-yellow); }
+    .btn { background:var(--primary-yellow); color:var(--bg-dark); border:none; border-radius:8px; padding:12px 20px; font-weight:bold; cursor:pointer; width:100%; margin:5px 0; transition:opacity .3s; }
+    .btn:hover { opacity:.9; }
+    .btn-secondary { background:var(--secondary-gray); color:var(--text-light); border:1px solid var(--primary-yellow); }
+    .click-area { background:#1E1E1E; height:150px; border-radius:12px; display:flex; justify-content:center; align-items:center; margin:20px 0; cursor:pointer; border:2px solid var(--primary-yellow); }
+    .click-text { font-size:1.5rem; font-weight:bold; color:var(--primary-yellow); }
+    .nav-bar { position:fixed; bottom:0; left:0; right:0; background:var(--secondary-gray); display:flex; justify-content:space-around; padding:10px 0; border-top:1px solid #333; }
+    .nav-btn { background:none; border:none; color:var(--text-light); display:flex; flex-direction:column; align-items:center; gap:5px; cursor:pointer; font-size:0.8rem; }
+    .nav-btn.active { color:var(--primary-yellow); }
+    .mt-10 { margin-top:10px; }
+    .text-center { text-align:center; }
+  </style>
 </head>
 <body>
   <div class="container">
     <!-- App Header -->
     <header class="app-header">
-      <button class="profile-btn" onclick="showPage('profile')">
-        <span>👤</span>
-        <span id="username">User123</span>
-      </button>
-      <div class="balance-display">
-        <span id="balance">0.00</span> TON
-      </div>
+      <button class="profile-btn" onclick="showPage('profile')"><span>👤</span><span id="username">User123</span></button>
+      <div class="balance-display"><span id="balance">0.00</span> TON</div>
     </header>
 
     <!-- Home Page -->
@@ -26,33 +48,23 @@
       <div class="section">
         <h2 class="section-title">Daily Bonus</h2>
         <p>Claim your daily reward!</p>
-        <button class="btn mt-10" onclick="claimDailyBonus()">
-          🎁 Claim 0.05 TON
-        </button>
+        <button class="btn mt-10" onclick="claimDailyBonus()">🎁 Claim 0.05 TON</button>
       </div>
-
       <div class="section">
         <h2 class="section-title">Click & Earn</h2>
         <div class="click-area" onclick="earnFromClick()">
           <div class="click-text">CLICK TO EARN</div>
         </div>
-        <p class="text-center">
-          Clicks today: <span id="click-count">0</span>/100
-        </p>
+        <p class="text-center">Clicks today: <span id="click-count">0</span>/100</p>
       </div>
-
       <div class="section">
         <h2 class="section-title">Featured Games</h2>
-        <button class="btn" onclick="showPage('games')">
-          🎮 Play Trivia
-        </button>
-        <button class="btn" onclick="showPage('games')">
-          🎡 Spin Wheel
-        </button>
+        <button class="btn" onclick="showPage('games')">🎮 Play Trivia</button>
+        <button class="btn" onclick="showPage('games')">🎡 Spin Wheel</button>
       </div>
     </div>
 
-    <!-- Placeholder for other pages -->
+    <!-- Other pages empty for now -->
     <div id="watch-page" class="page"></div>
     <div id="wallet-page" class="page"></div>
     <div id="games-page" class="page"></div>
@@ -63,28 +75,56 @@
 
     <!-- Navigation Bar -->
     <div class="nav-bar">
-      <button class="nav-btn active" onclick="showPage('home')">
-        <span>🏠</span><span>Home</span>
-      </button>
-      <button class="nav-btn" onclick="showPage('watch')">
-        <span>📺</span><span>Watch</span>
-      </button>
-      <button class="nav-btn" onclick="showPage('wallet')">
-        <span>💰</span><span>Wallet</span>
-      </button>
-      <button class="nav-btn" onclick="showPage('games')">
-        <span>🎮</span><span>Games</span>
-      </button>
-      <button class="nav-btn" onclick="showPage('quests')">
-        <span>📝</span><span>Quests</span>
-      </button>
-      <button class="nav-btn" onclick="showPage('otc')">
-        <span>💱</span><span>OTC Desk</span>
-      </button>
-      <button class="nav-btn" onclick="showPage('referrals')">
-        <span>👥</span><span>Referrals</span>
-      </button>
+      <button class="nav-btn active" onclick="showPage('home')">🏠<br/>Home</button>
+      <button class="nav-btn" onclick="showPage('watch')">📺<br/>Watch</button>
+      <button class="nav-btn" onclick="showPage('wallet')">💰<br/>Wallet</button>
+      <button class="nav-btn" onclick="showPage('games')">🎮<br/>Games</button>
+      <button class="nav-btn" onclick="showPage('quests')">📝<br/>Quests</button>
+      <button class="nav-btn" onclick="showPage('otc')">💱<br/>OTC</button>
+      <button class="nav-btn" onclick="showPage('referrals')">👥<br/>Referrals</button>
     </div>
   </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    let userData = { balance:0.5, clicks:0, referrals:0, refEarnings:0, username:"CryptoGamer" };
+
+    // Update UI
+    function updateUI() {
+      document.querySelectorAll('#balance').forEach(el=>el.textContent=userData.balance.toFixed(2));
+      document.getElementById('click-count').textContent=userData.clicks;
+      document.querySelectorAll('#username').forEach(el=>el.textContent=userData.username);
+    }
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      document.getElementById(id+'-page').classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(btn=>btn.classList.remove('active'));
+      const idx=['home','watch','wallet','games','quests','otc','referrals'].indexOf(id);
+      if(idx>=0) document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+    }
+
+    function claimDailyBonus() {
+      userData.balance+=0.05; updateUI();
+      tg && tg.showPopup({title:'Daily Bonus Claimed!',message:'You received 0.05 TON',buttons:[{id:'ok',type:'ok'}]});
+    }
+
+    function earnFromClick() {
+      if(userData.clicks<100){
+        userData.clicks++; userData.balance+=0.01; updateUI();
+        const area=document.querySelector('.click-area');
+        area.style.transform='scale(0.95)';
+        setTimeout(()=>area.style.transform='scale(1)',100);
+      } else {
+        tg && tg.showPopup({title:'Daily Limit Reached',message:'Come back tomorrow for more clicks!',buttons:[{id:'ok',type:'ok'}]});
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded',()=>{
+      tg && tg.ready();
+      updateUI();
+      tg && tg.showPopup({title:'Welcome to CryptoGameMiner!',message:'Start earning TON by playing games and completing quests.',buttons:[{id:'ok',type:'ok'}]});
+    });
+  </script>
 </body>
 </html>
