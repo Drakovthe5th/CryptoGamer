@@ -1,18 +1,35 @@
+# Core blockchain & TON
 pytoniq==0.1.41
-pytoniq_core
-flask
-flask-socketio
-celery
-firebase-admin
-python-dotenv
-requests
-psutil==5.9.8
-pyjwt
-python-telegram-bot
-paypalrestsdk
-google-cloud-firestore
-python-dateutil
-cryptography
+pytoniq_core==0.1.1  # match pytoniq compatibility
+
+# Web backend
+flask==3.0.3
+flask-socketio==5.3.6
 gevent==24.2.1
 gevent-websocket==0.10.1
 greenlet==3.0.3
+
+# Async & scheduling
+celery==5.4.0
+
+# Firebase & Google Cloud
+firebase-admin==6.5.0
+google-cloud-firestore==2.16.1
+
+# Utilities & security
+python-dotenv==1.0.1
+requests==2.32.3
+psutil==5.9.8
+pyjwt==2.9.0
+python-dateutil==2.9.0.post0
+cryptography==42.0.8
+
+# Telegram & Payments
+python-telegram-bot==21.4
+paypalrestsdk==1.13.1
+
+# Known fragile indirect dependencies pinned
+aiohttp==3.10.5
+attrs==24.2.0
+yarl==1.9.4
+multidict==6.0.5
