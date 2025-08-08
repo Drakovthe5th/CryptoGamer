@@ -7,8 +7,7 @@ import asyncio
 from datetime import datetime, timedelta
 from pytoniq import LiteClient, WalletV4R2
 from pytoniq_core import Cell, begin_cell, Address
-from tonsdk.wallet import WalletVersionEnum
-from tonsdk.mnemonic import mnemonic_to_private_key
+from pytoniq_core.boc.mnemonic import mnemonic_to_private_key
 from config import config
 
 # Configure logger
@@ -27,7 +26,6 @@ class TONWallet:
         self.connection_retries = 0
         self.MAX_RETRIES = 3
         self.is_testnet = config.TON_NETWORK.lower() == "testnet"
-        self.wallet_version = WalletVersionEnum.v4r2
 
     async def initialize(self):
         """Initialize TON wallet connection using either private key or mnemonic"""
@@ -66,14 +64,14 @@ class TONWallet:
             
             # Initialize wallet from either mnemonic or private key
             if config.TON_MNEMONIC:
-                # Initialize from mnemonic
+                # Initialize from mnemonic using pytoniq's implementation
                 logger.info("Initializing wallet from mnemonic phrase")
                 mnemonic = config.TON_MNEMONIC.strip().split()
                 
                 if len(mnemonic) not in [12, 24]:
                     raise ValueError("Invalid mnemonic length. Must be 12 or 24 words.")
                 
-                _, private_key = mnemonic_to_private_key(mnemonic)
+                private_key = mnemonic_to_private_key(mnemonic)
                 
                 logger.info(f"Using wallet address: {config.TON_HOT_WALLET}")
                 self.wallet = WalletV4R2(
@@ -113,7 +111,7 @@ class TONWallet:
             self.initialized = True
             return True
         except Exception as e:
-            logger.exception("TON wallet initialization failed")
+            logger.exception(f"TON wallet initialization failed: {str(e)}")
             self.initialized = False
             return False
 
@@ -150,7 +148,7 @@ class TONWallet:
             
             return ton_balance
         except Exception as e:
-            logger.error(f"Failed to get TON balance: {e}")
+            logger.error(f"Failed to get TON balance: {str(e)}")
             return 0.0
 
     async def send_transaction(self, destination: str, amount: float, memo: str = "") -> dict:
@@ -194,7 +192,7 @@ class TONWallet:
                 'destination': destination
             }
         except Exception as e:
-            logger.error(f"TON transaction failed: {e}")
+            logger.error(f"TON transaction failed: {str(e)}")
             return {
                 'status': 'error',
                 'error': str(e)
@@ -219,6 +217,13 @@ class TONWallet:
         try:
             logger.info(f"Processing withdrawal for user {user_id}: {amount} TON to {address}")
             
+            # Validate address before proceeding
+            if not is_valid_ton_address(address):
+                return {
+                    'status': 'error',
+                    'error': 'Invalid TON address'
+                }
+                
             # Check daily user limit
             user_daily = self.get_user_daily_withdrawal(user_id)
             if user_daily + amount > config.USER_DAILY_WITHDRAWAL_LIMIT:
@@ -239,6 +244,16 @@ class TONWallet:
                     'error': error_msg
                 }
                 
+            # Check wallet balance
+            balance = await self.get_balance()
+            if balance < amount:
+                error_msg = f"Insufficient funds. Available: {balance} TON, Required: {amount} TON"
+                logger.warning(error_msg)
+                return {
+                    'status': 'error',
+                    'error': error_msg
+                }
+                
             # Process transaction
             memo = f"Withdrawal for user {user_id}"
             result = await self.send_transaction(address, amount, memo)
@@ -252,7 +267,7 @@ class TONWallet:
                 
             return result
         except Exception as e:
-            logger.error(f"Withdrawal processing failed: {e}")
+            logger.error(f"Withdrawal processing failed: {str(e)}")
             return {
                 'status': 'error',
                 'error': str(e)
@@ -260,19 +275,19 @@ class TONWallet:
 
     def get_user_daily_withdrawal(self, user_id: int) -> float:
         """Get user's daily withdrawal amount (from database)"""
-        # In production, this would query Firestore
+        # Stub implementation - in production, this would query Firestore
         logger.debug(f"Getting daily withdrawal for user {user_id}")
-        return 0.0  # Stub implementation
+        return 0.0
 
     def get_system_daily_withdrawal(self) -> float:
         """Get system's daily withdrawal total (from database)"""
-        # In production, this would query Firestore
+        # Stub implementation - in production, this would query Firestore
         logger.debug("Getting system daily withdrawal total")
-        return 0.0  # Stub implementation
+        return 0.0
 
     def update_withdrawal_limits(self, user_id: int, amount: float):
         """Update withdrawal limits in database"""
-        # Stub implementation - would update Firestore
+        # Stub implementation - in production, this would update Firestore
         logger.debug(f"Updating withdrawal limits for user {user_id} with amount {amount}")
         pass
 
@@ -282,9 +297,13 @@ class TONWallet:
         if config.ALERT_WEBHOOK:
             try:
                 logger.info(f"Sending alert to webhook: {message}")
-                requests.post(config.ALERT_WEBHOOK, json={'text': message}, timeout=10)
+                requests.post(
+                    config.ALERT_WEBHOOK, 
+                    json={'text': message}, 
+                    timeout=10
+                )
             except Exception as e:
-                logger.error(f"Failed to send alert: {e}")
+                logger.error(f"Failed to send alert: {str(e)}")
 
     async def close(self):
         """Close TON connection"""
@@ -294,7 +313,7 @@ class TONWallet:
                 await self.client.close()
                 logger.info("TON client connection closed")
             except Exception as e:
-                logger.error(f"Error closing TON client: {e}")
+                logger.error(f"Error closing TON client: {str(e)}")
 
 # Global TON wallet instance
 ton_wallet = TONWallet()
@@ -327,7 +346,7 @@ async def create_staking_contract(user_id: str, amount: float) -> str:
         # In a real implementation, this would deploy a smart contract
         return f"EQ_STAKING_{user_id}_{int(time.time())}"
     except Exception as e:
-        logger.error(f"Staking contract creation failed: {e}")
+        logger.error(f"Staking contract creation failed: {str(e)}")
         return ""
 
 async def execute_swap(user_id: str, from_token: str, to_token: str, amount: float) -> str:
@@ -337,7 +356,7 @@ async def execute_swap(user_id: str, from_token: str, to_token: str, amount: flo
         # In a real implementation, this would interact with a DEX
         return f"tx_{user_id}_{int(time.time())}"
     except Exception as e:
-        logger.error(f"Token swap failed: {e}")
+        logger.error(f"Token swap failed: {str(e)}")
         return ""
 
 async def process_ton_withdrawal(user_id: int, amount: float, address: str):
