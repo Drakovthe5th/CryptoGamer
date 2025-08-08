@@ -1,6 +1,8 @@
 # TON SDK
 pytoniq==0.1.41
 pytoniq-core>=0.1.42
+tonsdk==1.0.15
+mnemonic==0.20
 
 # Flask stack
 flask==3.0.3
