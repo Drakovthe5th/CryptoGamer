@@ -24,7 +24,7 @@ class Config:
         
         # TON blockchain configuration
         self.TON_ENABLED = os.getenv('TON_ENABLED', 'true').lower() == 'true'
-        self.TON_WALLET_MNEMONIC = os.getenv('TON_WALLET_MNEMONIC')
+        self.TON_MNEMONIC = os.getenv('TON_MNEMONIC')
         self.TON_HOT_WALLET = os.getenv('TON_HOT_WALLET')
         self.TON_ADMIN_ADDRESS = os.getenv('TON_ADMIN_ADDRESS')
         self.TON_NETWORK = os.getenv('TON_NETWORK', 'mainnet')
