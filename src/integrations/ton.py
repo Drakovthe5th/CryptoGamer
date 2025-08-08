@@ -208,14 +208,55 @@ class TONWallet:
 
             # If we extracted a private key, create pytoniq wallet for signing
             if priv_key_bytes:
+                # Some pytoniq/WalletV4R2 constructors require an `address` positional arg (Contract base class).
+                # Build a user-friendly derived address from the tonsdk wallet_obj (if available) and pass it in.
+                addr_candidate = None
                 try:
-                    self.wallet = WalletV4R2(provider=self.client, private_key=priv_key_bytes)
-                    self.derived_address = self.wallet.address.to_str(test_only=self.is_testnet)
-                    logger.info(f"TON Hot Wallet ({self.network}): {self._mask_address(self.derived_address)}")
-                    self.initialized = True
-                    return True
-                except Exception as e:
-                    logger.exception("Failed to create WalletV4R2 from derived private key")
+                    if wallet_obj is not None and hasattr(wallet_obj, "address"):
+                        try:
+                            addr_candidate = wallet_obj.address.to_string(True, True, self.is_testnet)
+                        except Exception:
+                            try:
+                                addr_candidate = wallet_obj.address.to_str(test_only=self.is_testnet)
+                            except Exception:
+                                addr_candidate = None
+                except Exception:
+                    addr_candidate = None
+
+                # pytoniq often expects a 64-byte private key (seed||pub). If we only got 32-byte seed, try concatenating pubkey too.
+                candidate_keys = [priv_key_bytes]
+                if isinstance(priv_key_bytes, (bytes, bytearray)) and isinstance(pub_key_bytes, (bytes, bytearray)) and len(priv_key_bytes) == 32:
+                    candidate_keys.append(priv_key_bytes + pub_key_bytes)
+
+                created = False
+                last_exc = None
+                for key in candidate_keys:
+                    try:
+                        if addr_candidate:
+                            self.wallet = WalletV4R2(provider=self.client, private_key=key, address=Address(addr_candidate))
+                        else:
+                            # try without address (some pytoniq builds accept keyword 'address' later)
+                            self.wallet = WalletV4R2(provider=self.client, private_key=key)
+
+                        # if we reach here, wallet created successfully
+                        try:
+                            # derive user-friendly address from the created wallet
+                            self.derived_address = self.wallet.address.to_str(test_only=self.is_testnet)
+                        except Exception:
+                            # fall back to addr_candidate if wallet doesn't expose to_str
+                            self.derived_address = addr_candidate
+
+                        logger.info(f"TON Hot Wallet ({self.network}): {self._mask_address(self.derived_address)}")
+                        self.initialized = True
+                        created = True
+                        break
+                    except Exception as e:
+                        last_exc = e
+                        # try next candidate key
+                        continue
+
+                if not created:
+                    logger.exception("Failed to create WalletV4R2 from derived private key; tried possible key formats. Last error: %s", last_exc)
 
             # If we reach here, we have a wallet_obj but no usable private key for pytoniq
             # store tonsdk wallet for potential use (some tonsdk wallet objects support signing)
