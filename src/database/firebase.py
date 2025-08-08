@@ -171,5 +171,38 @@ def save_staking(user_id: int, contract_address: str, amount: float):
         logger.error(f"Error saving staking: {str(e)}")
         return False
 
+def record_activity(user_id, activity_type, amount):
+    """Log user activity for reward distribution"""
+    doc_ref = db.collection('user_activities').document()
+    doc_ref.set({
+        'user_id': user_id,
+        'type': activity_type,
+        'amount': amount,
+        'timestamp': SERVER_TIMESTAMP
+    })
+
+def record_staking(user_id, contract_address, amount):
+    """Record staking contract creation"""
+    doc_ref = db.collection('staking').document()
+    doc_ref.set({
+        'user_id': user_id,
+        'contract': contract_address,
+        'amount': amount,
+        'created': SERVER_TIMESTAMP,
+        'status': 'active'
+    })
+
+def get_reward_pool():
+    """Get current reward pool balance"""
+    doc = db.collection('system').document('reward_pool').get()
+    return doc.to_dict().get('balance', 1000) if doc.exists else 1000
+
+def update_reward_pool(balance):
+    """Update reward pool balance"""
+    db.collection('system').document('reward_pool').set({
+        'balance': balance,
+        'updated': SERVER_TIMESTAMP
+    })
+
 # Timestamp constant
 SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP

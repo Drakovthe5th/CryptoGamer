@@ -3,6 +3,7 @@ import hmac
 import re
 import os
 import time
+import jwt
 from urllib.parse import parse_qsl
 from flask import request
 from config import config
@@ -27,6 +28,23 @@ def get_user_id():
                 logger.warning("Failed to parse user data")
     
     return user_data.get('id') if user_data else None
+
+def generate_user_token(user_data):
+    payload = {
+        'id': user_data['id'],
+        'username': user_data['username'],
+        'balance': user_data['balance'],
+        'exp': datetime.utcnow() + timedelta(minutes=15)
+    }
+    return jwt.encode(payload, Config.SECRET_KEY, algorithm='HS256')
+
+def verify_user_token(token):
+    try:
+        return jwt.decode(token, Config.SECRET_KEY, algorithms=['HS256'])
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
 
 def validate_telegram_hash(init_data, bot_token):
     """Verify Telegram WebApp authentication"""

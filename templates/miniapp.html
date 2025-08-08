@@ -212,6 +212,14 @@
       </div>
     </div>
 
+    <div id="balance" class="balance-skeleton">
+      <div class="skeleton-loader"></div>
+    </div>
+
+    <div id="global-spinner" class="spinner-overlay">
+      <div class="spinner"></div>
+    </div>
+
     <!-- GAMES -->
     <div id="games-page" class="page">
       <div class="section">
@@ -411,16 +419,22 @@
     // Load user data from backend
     async function loadUserData() {
       try {
-        const data = await apiRequest('/api/user/data');
-        if (data) {
-          userData.balance = data.balance || 0;
-          userData.clicks = data.clicks_today || 0;
-          userData.bonusClaimed = data.bonus_claimed || false;
-          userData.username = data.username || 'Player';
-          updateUI();
+        const response = await apiRequest('/api/user/secure-data');
+        if (response.token) {
+          // Verify JWT server-side
+          const userData = parseJwt(response.token);
+          document.querySelectorAll('#balance').forEach(el => {
+            el.textContent = `Balance: ${userData.balance.toFixed(6)} TON`;
+          });
+          // Store in session instead of global object
+          sessionStorage.setItem('userData', JSON.stringify({
+            id: userData.id,
+            username: userData.username,
+            balance: userData.balance
+          }));
         }
       } catch (error) {
-        console.error('Failed to load user data:', error);
+        console.error('Secure data load failed:', error);
       }
     }
 
@@ -647,6 +661,26 @@
         message: 'Our policy...',
         buttons: [{id: 'ok', type: 'ok'}]
       }); 
+    }
+
+    function showSpinner() {
+      document.getElementById('global-spinner').style.display = 'flex';
+    }
+
+    function hideSpinner() {
+      document.getElementById('global-spinner').style.display = 'none';
+    }
+
+    // Example usage in API calls
+    async function loadUserData() {
+      showSpinner();
+      try {
+        // API call here
+      } catch (error) {
+        // Handle error
+      } finally {
+        hideSpinner();
+      }
     }
 
     // Initialize the app

@@ -46,6 +46,12 @@ body {
     border-radius: 8px;
     padding: 12px 20px;
     font-weight: bold;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px); /* Less intensive movement */
 }
 
 .click-area {
@@ -56,8 +62,15 @@ body {
     justify-content: center;
     align-items: center;
     border: 2px solid var(--primary-yellow);
+    will-change: transform;
 }
 
 .section-title { color: var(--primary-yellow); }
+
+/* Optimize box-shadow */
+.section {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1); /* Lighter shadow */
+}
 .click-area { cursor: pointer; }
+
 .click-text { color: var(--primary-yellow); font-weight: bold; }

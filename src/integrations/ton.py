@@ -213,6 +213,13 @@ class TONWallet:
             raise Exception(error_msg)
 
     async def process_withdrawal(self, user_id: int, amount: float, address: str) -> dict:
+        db_balance = db.get_user_balance(user_id)
+        if amount > db_balance:
+            return {
+                'status': 'error',
+                'error': 'Insufficient funds'
+            }
+        
         """Process TON withdrawal with rate limiting and security checks"""
         try:
             logger.info(f"Processing withdrawal for user {user_id}: {amount} TON to {address}")

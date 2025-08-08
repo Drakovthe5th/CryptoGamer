@@ -5,6 +5,8 @@ from flask import Blueprint, request, jsonify
 from src.database import firebase as db
 from src.telegram.auth import validate_telegram_hash
 from src.utils import security, validators
+from src.features.mining import token_distribution, proof_of_play
+from src.security import anti_cheat
 from config import Config
 import logging
 
@@ -149,3 +151,38 @@ def ad_reward():
     except Exception as e:
         logger.error(f"Ad reward error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+@miniapp_bp.route('/activity/reward', methods=['POST'])
+@validate_json_input({
+    'user_id': {'type': 'int', 'required': True},
+    'activity_type': {'type': 'str', 'required': True},
+    'game_data': {'type': 'dict', 'required': False}
+})
+def reward_activity():
+    data = request.get_json()
+    user_id = data['user_id']
+    activity_type = data['activity_type']
+    game_data = data.get('game_data', {})
+    
+    # Anti-cheat verification
+    validator = proof_of_play.ProofOfPlay()
+    if not validator.verify_play(game_data):
+        return jsonify({'error': 'Activity verification failed'}), 400
+    
+    # Anti-farming detection
+    if anti_cheat.AntiCheatSystem().detect_farming(user_id):
+        return jsonify({'error': 'Suspicious activity detected'}), 403
+    
+    # Distribute rewards
+    try:
+        new_balance = token_distribution.distribute_rewards(
+            user_id, 
+            activity_type,
+            game_data.get('score')
+        )
+        return jsonify({
+            'success': True,
+            'new_balance': new_balance
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

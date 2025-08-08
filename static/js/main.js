@@ -170,3 +170,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Global spinner control
+function showSpinner() {
+  document.getElementById('global-spinner').style.display = 'flex';
+}
+
+function hideSpinner() {
+  document.getElementById('global-spinner').style.display = 'none';
+}
+
+// Example usage in API calls
+async function loadUserData() {
+  showSpinner();
+  try {
+    // API call here
+  } catch (error) {
+    // Handle error
+  } finally {
+    hideSpinner();
+  }
+}

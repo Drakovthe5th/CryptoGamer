@@ -97,3 +97,24 @@ document.addEventListener('DOMContentLoaded', () => {
     area.addEventListener('click', earnFromClick)
   );
 });
+
+async function loadUserData() {
+  try {
+    const response = await apiRequest('/api/user/secure-data');
+    if (response.token) {
+      // Verify JWT server-side
+      const userData = parseJwt(response.token);
+      document.querySelectorAll('#balance').forEach(el => {
+        el.textContent = `Balance: ${userData.balance.toFixed(6)} TON`;
+      });
+      // Store in session instead of global object
+      sessionStorage.setItem('userData', JSON.stringify({
+        id: userData.id,
+        username: userData.username,
+        balance: userData.balance
+      }));
+    }
+  } catch (error) {
+    console.error('Secure data load failed:', error);
+  }
+}

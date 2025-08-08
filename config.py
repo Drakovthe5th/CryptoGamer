@@ -79,6 +79,33 @@ class Config:
             "a-ads": os.getenv("A_ADS_ZONE_ID", "2405512")
         }
         
+                # Mining Economics
+        REWARD_PER_BLOCK = 0.1  # TON
+        DAILY_EMISSION = 50  # TON
+        USER_ACTIVITY_POOL_RATIO = 0.7  # 70%
+        MIN_STAKE = 5.0  # Minimum TON for staking
+        
+        # Anti-Cheating Thresholds
+        MIN_CLICK_INTERVAL = 0.1  # seconds
+        SESSION_DURATION_VARIANCE = 0.3  # Allowed deviation
+        
+        # Ad Monetization Rates (USD)
+        AD_RATES = {
+            'monetag': 0.003,
+            'a-ads': 0.0012,
+            'ad-mob': 0.0025
+        }
+        
+        # Premium Tiers (USD/month)
+        PREMIUM_TIERS = {
+            'basic': 4.99,
+            'pro': 9.99,
+            'vip': 19.99
+        }
+        
+        # Data Insights Value
+        DATA_POINT_VALUE = 0.0001  # USD per point
+
         # OTC Desk
         self.OTC_USD_RATE = float(os.getenv("OTC_USD_RATE", "6.80"))
         self.OTC_EUR_RATE = float(os.getenv("OTC_EUR_RATE", "6.20"))
