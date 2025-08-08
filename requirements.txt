@@ -1,22 +1,22 @@
-# Core blockchain & TON
+# TON SDK
 pytoniq==0.1.41
 pytoniq-core>=0.1.42
 
-# Web backend
+# Flask stack
 flask==3.0.3
 flask-socketio==5.3.6
 gevent==24.2.1
 gevent-websocket==0.10.1
 greenlet==3.0.3
 
-# Async & scheduling
+# Task queue
 celery==5.4.0
 
-# Firebase & Google Cloud
+# Firebase
 firebase-admin==6.5.0
-google-cloud-firestore==2.16.1
+google-cloud-firestore==2.16.0
 
-# Utilities & security
+# Utilities
 python-dotenv==1.0.1
 requests==2.32.3
 psutil==5.9.8
@@ -24,12 +24,8 @@ pyjwt==2.9.0
 python-dateutil==2.9.0.post0
 cryptography==42.0.8
 
-# Telegram & Payments
+# Telegram bot
 python-telegram-bot==21.4
-paypalrestsdk==1.13.1
 
-# Known fragile indirect dependencies pinned
-aiohttp==3.10.5
-attrs==24.2.0
-yarl==1.9.4
-multidict==6.0.5
+# PayPal SDK
+paypalrestsdk==1.13.1
