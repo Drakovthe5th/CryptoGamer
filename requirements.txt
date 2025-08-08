@@ -1,6 +1,6 @@
 # Core blockchain & TON
 pytoniq==0.1.41
-pytoniq_core==0.1.1  # match pytoniq compatibility
+pytoniq-core>=0.1.42
 
 # Web backend
 flask==3.0.3
