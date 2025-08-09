@@ -1,5 +1,6 @@
 from src.features.mining import reward_pool
 from src.features.monetization import ad_revenue, data_insights
+from src.database.firebase import db
 
 def daily_maintenance():
     """Run daily economic maintenance"""

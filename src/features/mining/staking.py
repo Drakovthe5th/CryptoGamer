@@ -1,5 +1,5 @@
 from src.integrations.staking_contracts import create_staking_contract
-from src.database.firebase import update_balance, record_staking
+from src.database.firebase import update_balance, record_staking, get_user_balance
 
 def validate_stake(user_id, amount):
     """Validate staking request"""

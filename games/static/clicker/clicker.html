@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TON Clicker Miner</title>
+    <link rel="stylesheet" href="/games/clicker/static/clicker.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="clicker-container">
+        <div class="header">
+            <h1>TON Clicker Miner</h1>
+            <p class="instructions">Click to mine TON coins! Buy upgrades to increase your earnings.</p>
+        </div>
+        
+        <div class="score-container">
+            <div class="score-label">Your TON Balance</div>
+            <div id="score">0.000000</div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Per Click</div>
+                    <div id="per-click" class="stat-value">0.0001</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Per Second</div>
+                    <div id="cps" class="stat-value">0.00</div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="click-button"></button>
+        
+        <div class="controls">
+            <button id="auto-collect">AUTO COLLECT</button>
+            <button id="claim-button">CLAIM TON REWARDS</button>
+        </div>
+        
+        <div class="upgrades-container">
+            <h2>Upgrades</h2>
+            <div id="upgrades"></div>
+        </div>
+    </div>
+
+    <script src="/games/clicker/static/clicker.js"></script>
+</body>
+</html>

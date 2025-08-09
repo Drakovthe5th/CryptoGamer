@@ -79,6 +79,59 @@ class Config:
             "a-ads": os.getenv("A_ADS_ZONE_ID", "2405512")
         }
         
+        # config.py additions
+
+        # Ad System
+        AD_COOLDOWN = 30  # seconds
+        PREMIUM_AD_BONUS = 1.5
+        AD_STREAK_BONUS_MEDIUM = 1.2
+        AD_STREAK_BONUS_HIGH = 1.5
+        PEAK_HOURS = [18, 19, 20, 21]  # 6PM-10PM
+        PEAK_HOUR_BONUS = 1.3
+        WEEKEND_BONUS = 1.2
+        HIGH_VALUE_REGIONS = ['US', 'CA', 'GB', 'AU', 'DE']
+        REGIONAL_BONUS = 1.25
+        MOBILE_BONUS = 1.15
+        AD_DURATIONS = {
+            "coinzilla": 45,
+            "propeller": 30,
+            "a-ads": 60
+        }
+
+        # Quest System
+        QUEST_TEMPLATES = [
+            {
+                'type': 'gaming',
+                'difficulty': 1,
+                'tasks': ['win_X_games'],
+                'reward': 0.05
+            },
+            {
+                'type': 'social',
+                'difficulty': 2,
+                'tasks': ['refer_X_friends'],
+                'reward': 0.1
+            },
+            {
+                'type': 'exploration',
+                'difficulty': 1,
+                'tasks': ['play_X_game_types'],
+                'reward': 0.03
+            },
+            {
+                'type': 'general',
+                'difficulty': 1,
+                'tasks': ['complete_any_3_actions'],
+                'reward': 0.04
+            }
+        ]
+        QUEST_REFRESH_HOUR = 4  # 4 AM UTC
+        DAILY_QUEST_COUNT = 3
+        AVAILABLE_GAME_TYPES = {'trivia', 'spin', 'puzzle', 'battle', 'mining'}
+        LEVEL_XP_BASE = 100
+        LEVEL_XP_MULTIPLIER = 1.5
+        MAX_LEVEL = 50
+
                 # Mining Economics
         REWARD_PER_BLOCK = 0.1  # TON
         DAILY_EMISSION = 50  # TON

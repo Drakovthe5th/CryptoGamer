@@ -153,6 +153,41 @@
       <div class="balance-display"><span id="balance">0.00</span> TON</div>
     </header>
 
+    <div class="game-grid">
+      <!-- Spin Game -->
+      <div class="game-card" onclick="launchGame('spin')">
+          <div class="game-icon" style="background-image: url('/games/spin/static/icon.png')"></div>
+          <div class="game-name">TON Spin Wheel</div>
+      </div>
+      
+      <!-- Clicker Game -->
+      <div class="game-card" onclick="launchGame('clicker')">
+          <div class="game-icon" style="background-image: url('/games/clicker/static/icon.png')"></div>
+          <div class="game-name">TON Clicker Miner</div>
+      </div>
+      
+        <!-- Other games... -->
+    </div>
+
+    <script>
+      
+      function launchGame(gameName) {
+          Telegram.WebApp.showPopup({
+              title: `Play ${gameName.replace(/^\w/, c => c.toUpperCase())}`,
+              message: 'Earn TON coins while playing!',
+              buttons: [{
+                  id: 'play',
+                  type: 'default',
+                  text: 'Play Now'
+              }]
+          }, (btnId) => {
+              if (btnId === 'play') {
+                  window.location.href = `/games/${gameName}`;
+              }
+          });
+      }
+  </script>
+
     <!-- HOME -->
     <div id="home-page" class="page active">
       <div class="section">
@@ -200,8 +235,8 @@
         <h2 class="section-title">Wallet</h2>
         <p class="text-center" style="font-size:2rem;"><span id="wallet-balance">0.00</span> TON</p>
         <div style="display:flex;gap:8px;">
-          <button class="btn-secondary btn" onclick="receive()">📥 Receive</button>
-          <button class="btn-secondary btn" onclick="send()">📤 Send</button>
+          <button class="btn-secondary btn" onclick="showPage('otc')">📥 Receive</button>
+          <button class="btn-secondary btn" onclick="showPage('otc')">📤 Send</button>
           <button class="btn-secondary btn" onclick="showPage('otc')">💱 Sell</button>
         </div>
       </div>
@@ -227,7 +262,7 @@
         <button class="btn" onclick="playGame('trivia')">❓ Trivia</button>
         <button class="btn" onclick="playGame('spin')">🎡 Spin</button>
         <button class="btn" onclick="playGame('click')">🖱️ Click</button>
-        <button class="btn" onclick="playGame('other')">🎲 Other</button>
+        <button class="btn" onclick="playGame('trex')">🎲 Trex Runner</button>
       </div>
     </div>
 
@@ -576,7 +611,7 @@
           trivia: 'Trivia Quiz',
           spin: 'Spin Wheel',
           click: 'Click Game',
-          other: 'Other Game'
+          trex: 'Trex Runner'
         };
         tg?.showPopup({
           title: 'Game Launching', 

@@ -9,7 +9,7 @@ from src.database.firebase import initialize_firebase
 from src.integrations.ton import initialize_ton_wallet, close_ton_wallet
 from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler
-from src.features.withdrawal import start_withdrawal_processor
+from src.integrations.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
 from app import create_app
 from config import config

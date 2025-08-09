@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TON Trivia Quiz</title>
+    <link rel="stylesheet" href="/games/trivia/static/trivia.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div class="trivia-container">
+        <div class="header">
+            <h1>TON Blockchain Trivia</h1>
+            <div class="score-display">
+                <span class="ton-logo">TON</span>
+                <span id="score">0.000</span>
+            </div>
+        </div>
+        
+        <div id="game-screen">
+            <div class="stats-bar">
+                <div>Answered: <span id="answered">0</span></div>
+                <div>Correct: <span id="correct">0</span></div>
+                <div>Accuracy: <span id="accuracy">0%</span></div>
+            </div>
+            
+            <div class="question-container">
+                <div id="question-text"></div>
+                <div class="options" id="options"></div>
+            </div>
+            
+            <div class="timer-container">
+                <div class="timer-bar">
+                    <div class="timer-fill" id="timer-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="results-screen" style="display:none;">
+            <h2>Quiz Completed!</h2>
+            <div class="results-stats">
+                <div>Questions: <span id="total-questions">0</span></div>
+                <div>Correct: <span id="final-correct">0</span></div>
+                <div>Accuracy: <span id="final-accuracy">0%</span></div>
+            </div>
+            <div class="rewards">
+                <h3>Your Rewards</h3>
+                <div class="reward-item">
+                    <span>Base Reward:</span>
+                    <span id="base-reward">0.000 TON</span>
+                </div>
+                <div class="reward-item">
+                    <span>Bonus:</span>
+                    <span id="bonus">0.000 TON</span>
+                </div>
+                <div class="reward-item total">
+                    <span>Total Earned:</span>
+                    <span id="total-reward">0.000 TON</span>
+                </div>
+            </div>
+            <button id="claim-button">Claim TON Rewards</button>
+        </div>
+    </div>
+
+    <script src="/games/trivia/static/trivia.js"></script>
+</body>
+</html>

@@ -1,0 +1,204 @@
+/* trivia.css */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1d28;
+    color: #ffffff;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.trivia-container {
+    width: 100%;
+    max-width: 600px;
+    background: #252a3a;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.header {
+    background: linear-gradient(135deg, #0088cc, #0066aa);
+    padding: 20px;
+    text-align: center;
+    position: relative;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.score-display {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+}
+
+.ton-logo {
+    background: #0088cc;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 8px;
+    font-weight: bold;
+}
+
+.stats-bar {
+    display: flex;
+    justify-content: space-around;
+    padding: 15px;
+    background: #2d3345;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #3a4155;
+}
+
+.stats-bar div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.question-container {
+    padding: 30px 20px;
+}
+
+#question-text {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 30px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.option-btn {
+    background: #3a4155;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.option-btn:hover {
+    background: #4a5268;
+    transform: translateY(-2px);
+}
+
+.option-btn:active {
+    transform: translateY(1px);
+}
+
+.option-btn.correct {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: white;
+}
+
+.option-btn.incorrect {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.timer-container {
+    padding: 0 20px 20px;
+}
+
+.timer-bar {
+    height: 8px;
+    background: #3a4155;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.timer-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0088cc, #00bfff);
+    width: 100%;
+    transition: width 1s linear;
+}
+
+#results-screen {
+    padding: 30px;
+}
+
+.results-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.results-stats div {
+    background: #2d3345;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.rewards {
+    background: #2d3345;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+
+.reward-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #3a4155;
+}
+
+.reward-item.total {
+    font-weight: bold;
+    font-size: 1.2rem;
+    border: none;
+    margin-top: 10px;
+    padding-top: 15px;
+}
+
+#claim-button {
+    background: linear-gradient(135deg, #f0b90b, #f8d12f);
+    color: #1a1d28;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+#claim-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(240, 185, 11, 0.4);
+}
+
+#claim-button:active {
+    transform: translateY(1px);
+}

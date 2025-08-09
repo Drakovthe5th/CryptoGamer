@@ -1,6 +1,6 @@
 # TON SDK
 pytoniq==0.1.41
-pytoniq-core>=0.1.42
+pytoniq-core==0.1.44
 tonsdk==1.0.15
 mnemonic==0.20
 
@@ -31,3 +31,4 @@ python-telegram-bot==21.4
 
 # PayPal SDK
 paypalrestsdk==1.13.1
+pip freeze > requirements.txt

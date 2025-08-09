@@ -7,7 +7,9 @@ from src.telegram.auth import validate_telegram_hash
 from src.utils import security, validators
 from src.features.mining import token_distribution, proof_of_play
 from src.security import anti_cheat
-from config import Config
+from src.features import quests
+from src.utils.validators import validate_json_input
+from config import config
 import logging
 
 miniapp_bp = Blueprint('miniapp', __name__)

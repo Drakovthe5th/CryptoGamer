@@ -2,6 +2,8 @@ from flask import Flask, jsonify, request, send_from_directory
 from src.database.firebase import initialize_firebase
 from src.features import quests, ads
 from src.utils import security, validation
+from games import games_bp
+from tonconnect import TonConnect
 from config import config
 import os
 import json
@@ -161,6 +163,44 @@ def create_app():
             'status': 'healthy',
             'timestamp': datetime.utcnow().isoformat()
         })
+    
+    app.register_blueprint(games_bp)
+
+    @app.route('/')
+    def index():
+        return render_template('index.html', games=[
+            {"id": "clicker", "name": "TON Clicker"},
+            {"id": "spin", "name": "Lucky Spin"},
+            {"id": "trivia", "name": "Crypto Trivia"},
+            {"id": "trex", "name": "TON Runner"},
+            {"id": "edge_surf", "name": "Edge Surf"}
+        ])
+    
+    @app.route('/claim-reward', methods=['POST'])
+    def claim_reward():
+        user_id = request.json.get('user_id')
+        game_id = request.json.get('game_id')
+        signature = request.json.get('signature')
+        
+        # Verify signature
+        if not verify_signature(user_id, signature):
+            return {"error": "Invalid signature"}, 401
+        
+        # Get reward amount
+        reward = games_bp.GAME_REGISTRY[game_id].calculate_reward(user_id)
+        
+        # Send TON
+        connector = TonConnect()
+        result = connector.send_transaction(
+            to_address=get_user_wallet(user_id),
+            amount=int(reward * 1e9)  # In nanoTON
+        )
+        
+        return {
+            "success": True,
+            "tx_hash": result["tx_hash"],
+            "amount": reward
+        }
 
     return app
 

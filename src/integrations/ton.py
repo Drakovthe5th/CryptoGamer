@@ -7,11 +7,19 @@ import asyncio
 from datetime import datetime, timedelta
 from pytoniq import LiteClient, WalletV4R2
 from pytoniq_core import Cell, begin_cell, Address
-from pytoniq_core.boc.mnemonic import mnemonic_to_private_key
+from pytoniq_core.mnemonic import mnemonic_to_private_key 
+from src.database.firebase import db
 from config import config
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+try:
+    from pytoniq_core.mnemonic import mnemonic_to_private_key
+except ImportError:
+    # Fallback for older versions
+    from pytoniq_core.boc.mnemonic import mnemonic_to_private_key
+    logger.warning("Using deprecated mnemonic import path")
 
 class TONWallet:
     def __init__(self):

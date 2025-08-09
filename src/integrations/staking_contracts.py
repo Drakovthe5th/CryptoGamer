@@ -1,4 +1,5 @@
 from pytoniq import Contract
+from pytoniq import LiteClient
 from src.database.firebase import get_hot_wallet
 
 STAKING_CONTRACT_CODE = """(storing contract code would go here)"""

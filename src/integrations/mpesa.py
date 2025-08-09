@@ -1,7 +1,7 @@
 import os
 import requests
 import base64
-import datetime
+from datetime import time
 import logging
 from config import config
 

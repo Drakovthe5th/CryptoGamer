@@ -2,6 +2,7 @@ import logging
 import os
 import time
 import psutil
+import asyncio
 import requests
 from config import config
 from src.integrations.telegram import send_telegram_message

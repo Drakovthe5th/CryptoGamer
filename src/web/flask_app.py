@@ -29,6 +29,14 @@ def create_app():
         response.headers['Cache-Control'] = 'public, max-age=2592000'  # 30 days
         return response
     
+    @app.route('/admin/dashboard')
+    def admin_dashboard():
+        return jsonify({
+            'active_users': get_active_users(),
+            'pending_withdrawals': get_pending_withdrawals(),
+            'ton_reserves': get_wallet_balance()
+        })
+        
     # Configure all routes
     configure_routes(app)
     

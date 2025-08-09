@@ -1,3 +1,7 @@
+from src.database.firebase import statistics
+from datetime import datetime
+from src.integrations.ton_mining import ton_mining
+
 class EngagementValidator:
     def validate_engagement(self, user_activity):
         """Ensure authentic human engagement patterns"""
