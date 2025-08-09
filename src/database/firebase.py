@@ -82,6 +82,31 @@ def update_balance(user_id: int, amount: float) -> float:
         logger.error(f"Error updating balance: {str(e)}")
         return 0.0
 
+# Activity operations
+def get_user_activity(user_id: int, limit=100) -> list:
+    """Get recent user activity records"""
+    try:
+        activities_ref = db.collection('user_activities')
+        query = activities_ref.where('user_id', '==', str(user_id)) \
+            .order_by('timestamp', direction=firestore.Query.DESCENDING) \
+            .limit(limit)
+        return [doc.to_dict() for doc in query.stream()]
+    except Exception as e:
+        logger.error(f"Error getting user activity: {str(e)}")
+        return []
+
+# Withdrawal history
+def get_withdrawal_history(user_id: int) -> list:
+    """Get all withdrawal history for a user"""
+    try:
+        withdrawals_ref = db.collection('withdrawals')
+        query = withdrawals_ref.where('user_id', '==', str(user_id)) \
+            .order_by('created_at', direction=firestore.Query.DESCENDING)
+        return [doc.to_dict() for doc in query.stream()]
+    except Exception as e:
+        logger.error(f"Error getting withdrawal history: {str(e)}")
+        return []
+
 # Withdrawal operations
 def process_ton_withdrawal(user_id: int, amount: float, address: str) -> dict:
     try:
