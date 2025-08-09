@@ -7,14 +7,13 @@ import asyncio
 from datetime import datetime, timedelta
 from pytoniq import LiteClient, WalletV4R2
 from pytoniq_core import Cell, begin_cell, Address
-from pytoniq_core.mnemonic import mnemonic_to_private_key 
+from pytoniq_core import Address
+from mnemonic import Mnemonic
 from src.database.firebase import db
 from config import config
 
 # Configure logger
 logger = logging.getLogger(__name__)
-
-from pytoniq_core.mnemonic import mnemonic_to_private_key
 class TONWallet:
     def __init__(self):
         # Initialize connection parameters
@@ -64,23 +63,6 @@ class TONWallet:
             if self.connection_retries >= self.MAX_RETRIES:
                 raise ConnectionError("Failed to connect to TON network after multiple attempts")
             
-            # Initialize wallet from either mnemonic or private key
-            if config.TON_MNEMONIC:
-                # Initialize from mnemonic using pytoniq's implementation
-                logger.info("Initializing wallet from mnemonic phrase")
-                mnemonic = config.TON_MNEMONIC.strip().split()
-                
-                if len(mnemonic) not in [12, 24]:
-                    raise ValueError("Invalid mnemonic length. Must be 12 or 24 words.")
-                
-                private_key = mnemonic_to_private_key(mnemonic)
-                
-                logger.info(f"Using wallet address: {config.TON_HOT_WALLET}")
-                self.wallet = WalletV4R2(
-                    provider=self.client, 
-                    private_key=private_key,
-                    address=Address(config.TON_HOT_WALLET)
-                )
             elif config.TON_PRIVATE_KEY:
                 # Initialize from private key
                 logger.info("Initializing wallet from private key")
