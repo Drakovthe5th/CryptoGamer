@@ -31,3 +31,4 @@ python-telegram-bot==21.4
 
 # PayPal SDK
 paypalrestsdk==1.13.1
+geoip2==4.8.0

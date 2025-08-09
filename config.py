@@ -177,6 +177,8 @@ class Config:
         
         # Wallet Thresholds
         self.MIN_ADMIN_BALANCE = 50.0  # TON (triggers alert)
+
+        DEFAULT_COUNTRY = 'KE'
         
         # Log configuration status
         self.log_config_summary()
