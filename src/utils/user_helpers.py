@@ -140,7 +140,9 @@ def get_device_type(user_agent):
         if not user_agent:
             return "desktop"
             
-        ua = parse(user_agent)
+        # Add inline import to avoid dependency issues
+        from user_agents.parsers import UserAgent
+        ua = UserAgent(user_agent)
         
         if ua.is_tablet:
             return "tablet"
@@ -149,6 +151,13 @@ def get_device_type(user_agent):
         else:
             return "desktop"
             
+    except ImportError:
+        logger.error("user_agents package not installed! Falling back to desktop detection")
+        # Simple fallback without the package
+        mobile_keywords = ['android', 'iphone', 'mobile', 'webos']
+        if any(k in user_agent.lower() for k in mobile_keywords):
+            return "mobile"
+        return "desktop"
     except Exception as e:
         logger.error(f"Device detection error: {str(e)}")
         return "desktop"
