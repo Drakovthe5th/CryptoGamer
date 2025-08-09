@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from config import config
 import logging
 import re
+import requests
 import geoip2.database
 from user_agents import parse
 
@@ -100,55 +101,30 @@ def get_ad_streak(user_id):
         logger.error(f"Ad streak error for {user_id}: {str(e)}")
         return 0
 
+
+# Cache results to reduce API calls (max 256 entries, 1 hour TTL)
+@lru_cache(maxsize=256)
 def get_user_country(user_id, ip_address=None):
-    """
-    Determines user's country based on IP geolocation or stored profile.
+    """Get user country using free IP geolocation API with fallback"""
+    if not ip_address or ip_address in ('127.0.0.1', '::1'):
+        return config.DEFAULT_COUNTRY
     
-    Args:
-        user_id: Telegram user ID
-        ip_address: Current request IP (optional)
-        
-    Returns:
-        str: ISO 3166-1 country code (e.g., "US")
-    """
     try:
-        from src.database.firebase import db
+        # Use free ip-api.com service
+        response = requests.get(
+            f"http://ip-api.com/json/{ip_address}?fields=status,countryCode",
+            timeout=1.5
+        )
         
-        # Try to get from user profile first
-        user_ref = db.collection('users').document(str(user_id))
-        user_doc = user_ref.get()
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('status') == 'success':
+                return data.get('countryCode', config.DEFAULT_COUNTRY)
         
-        if user_doc.exists:
-            user_data = user_doc.to_dict()
-            if user_data.get('country'):
-                return user_data['country']
-        
-        # Fallback to IP geolocation
-        if ip_address:
-            try:
-                with geoip2.database.Reader(GEOIP_DB_PATH) as reader:
-                    response = reader.country(ip_address)
-                    return response.country.iso_code
-            except:
-                pass
-        
-        # Last resort: country from phone number
-        if user_doc.exists and user_data.get('phone'):
-            phone = user_data['phone']
-            if phone.startswith('+1'):
-                return 'US'
-            elif phone.startswith('+44'):
-                return 'GB'
-            elif phone.startswith('+7'):
-                return 'RU'
-            elif phone.startswith('+91'):
-                return 'IN'
-                
-        return 'US'  # Default
-        
+        return config.DEFAULT_COUNTRY
     except Exception as e:
-        logger.error(f"Country lookup error for {user_id}: {str(e)}")
-        return 'US'
+        logger.error(f"Country lookup failed: {str(e)}")
+        return config.DEFAULT_COUNTRY
 
 def get_device_type(user_agent):
     """
