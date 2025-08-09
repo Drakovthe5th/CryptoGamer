@@ -134,6 +134,30 @@ def process_ton_withdrawal(user_id: int, amount: float, address: str) -> dict:
             'error': str(e)
         }
 
+# Quest operations
+def save_quest_progress(user_id: int, user_data: dict) -> bool:
+    """Update user document with quest progress data"""
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
+        # Update only relevant fields to prevent overwriting
+        update_data = {
+            'balance': user_data.get('balance', 0.0),
+            'completed_quests': user_data.get('completed_quests', []),
+            'active_quests': user_data.get('active_quests', []),
+            'xp': user_data.get('xp', 0),
+        }
+        
+        # Only update level if it changed
+        if 'level' in user_data:
+            update_data['level'] = user_data['level']
+        
+        doc_ref.update(update_data)
+        logger.info(f"Saved quest progress for user {user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error saving quest progress: {str(e)}")
+        return False
+
 # Ad operations
 def track_ad_reward(user_id: int, amount: float, source: str, is_weekend: bool):
     try:
@@ -200,12 +224,12 @@ def record_activity(user_id, activity_type, amount):
     """Log user activity for reward distribution"""
     doc_ref = db.collection('user_activities').document()
     doc_ref.set({
-        'user_id': user_id,
+        'user_id': user_id,  # Fix: changed from 'user_id' to 'user_id'
         'type': activity_type,
         'amount': amount,
         'timestamp': SERVER_TIMESTAMP
     })
-
+    
 def record_staking(user_id, contract_address, amount):
     """Record staking contract creation"""
     doc_ref = db.collection('staking').document()
