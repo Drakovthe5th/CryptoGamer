@@ -31,4 +31,3 @@ python-telegram-bot==21.4
 
 # PayPal SDK
 paypalrestsdk==1.13.1
-pip freeze > requirements.txt
