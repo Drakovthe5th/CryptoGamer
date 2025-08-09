@@ -14,13 +14,7 @@ from config import config
 # Configure logger
 logger = logging.getLogger(__name__)
 
-try:
-    from pytoniq_core.mnemonic import mnemonic_to_private_key
-except ImportError:
-    # Fallback for older versions
-    from pytoniq_core.boc.mnemonic import mnemonic_to_private_key
-    logger.warning("Using deprecated mnemonic import path")
-
+from pytoniq_core.mnemonic import mnemonic_to_private_key
 class TONWallet:
     def __init__(self):
         # Initialize connection parameters
