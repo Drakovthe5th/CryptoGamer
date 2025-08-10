@@ -1,12 +1,13 @@
 import os
 import random
 from datetime import datetime, timedelta
+from functools import lru_cache  # Added import
 from config import config
 import logging
 import re
 import requests
 import geoip2.database
-from user_agents import parse
+# Removed problematic import
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -140,24 +141,16 @@ def get_device_type(user_agent):
         if not user_agent:
             return "desktop"
             
-        # Add inline import to avoid dependency issues
-        from user_agents.parsers import UserAgent
-        ua = UserAgent(user_agent)
+        # Simple device detection without external package
+        user_agent_lower = user_agent.lower()
         
-        if ua.is_tablet:
-            return "tablet"
-        elif ua.is_mobile:
+        if any(k in user_agent_lower for k in ['android', 'iphone', 'mobile']):
             return "mobile"
+        elif any(k in user_agent_lower for k in ['tablet', 'ipad']):
+            return "tablet"
         else:
             return "desktop"
             
-    except ImportError:
-        logger.error("user_agents package not installed! Falling back to desktop detection")
-        # Simple fallback without the package
-        mobile_keywords = ['android', 'iphone', 'mobile', 'webos']
-        if any(k in user_agent.lower() for k in mobile_keywords):
-            return "mobile"
-        return "desktop"
     except Exception as e:
         logger.error(f"Device detection error: {str(e)}")
         return "desktop"

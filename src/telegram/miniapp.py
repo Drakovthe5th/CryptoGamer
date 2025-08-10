@@ -155,12 +155,11 @@ def ad_reward():
         return jsonify({'error': 'Internal server error'}), 500
     
 @miniapp_bp.route('/activity/reward', methods=['POST'])
-@validate_json_input({  # Changed from validate_json_input to validate_json_input
+@validate_json_input({  # Fixed decorator name
     'user_id': {'type': 'int', 'required': True},
     'activity_type': {'type': 'str', 'required': True},
     'game_data': {'type': 'dict', 'required': False}
-})
-
+})  # Fixed closing parenthesis
 def reward_activity():
     data = request.get_json()
     user_id = data['user_id']
