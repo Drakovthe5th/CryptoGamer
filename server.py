@@ -108,8 +108,8 @@ def api_status():
 def serve_game(game_name):
     """Serve game HTML based on game name"""
     valid_games = {
-        'clicker': 'clicker/index.html',
-        'spin': 'spin/index.html',
+        'clicker': 'clicker/clicker.html',
+        'spin': 'spin/spin.html',
         'edge-surf': 'egde-surf/index.html',
         'trex': 'trex/index.html',
         'trivia': 'trivia/index.html'

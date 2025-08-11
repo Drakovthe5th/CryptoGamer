@@ -1,8 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>TON Game Miner</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        // Initialize after Telegram auth
+        Telegram.WebApp.ready();
+        window.securityToken = "{{ security_token }}";  // From backend
+        window.userId = "{{ user_id }}";  // From backend
+    </script>
     <style>
         .game-grid {
             display: grid;

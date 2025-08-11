@@ -134,6 +134,11 @@ def get_user_id(request) -> int:
     except Exception as e:
         logger.error(f"Error getting user ID: {str(e)}")
         return None
+    
+# Reusable for all games
+def generate_security_token(user_id):
+    payload = {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(minutes=30)}
+    return jwt.encode(payload, config.SECRET_KEY, algorithm='HS256')
 
 def is_abnormal_activity(user_id: int) -> bool:
     """Check for suspicious activity patterns"""

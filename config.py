@@ -138,6 +138,23 @@ class Config:
         USER_ACTIVITY_POOL_RATIO = 0.7  # 70%
         MIN_STAKE = 5.0  # Minimum TON for staking
         
+        # Add for all games
+        REWARD_RATES = {
+            'edge-surf': {'base': 0.003, 'per_minute': 0.007},
+            'trex-runner': {'base': 0.001, 'per_100_meters': 0.005},
+            'clicker': {'base': 0.000, 'per_1000_points': 0.015},
+            'trivia': {'base': 0.002, 'per_correct_answer': 0.008},
+            'spin': {'base': 0.004}
+        }
+
+        MAX_GAME_REWARD = {
+            'edge-surf': 0.5,
+            'trex-runner': 0.4,
+            'clicker': 0.6,
+            'trivia': 0.3,
+            'spin': 0.2
+        }
+
         # Anti-Cheating Thresholds
         MIN_CLICK_INTERVAL = 0.1  # seconds
         SESSION_DURATION_VARIANCE = 0.3  # Allowed deviation

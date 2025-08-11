@@ -1,3 +1,6 @@
+window.gameInputHistory = [];
+window.userId = Telegram.WebApp.initDataUnsafe.user.id;
+
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     const userId = tg.initDataUnsafe.user?.id || 'guest';
@@ -120,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const result = data.result;
         const resultIndex = wheelSections.findIndex(s => s.id === result.id);
         const sliceAngle = 360 / wheelSections.length;
-        const targetRotation = 360 * 5 + (360 - (resultIndex * sliceAngle) - (sliceAngle / 2);
+        const targetRotation = 360 * 5 + (360 - (resultIndex * sliceAngle) - (sliceAngle / 2));
         
         wheel.style.transition = 'transform 4s cubic-bezier(0.34, 1.56, 0.64, 1)';
         wheel.style.transform = `rotate(${targetRotation}deg)`;
@@ -179,4 +182,177 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+});
+
+// Example implementation for Spin game
+class SpinGame {
+    constructor() {
+        this.score = 0;
+        this.sessionId = this.generateSessionId();
+        this.startTime = Date.now();
+    }
+    
+    generateSessionId() {
+        return 'spin-' + Math.random().toString(36).substring(2, 15) + 
+               Date.now().toString(36);
+    }
+    
+    startGame() {
+        // Game initialization logic
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        document.getElementById('spin-button').addEventListener('click', () => {
+            this.spinWheel();
+        });
+    }
+    
+    spinWheel() {
+        // Spin animation logic
+        const result = Math.floor(Math.random() * 10);
+        
+        setTimeout(() => {
+            this.handleSpinResult(result);
+        }, 3000);
+
+            const session_data = {
+            startTime: gameStartTime,
+            endTime: Date.now(),
+            spins: spinCount,
+            wins: winCount,
+            coins: currentCoins,
+            userActions: window.gameInputHistory
+        };
+        
+        window.reportGameCompletion(currentCoins, session_data);
+    }
+    
+    handleSpinResult(result) {
+        this.score = result;
+        const winAmount = result * 10; // Example
+        
+        // Show result to user
+        this.showResult(winAmount);
+        
+        // Report game completion to backend
+        this.reportCompletion();
+    }
+    
+    showResult(winAmount) {
+        // UI update to show winnings
+        document.getElementById('result').innerText = 
+            `You won ${winAmount} points!`;
+    }
+    
+    getSessionData() {
+        return {
+            session_id: this.sessionId,
+            start_time: this.startTime,
+            end_time: Date.now(),
+            actions: this.collectActions(),  // Would collect user actions during gameplay
+            device_info: this.getDeviceInfo()
+        };
+    }
+    
+    collectActions() {
+        // Return array of important game actions
+        return [
+            { action: 'spin', timestamp: Date.now() - 3500 },
+            { action: 'result', timestamp: Date.now(), value: this.score }
+        ];
+    }
+    
+    getDeviceInfo() {
+        return {
+            user_agent: navigator.userAgent,
+            screen: `${screen.width}x${screen.height}`,
+            platform: navigator.platform
+        };
+    }
+    
+    reportCompletion() {
+        // Get Telegram user ID if available
+        let userId = null;
+        if (window.Telegram && window.Telegram.WebApp) {
+            userId = window.Telegram.WebApp.initDataUnsafe.user?.id;
+        }
+        
+        if (!userId) {
+            console.error("User ID not available");
+            return;
+        }
+        
+        const sessionData = this.getSessionData();
+        
+        fetch('/api/game/complete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: userId,
+                game_id: 'spin',
+                score: this.score,
+                session_data: sessionData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log(`Earned ${data.reward} TON!`);
+                // Update UI with reward
+                document.getElementById('ton-reward').innerText = 
+                    `+${data.reward.toFixed(4)} TON`;
+            } else {
+                console.error('Game completion failed:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error reporting game completion:', error);
+        });
+    }
+}
+
+// Example for T-Rex Runner
+window.gameOver = function(distance) {
+    reportGameCompletion({
+        game_id: 'trex-runner',
+        score: distance,
+        session_data: {
+            startTime: performance.now() - gameDuration,
+            endTime: performance.now(),
+            jump_count: playerJumpCount
+        }
+    });
+};
+
+window.reportGameCompletion = function(score, session_data) {
+    fetch('/api/game/complete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': window.securityToken
+        },
+        body: JSON.stringify({
+            user_id: window.userId,
+            game_id: 'spin',
+            score: score,
+            session_data: session_data
+        })
+    });
+};
+
+document.getElementById('spin-button').addEventListener('click', () => {
+    window.gameInputHistory.push({
+        type: 'spin',
+        timestamp: Date.now(),
+        coins: currentCoins
+    });
+});
+
+// Initialize game when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    const game = new SpinGame();
+    game.startGame();
 });

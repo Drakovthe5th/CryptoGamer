@@ -1,5 +1,8 @@
 import base64
 import logging
+import asyncio
+from flask import Flask
+from src.web.flask_app import create_app
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
@@ -296,46 +299,163 @@ def get_otc_rates():
         logger.error(f"OTC rates error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
     
-@miniapp_bp.route('/game/complete', methods=['POST'])
-@validators.validate_json_input({
-    'user_id': {'type': 'int', 'required': True},
-    'game_id': {'type': 'str', 'required': True},
-    'score': {'type': 'int', 'required': False}
-})
-def record_game_completion():
-    data = request.get_json()
-    user_id = data['user_id']
-    game_id = data['game_id']
-    score = data.get('score', 0)
-    
-    # Security check for abnormal activity
-    if security.is_abnormal_activity(user_id):
-        return jsonify({
-            'restricted': True,
-            'error': 'Account restricted due to suspicious activity'
-        }), 403
-    
-    try:
-        # Distribute rewards based on game
-        reward = 0
-        if game_id == 'clicker':
-            reward = config.REWARDS['clicker_base'] + (score * config.REWARDS['clicker_multiplier'])
+# Add to miniapp.py
+def create_app():
+    app = Flask(__name__)
+
+    @app.route('/api/game/complete', methods=['POST'])
+    def handle_game_completion():
+        data = request.json
+        game_id = data['game_id']
+        
+        # Validate security token
+        try:
+            payload = jwt.decode(data['token'], config.SECRET_KEY, algorithms=['HS256'])
+            if payload['user_id'] != data['user_id']:
+                return jsonify({'success': False, 'error': 'Invalid token'}), 401
+        except:
+            return jsonify({'success': False, 'error': 'Token verification failed'}), 401
+        
+            # Route to game-specific handler
+        if game_id == 'edge-surf':
+            return handle_edge_surf_completion(data)
+        
+        elif game_id == 'trex-runner':
+            return handle_trex_completion(data)
+        
+        elif game_id == 'clicker':
+            return handle_clicker_completion(data)
+
         elif game_id == 'spin':
-            reward = config.REWARDS['spin_base'] * (1 + (score / 100))
-        # Add other games...
+            return handle_spin_completion(data)
+
+        elif game_id == 'trivia':
+            return handle_trivia_completion(data)
         
-        # Update balance
-        new_balance = db.update_balance(user_id, reward)
+        # Anti-cheat validation
+        if not anti_cheat.validate_edge_surf(data['session_data']):
+            return jsonify({'success': False, 'error': 'Cheat detected'}), 403
         
-        # Update quest progress
-        quest_system = QuestSystem()
-        quest_system.update_quest_progress(user_id, f"{game_id}_quest", 100)
+        # Calculate reward
+        reward = token_distribution.calculate_edge_surf_reward(
+            data['score'],
+            data['session_data']
+        )
+        
+        # Update user balance
+        new_balance = update_user_balance(data['user_id'], reward)
         
         return jsonify({
             'success': True,
             'reward': reward,
             'new_balance': new_balance
         })
+    
+@miniapp_bp.route('/game/complete', methods=['POST'])
+@validate_json_input({
+    'user_id': {'type': 'int', 'required': True},
+    'game_id': {'type': 'str', 'required': True},
+    'score': {'type': 'int', 'required': True},
+    'session_data': {'type': 'dict', 'required': True}
+})
+def game_completed():
+    data = request.get_json()
+    user_id = data['user_id']
+    game_id = data['game_id']
+    score = data['score']
+    session_data = data['session_data']
+    
+    # Anti-cheat verification
+    if not proof_of_play.ProofOfPlay().verify_play(session_data):
+        return jsonify({'success': False, 'error': 'Game session validation failed'}), 400
+    
+    # Anti-farming detection
+    if anti_cheat.AntiCheatSystem().detect_farming(user_id):
+        return jsonify({'success': False, 'error': 'Suspicious activity detected'}), 403
+    
+    try:
+        # Calculate reward based on game type and score
+        reward_config = {
+            'clicker': {
+                'base': 0.01,
+                'multiplier': 0.001
+            },
+            'spin': {
+                'base': 0.02,
+                'win_multiplier': 0.05
+            },
+            'trivia': {
+                'base': 0.005,
+                'per_question': 0.002
+            },
+            'trex': {
+                'base': 0.001,
+                'per_100m': 0.005
+            },
+            'edge-surf': {
+                'base': 0.003,
+                'per_minute': 0.007
+            }
+        }
+        
+        config = reward_config.get(game_id, reward_config['clicker'])
+        reward = config['base']
+        
+        if game_id == 'clicker':
+            reward += score * config['multiplier']
+        elif game_id == 'spin':
+            if score > 0:  # If player won
+                reward += score * config['win_multiplier']
+        elif game_id == 'trivia':
+            reward += score * config['per_question']
+        elif game_id == 'trex':
+            reward += (score // 100) * config['per_100m']
+        elif game_id == 'edge-surf':
+            # Score is in seconds
+            minutes = score / 60
+            reward += minutes * config['per_minute']
+        
+        # Ensure reward is reasonable
+        reward = min(reward, config.MAX_GAME_REWARD.get(game_id, 0.1))
+        
+        # Update balance
+        new_balance = db.update_balance(user_id, reward)
+        
+        # Update quest progress
+        quest_system = QuestSystem()
+        quest_system.update_quest_progress(user_id, f"play_{game_id}", 1)
+        
+        # Record game session
+        db.save_game_session(
+            user_id=user_id,
+            game_id=game_id,
+            score=score,
+            reward=reward,
+            session_data=session_data
+        )
+        
+        return jsonify({
+            'success': True,
+            'reward': reward,
+            'new_balance': new_balance
+        })
+        
     except Exception as e:
         logger.error(f"Game completion error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+# Add to miniapp.py
+def init_edge_surf():
+    # Initialize Telegram WebApp
+    user_id = request.json.get('user_id')
+    token = generate_security_token(user_id)
+    
+    # Return game initialization data
+    return jsonify({
+        'status': 'success',
+        'token': token,
+        'game_config': {
+            'max_reward': config.MAX_GAME_REWARD['edge-surf'],
+            'reward_rate': config.REWARD_RATES['edge-surf']
+        }
+    })

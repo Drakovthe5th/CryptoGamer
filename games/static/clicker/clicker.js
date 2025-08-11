@@ -1,3 +1,6 @@
+window.gameInputHistory = [];
+window.userId = Telegram.WebApp.initDataUnsafe.user.id;
+
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     const userId = tg.initDataUnsafe.user?.id || 'guest';
@@ -178,3 +181,175 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// Clicker Game Implementation
+class ClickerGame {
+    constructor() {
+        this.clicks = 0;
+        this.sessionId = this.generateSessionId();
+        this.startTime = Date.now();
+        this.clickTimes = [];
+    }
+    
+    generateSessionId() {
+        return 'clicker-' + Math.random().toString(36).substring(2, 15) + 
+               Date.now().toString(36);
+    }
+    
+    startGame() {
+        document.getElementById('click-area').addEventListener('click', () => {
+            this.handleClick();
+        });
+        
+        document.getElementById('complete-btn').addEventListener('click', () => {
+            this.completeGame();
+        });
+    }
+    
+    handleClick() {
+        this.clicks++;
+        this.clickTimes.push(Date.now());
+        document.getElementById('click-count').innerText = this.clicks;
+        
+        // Visual feedback
+        const clickArea = document.getElementById('click-area');
+        clickArea.classList.add('clicked');
+        setTimeout(() => clickArea.classList.remove('clicked'), 100);
+    }
+    
+    completeGame() {
+        const sessionData = this.getSessionData();
+        
+        // Get Telegram user ID if available
+        let userId = null;
+        if (window.Telegram && window.Telegram.WebApp) {
+            userId = window.Telegram.WebApp.initDataUnsafe.user?.id;
+        }
+        
+        if (!userId) {
+            alert("User not authenticated. Please play through Telegram.");
+            return;
+        }
+        
+        fetch('/api/game/complete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: userId,
+                game_id: 'clicker',
+                score: this.clicks,
+                session_data: sessionData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Game complete! You earned ${data.reward.toFixed(4)} TON`);
+            } else {
+                alert(`Error: ${data.error || 'Failed to complete game'}`);
+            }
+        });
+    }
+    
+    getSessionData() {
+        return {
+            session_id: this.sessionId,
+            start_time: this.startTime,
+            end_time: Date.now(),
+            total_clicks: this.clicks,
+            click_times: this.clickTimes,
+            device_info: {
+                user_agent: navigator.userAgent,
+                screen: `${screen.width}x${screen.height}`,
+                platform: navigator.platform
+            }
+        };
+    }
+}
+
+// Initialize game
+document.addEventListener('DOMContentLoaded', () => {
+    const game = new ClickerGame();
+    game.startGame();
+});
+
+// Track clicks
+document.getElementById('clicker-button').addEventListener('click', () => {
+    window.gameInputHistory.push({
+        type: 'click',
+        element: 'main-button',
+        timestamp: Date.now()
+    });
+});
+
+// Track upgrades
+document.querySelectorAll('.upgrade-button').forEach(button => {
+    button.addEventListener('click', () => {
+        window.gameInputHistory.push({
+            type: 'click',
+            element: 'upgrade-' + button.dataset.id,
+            timestamp: Date.now()
+        });
+    });
+});
+
+function reportGameCompletion(score) {
+     fetch('/api/game/complete', {
+         method: 'POST',
+         headers: {
+             'Content-Type': 'application/json'
+         },
+         body: JSON.stringify({
+             game_id: 'clicker', // or other game ID
+             score: score
+         })
+     })
+     .then(response => response.json())
+     .then(data => {
+         if (data.success) {
+             console.log('Reward earned:', data.reward);
+         }
+     });
+}
+
+// Example for Spin Game
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('spin-button')) {
+        window.gameInputHistory.push({
+            type: 'click',
+            element: 'spin-button',
+            timestamp: performance.now()
+        });
+    }
+});
+
+window.reportGameCompletion = function(score, session_data) {
+    fetch('/api/game/complete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': window.securityToken
+        },
+        body: JSON.stringify({
+            user_id: window.userId,
+            game_id: 'clicker',
+            score: score,
+            session_data: session_data
+        })
+    });
+};
+
+function onGameExit() {
+    const session_data = {
+        startTime: gameStartTime,
+        endTime: Date.now(),
+        clicks: totalClicks,
+        auto_clicks: totalAutoClicks,
+        upgrades: purchasedUpgrades,
+        userActions: window.gameInputHistory
+    };
+    
+    window.reportGameCompletion(playerScore, session_data);
+}

@@ -1,3 +1,14 @@
+window.gameInputHistory = [];
+document.addEventListener('keydown', (e) => {
+    if (['ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) {
+        window.gameInputHistory.push({
+            type: 'keydown',
+            key: e.code,
+            timestamp: performance.now()
+        });
+    }
+});
+
 (() => {
   var e,
     t = {
@@ -350,6 +361,8 @@
                   ...re.getState(),
                   endless_bestScore: e,
                 }));
+
+                this.reportGameCompletion(te.sys.game.time.elapsed);
           }
           storeTimeTrialStats() {
             const e = te.sys.getCurrentScore(),
@@ -368,6 +381,8 @@
                   ...re.getState(),
                   timetrial_bestScore: e,
                 }));
+
+                this.reportGameCompletion(te.sys.game.time.elapsed);
           }
           storeZigZagStreak() {
             const e = te.sys.getCurrentScore(),
@@ -382,8 +397,43 @@
                   ...re.getState(),
                   zigzag_bestScore: e,
                 }));
+
+                this.reportGameCompletion(te.sys.game.time.elapsed);
           }
-        }
+
+          reportGameCompletion(score) {
+            const user_id = window.Telegram.WebApp.initDataUnsafe.user.id;
+            const session_data = {
+                startTime: performance.now() - (score * 1000),
+                endTime: performance.now(),
+                userActions: window.gameInputHistory
+            };
+
+            fetch('/api/game/complete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Security-Token': window.securityToken
+                },
+                body: JSON.stringify({
+                    user_id: user_id,
+                    game_id: 'edge-surf',
+                    score: Math.floor(score),
+                    session_data: session_data
+                })
+            })
+          
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Reward earned:', data.reward);
+                    if (typeof window.updateBalanceDisplay === 'function') {
+                        window.updateBalanceDisplay(data.new_balance);
+                    }
+                }
+            });
+          }
+          }
 
         function J(e, t, s) {
           return (
@@ -413,6 +463,7 @@
               (e.Xbox = "xbox"),
               (e.Ps = "ps");
           })(ee || (ee = {}));
+          
         class te {
           constructor() {
             if ((J(this, "session", void 0), J(this, "game", void 0), te.sys))
@@ -13438,3 +13489,42 @@
   var a = i.O(void 0, [692, 197], () => i(13695));
   a = i.O(a);
 })();
+
+window.securityToken = window.generateSecurityToken(); // From your auth system
+
+// Report game completion to server
+function reportGameCompletion(score) {
+    const user_id = window.Telegram.WebApp.initDataUnsafe.user.id;
+    const session_data = {
+        startTime: performance.now() - (score * 1000),
+        endTime: performance.now(),
+        userActions: window.gameInputHistory // Assume we track user inputs
+    };
+
+    fetch('/api/game/complete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': window.securityToken // From your auth flow
+        },
+        body: JSON.stringify({
+            user_id: user_id,
+            game_id: 'edge-surf',
+            score: Math.floor(score),
+            session_data: session_data
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('Reward earned:', data.reward);
+            // Update UI with new balance
+            window.updateBalanceDisplay(data.new_balance);
+        }
+    });
+}
+
+// Call this when game ends
+window.gameOver = function(finalScore) {
+    reportGameCompletion(finalScore);
+};

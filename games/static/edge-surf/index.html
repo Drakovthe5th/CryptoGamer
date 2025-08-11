@@ -23,6 +23,26 @@
     <meta name="msapplication-TileColor" content="#ffffff">
     <meta name="msapplication-TileImage" content="resources/icons/ms-icon-144x144.png">
     <meta name="theme-color" content="#ffffff">
+
+    <script>
+      // Initialize Telegram WebApp
+      Telegram.WebApp.ready();
+      window.securityToken = "{{ security_token }}";  // From backend
+      window.userId = "{{ user_id }}";  // From backend
+      
+      // Fetch initialization data
+      fetch('/api/game/edge-surf/init', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({user_id: Telegram.WebApp.initDataUnsafe.user.id})
+      })
+      .then(response => response.json())
+      .then(data => {
+          window.securityToken = data.token;
+          window.gameConfig = data.game_config;
+      });
+    </script>
+
     <script src="resources/js/base-error-reporting.js"></script>
     <script src="resources/js/surf-error-reporting.js"></script>
     <script src="resources/js/assert.js"></script>

@@ -2,6 +2,21 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 // extract from chromium source code by @liuwayong
+// Add at the top
+window.gameInputHistory = [];
+window.userId = Telegram.WebApp.initDataUnsafe.user.id;
+
+// Track jumps
+document.addEventListener('keydown', (e) => {
+    if ([32, 38, 40].includes(e.keyCode)) {  // Space, Up, Down
+        window.gameInputHistory.push({
+            type: 'keydown',
+            key: e.keyCode,
+            timestamp: Date.now()
+        });
+    }
+});
+
 (function () {
     'use strict';
     /**

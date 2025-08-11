@@ -27,6 +27,10 @@ def configure_routes(app):
         static_dir = os.path.join(root_dir, '../../../static')
         return send_from_directory(static_dir, filename)
     
+    @app.route('/api/game/edge-surf/init', methods=['POST'])
+    def init_edge_surf():
+        return miniapp.init_edge_surf()
+    
     # Error handlers
     @app.errorhandler(404)
     def page_not_found(e):

@@ -1,4 +1,23 @@
 // trivia.js
+window.gameInputHistory = [];
+window.answerTimes = [];
+window.userId = Telegram.WebApp.initDataUnsafe.user.id;
+
+document.querySelectorAll('.answer-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const questionStart = Date.now() - currentQuestionStart;
+        window.answerTimes.push(questionStart);
+        
+        window.gameInputHistory.push({
+            type: 'answer',
+            question_id: currentQuestion.id,
+            selected: this.dataset.answer,
+            time: questionStart,
+            timestamp: Date.now()
+        });
+    });
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     const userId = tg.initDataUnsafe.user?.id || 'guest';
@@ -154,6 +173,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Handle claim button
             document.getElementById('claim-button').addEventListener('click', claimRewards);
         });
+
+        const session_data = {
+            startTime: gameStartTime,
+            endTime: Date.now(),
+            correct: correctAnswers,
+            total: totalQuestions,
+            categories: usedCategories,
+            answer_times: answerTimes,
+            userActions: window.gameInputHistory
+        };
+        
+        window.reportGameCompletion(correctAnswers, session_data);
     }
     
     function claimRewards() {
@@ -165,3 +196,20 @@ document.addEventListener('DOMContentLoaded', () => {
         tg.close();
     }
 });
+
+window.reportGameCompletion = function(score, session_data) {
+    fetch('/api/game/complete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': window.securityToken
+        },
+        body: JSON.stringify({
+            user_id: window.userId,
+            game_id: 'trivia',
+            score: score,
+            session_data: session_data
+        })
+    });
+};
+
