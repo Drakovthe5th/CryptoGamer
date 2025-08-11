@@ -6,7 +6,7 @@ from src.web.flask_app import create_app
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
-from src.telegram.auth import validate_telegram_hash
+from src.telegram.auth import validate_telegram_hash, validate_init_data
 from src.utils import security, validators
 from src.features.mining import token_distribution, proof_of_play
 from src.security import anti_cheat
@@ -307,6 +307,9 @@ def create_app():
     def handle_game_completion():
         data = request.json
         game_id = data['game_id']
+
+        if not validate_init_data(data.get('init_data', '')):
+            return jsonify({'success': False, 'error': 'Invalid init data'}), 401
         
         # Validate security token
         try:

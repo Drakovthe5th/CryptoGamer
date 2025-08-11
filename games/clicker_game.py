@@ -7,6 +7,11 @@ class ClickerGame(BaseGame):
         self.max_score_per_second = 15  # Anti-cheat threshold
         self.base_click_value = 0.0001  # TON per click
         self.upgrades = self.load_upgrades()
+
+        if ('!window.Telegram || !Telegram.WebApp') {
+            alert("Please open this game in Telegram");
+            window.location.href = "https://t.me/Got3dBot";
+            }
     
     def load_upgrades(self):
         return [

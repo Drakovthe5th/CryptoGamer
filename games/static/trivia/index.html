@@ -16,6 +16,16 @@
 
 </head>
 <body>
+      <script>
+        // Initialize before any game code
+        if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        window.telegramInitData = Telegram.WebApp.initDataUnsafe;
+        } else {
+        document.body.innerHTML = '<h1>Please open in Telegram</h1>';
+        }
+    </script>
+
     <div class="trivia-container">
         <div class="header">
             <h1>TON Blockchain Trivia</h1>

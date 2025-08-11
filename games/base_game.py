@@ -75,3 +75,4 @@ class BaseGame:
         player["score"] = new_score
         player["last_update"] = time.time()
         return True
+    

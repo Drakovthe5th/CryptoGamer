@@ -2,6 +2,28 @@
 window.gameInputHistory = [];
 window.answerTimes = [];
 window.userId = Telegram.WebApp.initDataUnsafe.user.id;
+window.userId = Telegram.WebApp.initDataUnsafe?.user?.id || 'guest';
+
+Telegram.WebApp.ready();
+Telegram.WebApp.expand();  // Use full screen
+
+// Safe way to get user data
+const initData = Telegram.WebApp.initDataUnsafe;
+const user = initData.user || {};
+const userId = user.id;
+
+
+
+async function loadUserData() {
+  showSpinner();
+  try {
+    // API call here
+  } catch (error) {
+    // Handle error
+  } finally {
+    hideSpinner();
+  }
+}
 
 document.querySelectorAll('.answer-btn').forEach(btn => {
     btn.addEventListener('click', function() {

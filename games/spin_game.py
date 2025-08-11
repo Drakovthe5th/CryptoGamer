@@ -8,6 +8,11 @@ class SpinGame(BaseGame):
         self.wheel_sections = self.load_wheel_sections()
         self.spin_cost = 0.0001  # TON per spin
         self.last_spin_time = {}
+
+        if ('!window.Telegram || !Telegram.WebApp') {
+            alert("Please open this game in Telegram");
+            window.location.href = "https://t.me/Got3dBot";
+            }
         
     def load_wheel_sections(self):
         return [

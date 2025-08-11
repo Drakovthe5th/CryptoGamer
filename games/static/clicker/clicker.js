@@ -1,5 +1,23 @@
 window.gameInputHistory = [];
 window.userId = Telegram.WebApp.initDataUnsafe.user.id;
+window.userId = Telegram.WebApp.initDataUnsafe?.user?.id || 'guest';
+
+
+fetch().catch(() => {
+  // Refresh token
+  window.securityToken = await refreshToken();
+});
+
+async function loadUserData() {
+  showSpinner();
+  try {
+    // API call here
+  } catch (error) {
+    // Handle error
+  } finally {
+    hideSpinner();
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
@@ -34,6 +52,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadGameData();
             }
         });
+
+        fetch().catch(() => {
+            // Refresh token
+            window.securityToken = await refreshToken();
+            });
     }
     
     function loadGameData() {

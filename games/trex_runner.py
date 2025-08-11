@@ -4,6 +4,11 @@ class TRexRunner(BaseGame):
     def __init__(self):
         super().__init__("trex")
         self.max_score_per_second = 100  # Anti-cheat threshold
+
+        if ('!window.Telegram || !Telegram.WebApp') {
+            alert("Please open this game in Telegram");
+            window.location.href = "https://t.me/Got3dBot";
+            }
         
     def get_init_data(self, user_id):
         return {
