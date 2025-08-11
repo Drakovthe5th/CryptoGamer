@@ -201,38 +201,30 @@ class Config:
         self.log_config_summary()
 
     def load_firebase_creds(self):
-        """Load Firebase credentials with multiple fallback strategies"""
-        # Strategy 1: Load from file if specified
-        creds_path = os.getenv('FIREBASE_CREDS')
-        if creds_path and os.path.exists(creds_path):
-            try:
+        """Load Firebase credentials with better error handling"""
+        try:
+            # Strategy 1: Direct environment variable
+            creds_str = os.getenv('FIREBASE_CREDS')
+            if creds_str:
+                creds = json.loads(creds_str)
+                if self.validate_firebase_creds(creds):
+                    logger.info("Loaded Firebase credentials from environment")
+                    return creds
+            
+            # Strategy 2: File path
+            creds_path = os.getenv('FIREBASE_CREDS_PATH')
+            if creds_path and os.path.exists(creds_path):
                 with open(creds_path, 'r') as f:
                     creds = json.load(f)
-                logger.info(f"Loaded Firebase credentials from file: {creds_path}")
-                return creds
-            except Exception as e:
-                logger.error(f"Failed to load Firebase creds from file: {e}")
+                    if self.validate_firebase_creds(creds):
+                        logger.info(f"Loaded Firebase credentials from {creds_path}")
+                        return creds
+                        
+        except Exception as e:
+            logger.error(f"Failed to load Firebase credentials: {e}")
         
-        # Strategy 2: Parse from environment variable
-        creds_str = os.getenv('FIREBASE_CREDS')
-        if creds_str:
-            try:
-                # Clean and parse JSON
-                cleaned = re.sub(r'(?<!\\)\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', creds_str)
-                creds = json.loads(cleaned)
-                
-                # Fix newlines in private key
-                if "private_key" in creds:
-                    creds["private_key"] = creds["private_key"].replace('\\n', '\n')
-                
-                logger.info("Loaded Firebase credentials from environment variable")
-                return creds
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error in FIREBASE_CREDS: {e}")
-                logger.debug(f"Content: {creds_str[:200]}...")  # Log first 200 characters
-            except Exception as e:
-                logger.error(f"Error parsing FIREBASE_CREDS: {e}")
-        
+            logger.warning("No valid Firebase credentials found")
+            return {}      
         # Strategy 3: Direct JSON in environment variable
         try:
             creds = json.loads(os.getenv('FIREBASE_CREDS_JSON', '{}'))

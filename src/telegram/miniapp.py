@@ -1,7 +1,7 @@
 import base64
 import logging
 import asyncio
-from flask import Flask
+from Flask import flask
 from src.web.flask_app import create_app
 from datetime import datetime
 from flask import Blueprint, request, jsonify
