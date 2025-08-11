@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import base64
 from dotenv import load_dotenv
 import logging
 
@@ -30,7 +31,10 @@ class Config:
         self.TON_NETWORK = os.getenv('TON_NETWORK', 'mainnet')
         self.TON_API_KEY = os.getenv('TON_API_KEY')
         self.TON_PUBLIC_KEY = os.getenv('TON_PUBLIC_KEY')
-        self.TON_PRIVATE_KEY = os.getenv('TON_PRIVATE_KEY')
+        
+        # Handle TON private key padding issue
+        raw_private_key = os.getenv('TON_PRIVATE_KEY', '')
+        self.TON_PRIVATE_KEY = self.fix_base64_padding(raw_private_key)
         
         # Security and limits
         self.MIN_HOT_BALANCE = float(os.getenv('MIN_HOT_BALANCE', '10.0'))
@@ -198,6 +202,14 @@ class Config:
         # Log configuration status
         self.log_config_summary()
 
+    def fix_base64_padding(self, value):
+        """Ensure base64 string has correct padding"""
+        value = value.strip()
+        pad_length = 4 - (len(value) % 4)
+        if pad_length == 4:
+            return value
+        return value + ('=' * pad_length)
+
     def load_firebase_creds(self):
         """Load Firebase credentials with enhanced error handling"""
         creds = {}
@@ -205,42 +217,53 @@ class Config:
             # Strategy 1: Direct environment variable (single-line JSON)
             creds_str = os.getenv('FIREBASE_CREDS')
             if creds_str:
-                logger.debug("Attempting to parse FIREBASE_CREDS from env")
-                creds = json.loads(creds_str)
-                if self.validate_firebase_creds(creds):
-                    logger.info("Loaded Firebase credentials from FIREBASE_CREDS env")
-                    return creds
-                else:
-                    logger.warning("FIREBASE_CREDS env exists but validation failed")
+                logger.info("Attempting to parse FIREBASE_CREDS from env")
+                try:
+                    creds = json.loads(creds_str)
+                    if self.validate_firebase_creds(creds):
+                        logger.info("Loaded Firebase credentials from FIREBASE_CREDS env")
+                        return creds
+                    else:
+                        logger.warning("FIREBASE_CREDS env exists but validation failed")
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error in FIREBASE_CREDS: {e.doc}")
+                    logger.error(f"Error position: {e.pos}, Error: {e.msg}")
             
             # Strategy 2: File path
-            creds_path = os.getenv('FIREBASE_CREDS_PATH')
+            creds_path = os.getenv('FIREBASE_CREDS_PATH', '/etc/secrets/firebase_creds.json')
             if creds_path and os.path.exists(creds_path):
-                logger.debug(f"Attempting to load Firebase creds from {creds_path}")
-                with open(creds_path, 'r') as f:
-                    creds = json.load(f)
+                logger.info(f"Attempting to load Firebase creds from {creds_path}")
+                try:
+                    with open(creds_path, 'r') as f:
+                        creds = json.load(f)
                     if self.validate_firebase_creds(creds):
                         logger.info(f"Loaded Firebase credentials from {creds_path}")
                         return creds
                     else:
                         logger.warning(f"Firebase credentials from {creds_path} failed validation")
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error in {creds_path}: {e.doc}")
+                    logger.error(f"Error position: {e.pos}, Error: {e.msg}")
+                except Exception as e:
+                    logger.error(f"Error reading {creds_path}: {str(e)}")
             
             # Strategy 3: Direct JSON in alternative env variable
             creds_json_str = os.getenv('FIREBASE_CREDS_JSON')
             if creds_json_str:
-                logger.debug("Attempting to parse FIREBASE_CREDS_JSON")
-                creds = json.loads(creds_json_str)
-                if self.validate_firebase_creds(creds):
-                    logger.info("Loaded Firebase credentials from FIREBASE_CREDS_JSON")
-                    return creds
-                else:
-                    logger.warning("FIREBASE_CREDS_JSON exists but validation failed")
+                logger.info("Attempting to parse FIREBASE_CREDS_JSON")
+                try:
+                    creds = json.loads(creds_json_str)
+                    if self.validate_firebase_creds(creds):
+                        logger.info("Loaded Firebase credentials from FIREBASE_CREDS_JSON")
+                        return creds
+                    else:
+                        logger.warning("FIREBASE_CREDS_JSON exists but validation failed")
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error in FIREBASE_CREDS_JSON: {e.doc}")
+                    logger.error(f"Error position: {e.pos}, Error: {e.msg}")
                     
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON decode error: {e.doc}")
-            logger.error(f"JSON error position: {e.pos}")
         except Exception as e:
-            logger.error(f"Failed to load Firebase credentials: {str(e)}", exc_info=True)
+            logger.error(f"Critical error loading Firebase credentials: {str(e)}", exc_info=True)
         
         logger.error("No valid Firebase credentials found")
         return {}
