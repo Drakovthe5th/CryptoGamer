@@ -24,7 +24,7 @@ class Config:
         
         # TON blockchain configuration
         self.TON_ENABLED = os.getenv('TON_ENABLED', 'true').lower() == 'true'
-        self.TON_MNEMONIC = os.getenv('TON_MNEMONIC')
+        self.TON_MNEMONIC = os.getenv('TON_WALLET_MNEMONIC') or os.getenv('TON_MNEMONIC')
         self.TON_HOT_WALLET = os.getenv('TON_HOT_WALLET')
         self.TON_ADMIN_ADDRESS = os.getenv('TON_ADMIN_ADDRESS')
         self.TON_NETWORK = os.getenv('TON_NETWORK', 'mainnet')
@@ -79,27 +79,25 @@ class Config:
             "a-ads": os.getenv("A_ADS_ZONE_ID", "2405512")
         }
         
-        # config.py additions
-
         # Ad System
-        AD_COOLDOWN = 30  # seconds
-        PREMIUM_AD_BONUS = 1.5
-        AD_STREAK_BONUS_MEDIUM = 1.2
-        AD_STREAK_BONUS_HIGH = 1.5
-        PEAK_HOURS = [18, 19, 20, 21]  # 6PM-10PM
-        PEAK_HOUR_BONUS = 1.3
-        WEEKEND_BONUS = 1.2
-        HIGH_VALUE_REGIONS = ['US', 'CA', 'GB', 'AU', 'DE']
-        REGIONAL_BONUS = 1.25
-        MOBILE_BONUS = 1.15
-        AD_DURATIONS = {
+        self.AD_COOLDOWN = 30  # seconds
+        self.PREMIUM_AD_BONUS = 1.5
+        self.AD_STREAK_BONUS_MEDIUM = 1.2
+        self.AD_STREAK_BONUS_HIGH = 1.5
+        self.PEAK_HOURS = [18, 19, 20, 21]  # 6PM-10PM
+        self.PEAK_HOUR_BONUS = 1.3
+        self.WEEKEND_BONUS = 1.2
+        self.HIGH_VALUE_REGIONS = ['US', 'CA', 'GB', 'AU', 'DE']
+        self.REGIONAL_BONUS = 1.25
+        self.MOBILE_BONUS = 1.15
+        self.AD_DURATIONS = {
             "coinzilla": 45,
             "propeller": 30,
             "a-ads": 60
         }
 
         # Quest System
-        QUEST_TEMPLATES = [
+        self.QUEST_TEMPLATES = [
             {
                 'type': 'gaming',
                 'difficulty': 1,
@@ -125,21 +123,21 @@ class Config:
                 'reward': 0.04
             }
         ]
-        QUEST_REFRESH_HOUR = 4  # 4 AM UTC
-        DAILY_QUEST_COUNT = 3
-        AVAILABLE_GAME_TYPES = {'trivia', 'spin', 'puzzle', 'battle', 'mining'}
-        LEVEL_XP_BASE = 100
-        LEVEL_XP_MULTIPLIER = 1.5
-        MAX_LEVEL = 50
+        self.QUEST_REFRESH_HOUR = 4  # 4 AM UTC
+        self.DAILY_QUEST_COUNT = 3
+        self.AVAILABLE_GAME_TYPES = {'trivia', 'spin', 'puzzle', 'battle', 'mining'}
+        self.LEVEL_XP_BASE = 100
+        self.LEVEL_XP_MULTIPLIER = 1.5
+        self.MAX_LEVEL = 50
 
-                # Mining Economics
-        REWARD_PER_BLOCK = 0.1  # TON
-        DAILY_EMISSION = 50  # TON
-        USER_ACTIVITY_POOL_RATIO = 0.7  # 70%
-        MIN_STAKE = 5.0  # Minimum TON for staking
+        # Mining Economics
+        self.REWARD_PER_BLOCK = 0.1  # TON
+        self.DAILY_EMISSION = 50  # TON
+        self.USER_ACTIVITY_POOL_RATIO = 0.7  # 70%
+        self.MIN_STAKE = 5.0  # Minimum TON for staking
         
-        # Add for all games
-        REWARD_RATES = {
+        # Game Reward Rates
+        self.REWARD_RATES = {
             'edge-surf': {'base': 0.003, 'per_minute': 0.007},
             'trex-runner': {'base': 0.001, 'per_100_meters': 0.005},
             'clicker': {'base': 0.000, 'per_1000_points': 0.015},
@@ -147,7 +145,7 @@ class Config:
             'spin': {'base': 0.004}
         }
 
-        MAX_GAME_REWARD = {
+        self.MAX_GAME_REWARD = {
             'edge-surf': 0.5,
             'trex-runner': 0.4,
             'clicker': 0.6,
@@ -156,25 +154,25 @@ class Config:
         }
 
         # Anti-Cheating Thresholds
-        MIN_CLICK_INTERVAL = 0.1  # seconds
-        SESSION_DURATION_VARIANCE = 0.3  # Allowed deviation
+        self.MIN_CLICK_INTERVAL = 0.1  # seconds
+        self.SESSION_DURATION_VARIANCE = 0.3  # Allowed deviation
         
         # Ad Monetization Rates (USD)
-        AD_RATES = {
+        self.AD_RATES = {
             'monetag': 0.003,
             'a-ads': 0.0012,
             'ad-mob': 0.0025
         }
         
         # Premium Tiers (USD/month)
-        PREMIUM_TIERS = {
+        self.PREMIUM_TIERS = {
             'basic': 4.99,
             'pro': 9.99,
             'vip': 19.99
         }
         
         # Data Insights Value
-        DATA_POINT_VALUE = 0.0001  # USD per point
+        self.DATA_POINT_VALUE = 0.0001  # USD per point
 
         # OTC Desk
         self.OTC_USD_RATE = float(os.getenv("OTC_USD_RATE", "6.80"))
@@ -195,59 +193,69 @@ class Config:
         # Wallet Thresholds
         self.MIN_ADMIN_BALANCE = 50.0  # TON (triggers alert)
 
-        DEFAULT_COUNTRY = 'KE'
+        self.DEFAULT_COUNTRY = 'KE'
         
         # Log configuration status
         self.log_config_summary()
 
     def load_firebase_creds(self):
-        """Load Firebase credentials with better error handling"""
+        """Load Firebase credentials with enhanced error handling"""
+        creds = {}
         try:
-            # Strategy 1: Direct environment variable
+            # Strategy 1: Direct environment variable (single-line JSON)
             creds_str = os.getenv('FIREBASE_CREDS')
             if creds_str:
+                logger.debug("Attempting to parse FIREBASE_CREDS from env")
                 creds = json.loads(creds_str)
                 if self.validate_firebase_creds(creds):
-                    logger.info("Loaded Firebase credentials from environment")
+                    logger.info("Loaded Firebase credentials from FIREBASE_CREDS env")
                     return creds
+                else:
+                    logger.warning("FIREBASE_CREDS env exists but validation failed")
             
             # Strategy 2: File path
             creds_path = os.getenv('FIREBASE_CREDS_PATH')
             if creds_path and os.path.exists(creds_path):
+                logger.debug(f"Attempting to load Firebase creds from {creds_path}")
                 with open(creds_path, 'r') as f:
                     creds = json.load(f)
                     if self.validate_firebase_creds(creds):
                         logger.info(f"Loaded Firebase credentials from {creds_path}")
                         return creds
-                        
+                    else:
+                        logger.warning(f"Firebase credentials from {creds_path} failed validation")
+            
+            # Strategy 3: Direct JSON in alternative env variable
+            creds_json_str = os.getenv('FIREBASE_CREDS_JSON')
+            if creds_json_str:
+                logger.debug("Attempting to parse FIREBASE_CREDS_JSON")
+                creds = json.loads(creds_json_str)
+                if self.validate_firebase_creds(creds):
+                    logger.info("Loaded Firebase credentials from FIREBASE_CREDS_JSON")
+                    return creds
+                else:
+                    logger.warning("FIREBASE_CREDS_JSON exists but validation failed")
+                    
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error: {e.doc}")
+            logger.error(f"JSON error position: {e.pos}")
         except Exception as e:
-            logger.error(f"Failed to load Firebase credentials: {e}")
-        
-            logger.warning("No valid Firebase credentials found")
-            return {}      
-        # Strategy 3: Direct JSON in environment variable
-        try:
-            creds = json.loads(os.getenv('FIREBASE_CREDS_JSON', '{}'))
-            if creds:
-                logger.info("Loaded Firebase credentials from FIREBASE_CREDS_JSON")
-                return creds
-        except:
-            pass
+            logger.error(f"Failed to load Firebase credentials: {str(e)}", exc_info=True)
         
         logger.error("No valid Firebase credentials found")
         return {}
 
     def validate_firebase_creds(self, creds):
         """Validate Firebase credentials structure"""
+        if not isinstance(creds, dict):
+            logger.error("Firebase credentials are not a dictionary")
+            return False
+            
         required_keys = [
             "type", "project_id", "private_key_id", "private_key",
             "client_email", "client_id", "token_uri"
         ]
         
-        if not creds:
-            logger.error("Firebase credentials are empty")
-            return False
-            
         missing_keys = [key for key in required_keys if key not in creds]
         if missing_keys:
             logger.error(f"Firebase credentials missing required keys: {', '.join(missing_keys)}")
@@ -257,10 +265,16 @@ class Config:
             logger.error("Firebase credentials type is not 'service_account'")
             return False
             
+        # Validate private key format
+        private_key = creds.get("private_key", "")
+        if not private_key.startswith("-----BEGIN PRIVATE KEY-----") or \
+           not private_key.endswith("-----END PRIVATE KEY-----\n"):
+            logger.warning("Firebase private key format appears incorrect")
+            
         return True
 
     def log_config_summary(self):
-        """Log a summary of the configuration"""
+        """Log a secure summary of the configuration"""
         logger.info("Configuration Summary:")
         logger.info(f"Environment: {self.ENV}")
         logger.info(f"TON Enabled: {self.TON_ENABLED}")
@@ -270,7 +284,7 @@ class Config:
         
         # Log partial TON wallet info for security
         if self.TON_HOT_WALLET:
-            logger.info(f"TON Hot Wallet: {self.TON_HOT_WALLET[:6]}...{self.TON_HOT_WALLET[-6:]}")
+            logger.info(f"TON Hot Wallet: {self.secure_mask(self.TON_HOT_WALLET)}")
         else:
             logger.warning("TON Hot Wallet not configured")
         
@@ -280,6 +294,12 @@ class Config:
                 logger.error("Invalid Firebase credentials structure")
         else:
             logger.error("Firebase credentials are missing")
+
+    def secure_mask(self, value, show_first=6, show_last=4):
+        """Mask sensitive information for logging"""
+        if not value or len(value) < (show_first + show_last):
+            return "[REDACTED]"
+        return f"{value[:show_first]}...{value[-show_last:]}"
 
 # Create singleton instance
 config = Config()
