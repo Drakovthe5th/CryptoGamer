@@ -3,7 +3,7 @@ import datetime
 import asyncio
 import logging
 import atexit
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.integrations.ton import (
@@ -102,6 +102,28 @@ def api_status():
         "version": "1.0.0",
         "crypto": "TON"
     }), 200
+
+# Game endpoints
+@app.route('/games/<game_name>')
+def serve_game(game_name):
+    """Serve game HTML based on game name"""
+    valid_games = {
+        'clicker': 'clicker/index.html',
+        'spin': 'spin/index.html',
+        'edge-surf': 'egde-surf/index.html',
+        'trex': 'trex/index.html',
+        'trivia': 'trivia/index.html'
+    }
+    
+    if game_name not in valid_games:
+        return "Game not found", 404
+        
+    return send_from_directory('static', valid_games[game_name])
+
+# Serve static files for games
+@app.route('/games/static/<path:path>')
+def game_static(path):
+    return send_from_directory('static', path)
 
 # Configure all routes
 configure_routes(app)

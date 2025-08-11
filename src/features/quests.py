@@ -273,3 +273,34 @@ class QuestSystem:
             xp_required *= config.LEVEL_XP_MULTIPLIER
             
         return min(level, config.MAX_LEVEL)
+    
+    def get_active_quests(self, user_id):
+        """Get active quests for user"""
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return []
+        return user_data.get('active_quests', [])
+
+    def get_daily_quests(self, user_id):
+        """Get today's generated quests for user"""
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return []
+        return user_data.get('daily_quests', [])
+        
+    def update_quest_progress(self, user_id, quest_id, progress):
+        """Update progress for a specific quest"""
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return False
+            
+        # Find the quest and update progress
+        for quest in user_data.get('active_quests', []):
+            if quest['id'] == quest_id:
+                quest['progress'] = progress
+                if progress >= 100:
+                    quest['completed'] = True
+                save_quest_progress(user_id, user_data)
+                return True
+                
+        return False
