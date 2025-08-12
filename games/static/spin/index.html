@@ -165,6 +165,11 @@
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
     }
+
+    if (!window.Telegram || !window.Telegram.WebApp) {
+      alert("Please open this game in Telegram");
+      window.location.href = "https://t.me/Got3dBot";
+    }
     
             // Initialize game when page loads
     document.addEventListener('DOMContentLoaded', () => {

@@ -4,11 +4,6 @@ class EdgeSurf(BaseGame):
     def __init__(self):
         super().__init__("edge_surf")
         self.max_score_per_second = 120
-
-        if ('!window.Telegram || !Telegram.WebApp') {
-            alert("Please open this game in Telegram");
-            window.location.href = "https://t.me/Got3dBot";
-            }
         
     def get_init_data(self, user_id):
         return {
@@ -21,7 +16,3 @@ class EdgeSurf(BaseGame):
                 "right": ["Right Arrow", "D"]
             }
         }
-    
-    def handle_action(self, user_id, action, data):
-        # Similar implementation to TRexRunner
-        pass

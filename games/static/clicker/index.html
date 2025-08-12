@@ -281,7 +281,12 @@
             body: JSON.stringify({user_id: userId})
         });
     }
-    
+
+    if (!window.Telegram || !window.Telegram.WebApp) {
+      alert("Please open this game in Telegram");
+      window.location.href = "https://t.me/Got3dBot";
+    }
+  
     // Set global variables from template
     window.userId = "{{ user_id }}";
     window.securityToken = "{{ security_token }}";

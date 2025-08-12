@@ -12,11 +12,6 @@ class TriviaQuiz(BaseGame):
             "medium": 1.5,
             "hard": 2.0
         }
-
-        if ('!window.Telegram || !Telegram.WebApp') {
-            alert("Please open this game in Telegram");
-            window.location.href = "https://t.me/Got3dBot";
-            }
     
     def load_questions(self):
         return [
