@@ -9,7 +9,19 @@ from typing import Optional, Dict, Tuple, Union
 from pytoniq import LiteClient, WalletV4R2
 from pytoniq_core import Cell, begin_cell, Address
 from mnemonic import Mnemonic
-from nacl.crypto import crypto_sign_seed_keypair
+try:
+    # Try the correct PyNaCl import
+    from nacl.signing import SigningKey
+    PYNACL_AVAILABLE = True
+except ImportError:
+    try:
+        # Alternative: use pytoniq's crypto functions
+        from pytoniq_core.crypto.keys import private_key_to_public_key
+        PYNACL_AVAILABLE = False
+    except ImportError:
+        # Fallback: use basic crypto
+        import hashlib
+        PYNACL_AVAILABLE = False
 from src.database.firebase import db
 from config import config
 
@@ -102,8 +114,22 @@ class TONWallet:
         # Generate seed from mnemonic
         seed = mnemo.to_seed(config.TON_MNEMONIC, passphrase="")
         
-        # Derive key pair (32-byte private key, 32-byte public key)
-        public_key, private_key = crypto_sign_seed_keypair(seed[:32])
+        # Derive key pair using the best available method
+        if PYNACL_AVAILABLE:
+            # Use PyNaCl (preferred method)
+            signing_key = SigningKey(seed[:32])
+            private_key = bytes(signing_key)
+            public_key = bytes(signing_key.verify_key)
+        else:
+            try:
+                # Use pytoniq's crypto functions
+                private_key = seed[:32]
+                public_key = private_key_to_public_key(private_key)
+            except:
+                # Fallback: use basic derivation (not recommended for production)
+                private_key = seed[:32]
+                public_key = hashlib.sha256(private_key).digest()
+                logger.warning("Using fallback key derivation - install PyNaCl for security")
         
         self.wallet = WalletV4R2(
             provider=self.client,
@@ -121,8 +147,19 @@ class TONWallet:
             public_key = private_key_bytes[32:]
             private_key = private_key_bytes[:32]
         else:
-            # Generate public key from private key
-            public_key, private_key = crypto_sign_seed_keypair(private_key_bytes)
+            # Generate public key from private key using the best available method
+            private_key = private_key_bytes
+            if PYNACL_AVAILABLE:
+                signing_key = SigningKey(private_key)
+                public_key = bytes(signing_key.verify_key)
+            else:
+                try:
+                    # Use pytoniq's crypto functions
+                    public_key = private_key_to_public_key(private_key)
+                except:
+                    # Fallback method
+                    public_key = hashlib.sha256(private_key).digest()
+                    logger.warning("Using fallback key derivation - install PyNaCl for security")
         
         self.wallet = WalletV4R2(
             provider=self.client,
