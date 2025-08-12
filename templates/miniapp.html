@@ -1151,15 +1151,26 @@
         'edge-surf': 'Edge Surf'
       };
 
+  
+
+            // Get user data from Telegram WebApp
+      const tg = window.Telegram?.WebApp;
+      const userId = tg?.initDataUnsafe?.user?.id || 'guest';
+      
+      // Create simple token (timestamp-based)
+      const token = btoa(`${userId}:${Date.now()}`);
+
       showAlert(
         'Launch Game',
         `Starting ${gameNames[gameName] || gameName}...`
       );
-
-      // In a real implementation, this would navigate to the game
-      window.location.href = `/games/${gameName}?tgWebAppData=${encodeURIComponent(tg?.initData || '')}`;
+      
+      // Launch game with user parameters
+      const gameUrl = `/games/${gameName}?user_id=${userId}&token=${token}`;
+      window.location.href = gameUrl;
+      
     }
-
+    
     // Core game actions
     async function claimDailyBonus() {
       try {

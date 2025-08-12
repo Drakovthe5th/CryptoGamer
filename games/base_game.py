@@ -45,6 +45,9 @@ class BaseGame:
                 "high_score": 0,
                 "user_data": {}
             }
+        
+    def get_game_url(self, user_id, token):
+        return f"/games/{self.name}?user_id={user_id}&token={token}"
     
     def start_game(self, user_id: str) -> Dict[str, Any]:
         """Start a new game session for a user"""

@@ -27,6 +27,41 @@ def configure_routes(app):
         static_dir = os.path.join(root_dir, '../../../static')
         return send_from_directory(static_dir, filename)
     
+    # Add these routes to your existing src/web/routes.py file
+
+    @app.route('/games/<game_name>')
+    def serve_game(game_name):
+        """Simple route mapping to serve game files"""
+        # Map game names to their HTML file paths
+        game_files = {
+            'clicker': 'games/static/clicker/index.html',
+            'spin': 'games/static/spin/index.html', 
+            'trivia': 'games/static/trivia/index.html',
+            'trex': 'games/static/trex/index.html',
+            'edge_surf': 'games/static/edge-surf/index.html'
+        }
+        
+        if game_name in game_files:
+            try:
+                # Get user parameters from URL
+                user_id = request.args.get('user_id', 'guest')
+                token = request.args.get('token', '')
+                
+                # Serve the HTML file directly
+                return send_from_directory('.', game_files[game_name])
+            except FileNotFoundError:
+                return f"Game file not found: {game_files[game_name]}", 404
+        else:
+            return "Game not found", 404
+
+    @app.route('/games/<game_name>/static/<path:filename>')
+    def game_static_files(game_name, filename):
+        """Serve static files for games (CSS, JS, assets)"""
+        try:
+            return send_from_directory(f'games/static/{game_name}', filename)
+        except FileNotFoundError:
+            return "File not found", 404
+    
     @app.route('/api/game/edge-surf/init', methods=['POST'])
     def init_edge_surf():
         return miniapp.init_edge_surf()
@@ -68,6 +103,67 @@ def configure_routes(app):
             })
         except Exception as e:
             logger.error(f"User data error: {str(e)}")
+            return jsonify({'error': str(e)}), 500
+        
+        # Add these to your existing routes.py for game completion handling
+
+    @app.route('/api/game/<game_name>/complete', methods=['POST'])
+    def complete_game(game_name):
+        """Simple game completion handler"""
+        try:
+            data = request.get_json()
+            user_id = data.get('user_id')
+            score = data.get('score', 0)
+            
+            if not user_id:
+                return jsonify({'error': 'User ID required'}), 400
+            
+            # Simple reward calculation based on game type
+            rewards = {
+                'clicker': min(score * 0.001, 0.1),      # 0.001 per click, max 0.1 TON
+                'spin': min(score * 0.05, 0.15),         # Variable based on spin result  
+                'trivia': min(score * 0.002, 0.08),      # 0.002 per correct answer
+                'trex': min(score * 0.005, 0.12),        # 0.005 per 100 points
+                'edge_surf': min(score * 0.007, 0.1)     # 0.007 per minute played
+            }
+            
+            reward = rewards.get(game_name, 0)
+            
+            # Update user balance using your existing function
+            from src.database.firebase import update_balance
+            new_balance = update_balance(int(user_id), reward)
+            
+            return jsonify({
+                'success': True,
+                'reward': reward,
+                'new_balance': new_balance,
+                'message': f'You earned {reward:.6f} TON!'
+            })
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/game/<game_name>/init', methods=['POST'])  
+    def init_game(game_name):
+        """Simple game initialization"""
+        try:
+            data = request.get_json()
+            user_id = data.get('user_id')
+            
+            if not user_id:
+                return jsonify({'error': 'User ID required'}), 400
+            
+            # Get user balance using your existing function
+            from src.database.firebase import get_user_data
+            user_data = get_user_data(int(user_id))
+            
+            return jsonify({
+                'success': True,
+                'user_balance': user_data.get('balance', 0) if user_data else 0,
+                'game_name': game_name
+            })
+            
+        except Exception as e:
             return jsonify({'error': str(e)}), 500
 
     @app.route('/api/ads/reward', methods=['POST'])

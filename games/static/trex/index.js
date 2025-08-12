@@ -31,6 +31,29 @@ async function loadUserData() {
   }
 }
 
+    // Initialize game when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Get user data from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    window.userId = urlParams.get('user_id');
+    window.securityToken = urlParams.get('token');
+    
+    // Initialize game with user data
+    initGame(window.userId, window.securityToken);
+});
+
+async function initGame(userId, token) {
+    // Initialize game with user-specific data
+    const response = await fetch(`/api/game/${gameName}/init`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': token
+        },
+        body: JSON.stringify({user_id: userId})
+    });
+}
+
 // Track jumps
 document.addEventListener('keydown', (e) => {
     if ([32, 38, 40].includes(e.keyCode)) {  // Space, Up, Down

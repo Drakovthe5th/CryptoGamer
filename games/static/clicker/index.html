@@ -258,6 +258,29 @@
       window.Telegram.WebApp.ready();
       window.Telegram.WebApp.expand();
     }
+
+            // Initialize game when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        // Get user data from URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        window.userId = urlParams.get('user_id');
+        window.securityToken = urlParams.get('token');
+        
+        // Initialize game with user data
+        initGame(window.userId, window.securityToken);
+    });
+
+    async function initGame(userId, token) {
+        // Initialize game with user-specific data
+        const response = await fetch(`/api/game/${gameName}/init`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Security-Token': token
+            },
+            body: JSON.stringify({user_id: userId})
+        });
+    }
     
     // Set global variables from template
     window.userId = "{{ user_id }}";
@@ -586,10 +609,6 @@
       }
     }
 
-    // Initialize game when page loads
-    document.addEventListener('DOMContentLoaded', () => {
-      window.clickerGame = new ClickerGame();
-    });
   </script>
 </body>
 </html>
