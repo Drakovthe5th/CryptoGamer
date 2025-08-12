@@ -8,6 +8,8 @@ from config import Config
 import logging
 import datetime
 import os
+from games.games import games_bp
+app.register_blueprint(games_bp)
 
 logger = logging.getLogger(__name__)
 
@@ -26,41 +28,6 @@ def configure_routes(app):
         root_dir = os.path.dirname(os.path.abspath(__file__))
         static_dir = os.path.join(root_dir, '../../../static')
         return send_from_directory(static_dir, filename)
-    
-    # Add these routes to your existing src/web/routes.py file
-
-    @app.route('/games/<game_name>')
-    def serve_game(game_name):
-        """Simple route mapping to serve game files"""
-        # Map game names to their HTML file paths
-        game_files = {
-            'clicker': 'games/static/clicker/index.html',
-            'spin': 'games/static/spin/index.html', 
-            'trivia': 'games/static/trivia/index.html',
-            'trex': 'games/static/trex/index.html',
-            'edge_surf': 'games/static/edge-surf/index.html'
-        }
-        
-        if game_name in game_files:
-            try:
-                # Get user parameters from URL
-                user_id = request.args.get('user_id', 'guest')
-                token = request.args.get('token', '')
-                
-                # Serve the HTML file directly
-                return send_from_directory('.', game_files[game_name])
-            except FileNotFoundError:
-                return f"Game file not found: {game_files[game_name]}", 404
-        else:
-            return "Game not found", 404
-
-    @app.route('/games/<game_name>/static/<path:filename>')
-    def game_static_files(game_name, filename):
-        """Serve static files for games (CSS, JS, assets)"""
-        try:
-            return send_from_directory(f'games/static/{game_name}', filename)
-        except FileNotFoundError:
-            return "File not found", 404
     
     @app.route('/api/game/edge-surf/init', methods=['POST'])
     def init_edge_surf():

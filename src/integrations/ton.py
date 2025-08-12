@@ -49,58 +49,56 @@ class TONWallet:
         self.is_testnet: bool = config.TON_NETWORK.lower() == "testnet"
 
     async def initialize(self) -> bool:
-        """Initialize TON wallet connection"""
-        try:
-            logger.info(f"Initializing TON wallet on {'testnet' if self.is_testnet else 'mainnet'}")
-            
-            # Initialize LiteClient with correct parameters
-            if self.is_testnet:
-                logger.info("Connecting to TON testnet")
-                self.client = LiteClient.from_testnet_config(
-                    ls_i=0,  # liteserver index
-                    trust_level=2,
-                    timeout=30
-                )
-            else:
-                logger.info("Connecting to TON mainnet")
-                self.client = LiteClient.from_mainnet_config(
-                    ls_i=0,  # liteserver index  
-                    trust_level=2,
-                    timeout=30
-                )
-            
-            # Connect to the network
-            await self.client.connect()
-            logger.info("Successfully connected to TON network")
-            
-            # Initialize wallet from mnemonic or private key
-            if config.TON_MNEMONIC:
-                await self._init_from_mnemonic()
-            elif config.TON_PRIVATE_KEY:
-                await self._init_from_private_key()
-            else:
-                raise ValueError("No TON credentials provided (mnemonic or private key)")
-            
-            # Verify wallet address
-            await self._verify_wallet_address()
-            
-            logger.info(f"TON wallet initialized successfully: {self.get_address()}")
-            self.initialized = True
-            self.connection_retries = 0
-            return True
-            
-        except Exception as e:
-            logger.exception(f"TON wallet initialization failed: {str(e)}")
-            self.initialized = False
-            self.connection_retries += 1
-            
-            # Retry logic
-            if self.connection_retries < self.MAX_RETRY_ATTEMPTS:
-                logger.info(f"Retrying initialization (attempt {self.connection_retries + 1}/{self.MAX_RETRY_ATTEMPTS})")
-                await asyncio.sleep(5)  # Wait 5 seconds before retry
-                return await self.initialize()
-            
-            return False
+        """Initialize TON wallet connection with retries"""
+        for attempt in range(self.MAX_RETRY_ATTEMPTS):
+            try:
+                logger.info(f"Initializing TON wallet on {'testnet' if self.is_testnet else 'mainnet'}")
+                
+                # Initialize LiteClient with correct parameters
+                if self.is_testnet:
+                    logger.info("Connecting to TON testnet")
+                    self.client = LiteClient.from_testnet_config(
+                        ls_i=0,  # liteserver index
+                        trust_level=2,
+                        timeout=30
+                    )
+                else:
+                    logger.info("Connecting to TON mainnet")
+                    self.client = LiteClient.from_mainnet_config(
+                        ls_i=0,  # liteserver index  
+                        trust_level=2,
+                        timeout=30
+                    )
+                
+                # Connect to the network
+                await self.client.connect()
+                logger.info("Successfully connected to TON network")
+                
+                # Initialize wallet from mnemonic or private key
+                if config.TON_MNEMONIC:
+                    await self._init_from_mnemonic()
+                elif config.TON_PRIVATE_KEY:
+                    await self._init_from_private_key()
+                else:
+                    raise ValueError("No TON credentials provided (mnemonic or private key)")
+                
+                # Verify wallet address
+                await self._verify_wallet_address()
+                
+                logger.info(f"TON wallet initialized successfully: {self.get_address()}")
+                self.initialized = True
+                self.connection_retries = 0
+                return True
+                
+            except (asyncio.TimeoutError, ConnectionError) as e:
+                logger.warning(f"Connection attempt {attempt+1} failed: {e}")
+                if attempt < self.MAX_RETRY_ATTEMPTS - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.error("TON wallet initialization failed after retries")
+        return False
 
     async def _init_from_mnemonic(self) -> None:
         """Initialize wallet from mnemonic phrase"""

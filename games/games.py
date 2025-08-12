@@ -8,12 +8,14 @@ from .edge_surf import EdgeSurf
 from datetime import datetime
 import time
 import logging
+import backoff  # For exponential backoff
 
 logger = logging.getLogger(__name__)
 
+# Create blueprint with unique name and prefix
 games_bp = Blueprint('games', __name__, url_prefix='/games')
 
-# Initialize game instances
+# Initialize game instances with retry configuration
 GAME_REGISTRY = {
     "clicker": ClickerGame(),
     "spin": SpinGame(),
@@ -21,6 +23,11 @@ GAME_REGISTRY = {
     "trex": TRexRunner(),
     "edge_surf": EdgeSurf()
 }
+
+# Configure retry settings for all games
+for game in GAME_REGISTRY.values():
+    game.max_retry_attempts = 3
+    game.retry_delay = 1.5
 
 @games_bp.route('/')
 def games_index():
@@ -30,184 +37,232 @@ def games_index():
         games_list.append({
             "id": game_id,
             "name": game.name,
-            "description": f"Play {game.name} and earn TON!"
+            "description": f"Play {game.name} and earn TON!",
+            "min_reward": game.min_reward,
+            "max_reward": game.max_reward
         })
     return jsonify({"games": games_list})
 
-@games_bp.route('/<game_name>')
+# Use unique endpoint name to avoid conflicts
+@games_bp.route('/<game_name>', endpoint='game_serve')
 def serve_game(game_name):
-    """Serve game HTML file"""
+    """Serve game HTML file with exponential backoff retries"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         logger.error(f"Game not found: {game_name}")
         return jsonify({"error": "Game not found"}), 404
     
-    try:
-        # Serve game HTML from static folder
+    @backoff.on_exception(backoff.expo,
+                          FileNotFoundError,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_serve():
         return send_from_directory('static', f'{game_name}/index.html')
+    
+    try:
+        return try_serve()
     except FileNotFoundError:
         logger.error(f"Game file not found: static/{game_name}/index.html")
         return jsonify({"error": "Game file not found"}), 404
 
-@games_bp.route('/<game_name>/static/<path:filename>')
+# Unique endpoint name for static files
+@games_bp.route('/<game_name>/static/<path:filename>', endpoint='game_static_files')
 def game_static(game_name, filename):
-    """Serve static files for games"""
-    try:
+    """Serve static files for games with retries"""
+    game = GAME_REGISTRY.get(game_name.lower())
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+    
+    @backoff.on_exception(backoff.expo,
+                          FileNotFoundError,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_serve_static():
         return send_from_directory(f"static/{game_name}", filename)
+    
+    try:
+        return try_serve_static()
     except FileNotFoundError:
         logger.error(f"Static file not found: static/{game_name}/{filename}")
         return jsonify({"error": "File not found"}), 404
 
 @games_bp.route('/<game_name>/api/init', methods=['POST'])
 def init_game(game_name):
-    """Initialize game for a user"""
+    """Initialize game for a user with retry logic"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         return jsonify({'error': 'Game not found'}), 404
     
-    try:
+    @backoff.on_exception(backoff.expo,
+                          Exception,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_init():
         data = request.get_json()
         user_id = data.get('user_id')
         
         if not user_id:
-            return jsonify({'error': 'User ID required'}), 400
+            raise ValueError('User ID required')
         
-        init_data = game.get_init_data(user_id)
-        logger.info(f"Game {game_name} initialized for user {user_id}")
-        
-        return jsonify({
-            'success': True,
-            'game_data': init_data
-        })
-        
+        return game.get_init_data(user_id)
+    
+    try:
+        init_data = try_init()
+        logger.info(f"Game {game_name} initialized for user")
+        return jsonify({'success': True, 'game_data': init_data})
     except Exception as e:
         logger.error(f"Error initializing game {game_name}: {str(e)}")
-        return jsonify({'error': 'Failed to initialize game'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @games_bp.route('/<game_name>/api/start', methods=['POST'])
 def start_game(game_name):
-    """Start a game session"""
+    """Start a game session with retry logic"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         return jsonify({'error': 'Game not found'}), 404
     
-    try:
+    @backoff.on_exception(backoff.expo,
+                          Exception,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_start():
         data = request.get_json()
         user_id = data.get('user_id')
         
         if not user_id:
-            return jsonify({'error': 'User ID required'}), 400
+            raise ValueError('User ID required')
         
-        result = game.start_game(user_id)
-        logger.info(f"Game {game_name} started for user {user_id}")
-        
-        return jsonify({
-            'success': True,
-            **result
-        })
-        
+        return game.start_game(user_id)
+    
+    try:
+        result = try_start()
+        logger.info(f"Game {game_name} started")
+        return jsonify({'success': True, **result})
     except Exception as e:
         logger.error(f"Error starting game {game_name}: {str(e)}")
-        return jsonify({'error': 'Failed to start game'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @games_bp.route('/<game_name>/api/action', methods=['POST'])
 def game_action(game_name):
-    """Handle game actions"""
+    """Handle game actions with retry logic"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         return jsonify({'error': 'Game not found'}), 404
     
-    try:
+    @backoff.on_exception(backoff.expo,
+                          Exception,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_action():
         data = request.get_json()
         user_id = data.get('user_id')
         action = data.get('action')
         action_data = data.get('data', {})
         
         if not user_id or not action:
-            return jsonify({'error': 'User ID and action required'}), 400
+            raise ValueError('User ID and action required')
         
-        result = game.handle_action(user_id, action, action_data)
-        
+        return game.handle_action(user_id, action, action_data)
+    
+    try:
+        result = try_action()
         if isinstance(result, dict) and result.get('error'):
-            logger.warning(f"Game action error in {game_name}: {result['error']}")
+            logger.warning(f"Game action error: {result['error']}")
             return jsonify(result), 400
-        
-        return jsonify({
-            'success': True,
-            **result
-        })
-        
+        return jsonify({'success': True, **result})
     except Exception as e:
         logger.error(f"Error handling action in game {game_name}: {str(e)}")
-        return jsonify({'error': 'Failed to process action'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @games_bp.route('/<game_name>/api/end', methods=['POST'])
 def end_game(game_name):
-    """End a game session and calculate rewards"""
+    """End game session with retry logic"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         return jsonify({'error': 'Game not found'}), 404
     
-    try:
+    @backoff.on_exception(backoff.expo,
+                          Exception,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_end():
         data = request.get_json()
         user_id = data.get('user_id')
         
         if not user_id:
-            return jsonify({'error': 'User ID required'}), 400
+            raise ValueError('User ID required')
         
-        result = game.end_game(user_id)
-        logger.info(f"Game {game_name} ended for user {user_id}, reward: {result.get('reward', 0)}")
-        
-        return jsonify({
-            'success': True,
-            **result
-        })
-        
+        return game.end_game(user_id)
+    
+    try:
+        result = try_end()
+        logger.info(f"Game ended, reward: {result.get('reward', 0)}")
+        return jsonify({'success': True, **result})
     except Exception as e:
         logger.error(f"Error ending game {game_name}: {str(e)}")
-        return jsonify({'error': 'Failed to end game'}), 500
+        return jsonify({'error': str(e)}), 500
 
 @games_bp.route('/<game_name>/api/leaderboard', methods=['GET'])
 def game_leaderboard(game_name):
-    """Get game leaderboard"""
+    """Get game leaderboard with retry logic"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         return jsonify({'error': 'Game not found'}), 404
     
-    try:
+    @backoff.on_exception(backoff.expo,
+                          Exception,
+                          max_tries=game.max_retry_attempts,
+                          jitter=backoff.full_jitter,
+                          max_time=10)
+    def try_leaderboard():
         # This would need to be implemented in each game class
-        # For now, return empty leaderboard
-        return jsonify({
-            'success': True,
-            'leaderboard': []
-        })
-        
+        return game.get_leaderboard()
+    
+    try:
+        leaderboard = try_leaderboard()
+        return jsonify({'success': True, 'leaderboard': leaderboard})
     except Exception as e:
-        logger.error(f"Error getting leaderboard for {game_name}: {str(e)}")
-        return jsonify({'error': 'Failed to get leaderboard'}), 500
+        logger.error(f"Error getting leaderboard: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
-# Health check endpoint for games
+# Health check with enhanced diagnostics
 @games_bp.route('/health')
 def games_health():
-    """Health check for games service"""
+    """Comprehensive health check for games service"""
     try:
-        # Check if all games are properly initialized
         game_status = {}
         for game_id, game in GAME_REGISTRY.items():
-            game_status[game_id] = {
-                'name': game.name,
-                'active_players': len(game.players),
-                'status': 'healthy'
-            }
+            try:
+                # Test game functionality
+                test_data = game.get_init_data("healthcheck")
+                game_status[game_id] = {
+                    'name': game.name,
+                    'active_players': len(game.players),
+                    'status': 'healthy',
+                    'test_data': bool(test_data)
+                }
+            except Exception as e:
+                game_status[game_id] = {
+                    'name': game.name,
+                    'status': 'unhealthy',
+                    'error': str(e)
+                }
         
         return jsonify({
-            'status': 'healthy',
+            'status': 'healthy' if all(
+                g['status'] == 'healthy' for g in game_status.values()
+            ) else 'degraded',
             'games': game_status,
             'timestamp': datetime.utcnow().isoformat()
         })
-        
     except Exception as e:
-        logger.error(f"Games health check failed: {str(e)}")
+        logger.error(f"Health check failed: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),

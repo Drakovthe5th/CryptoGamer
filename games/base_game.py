@@ -16,6 +16,8 @@ class BaseGame:
         self.max_score_per_second = 50  # Anti-cheat threshold
         self.game_timeout = 300  # 5 minutes max game session
         self.suspicious_activities = {}  # Track suspicious behavior
+        self.max_retry_attempts = 3  # Add retry configuration
+        self.retry_delay = 1.5       # Add retry delay
         
         logger.info(f"Initialized {self.name} game")
     
