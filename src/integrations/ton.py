@@ -33,49 +33,68 @@ class TONWallet:
         try:
             # ... (client initialization remains the same)
 
-            if config.TON_PRIVATE_KEY:
-                logger.info("Initializing wallet from private key")
-                private_key = base64.b64decode(config.TON_PRIVATE_KEY)
+            if config.TON_MNEMONIC:
+                logger.info("Initializing wallet from mnemonic phrase")
+                mnemo = Mnemonic("english")
                 
-                # Create wallet using from_private_key method
-                self.wallet = await WalletV4R2.from_private_key(
-                    provider=self.client, 
+                # Validate mnemonic
+                if not mnemo.check(config.TON_MNEMONIC):
+                    raise ValueError("Invalid mnemonic phrase")
+                
+                # Generate seed from mnemonic
+                seed = mnemo.to_seed(config.TON_MNEMONIC, passphrase="")
+                
+                # Derive key pair (32-byte private key, 32-byte public key)
+                public_key, private_key = crypto_sign_seed_keypair(seed[:32])
+                
+                self.wallet = WalletV4R2(
+                    provider=self.client,
+                    public_key=public_key,
                     private_key=private_key
                 )
+        
+            elif config.TON_PRIVATE_KEY:
+                logger.info("Initializing wallet from private key")
+                private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
                 
-                # Get derived address
-                derived_address = self.wallet.address.to_str(is_user_friendly=True, is_bounceable=True)
-                logger.info(f"Derived wallet address: {derived_address}")
-                
-                # Verify against configured address
-                config_address = Address(config.TON_HOT_WALLET).to_str(
-                    is_user_friendly=True,
-                    is_url_safe=True,
-                    is_bounceable=True
-                )
-                
-                if derived_address != config_address:
-                    logger.error(f"CRITICAL: Wallet address mismatch")
-                    logger.error(f"Derived:   {derived_address}")
-                    logger.error(f"Configured: {config_address}")
-                    raise ValueError("Wallet address mismatch")
+                # If we have 64-byte key, split into private/public
+                if len(private_key_bytes) == 64:
+                    public_key = private_key_bytes[32:]
+                    private_key = private_key_bytes[:32]
                 else:
-                    logger.info("Wallet address verified successfully")
+                    # Generate public key from private key
+                    public_key = crypto_sign_seed_keypair(private_key_bytes)[0]
+                    private_key = private_key_bytes
+                
+                self.wallet = WalletV4R2(
+                    provider=self.client,
+                    public_key=public_key,
+                    private_key=private_key
+                )
+        
             else:
                 raise ValueError("No TON credentials provided")
             
-            # Verify wallet address
-            wallet_address = self.wallet.address.to_str()
-            config_address = config.TON_HOT_WALLET
+            # Get derived address
+            derived_address = self.wallet.address.to_str(
+                is_user_friendly=True,
+                is_url_safe=True,
+                is_bounceable=True
+            )
+            logger.info(f"Derived wallet address: {derived_address}")
             
-            # Convert both to raw format for comparison
-            if wallet_address.startswith('UQ'):
-                wallet_address = Address(wallet_address).to_str(is_user_friendly=False)
-            if config_address.startswith('UQ'):
-                config_address = Address(config_address).to_str(is_user_friendly=False)
+            # Verify against configured address
+            config_address = Address(config.TON_HOT_WALLET).to_str(
+                is_user_friendly=True,
+                is_url_safe=True,
+                is_bounceable=True
+            )
             
-            if wallet_address != config_address:
-                logger.warning(f"Wallet address mismatch: {self.wallet.address.to_str()} vs {config.TON_HOT_WALLET}")
+            if derived_address != config_address:
+                logger.error(f"CRITICAL: Wallet address mismatch")
+                logger.error(f"Derived:   {derived_address}")
+                logger.error(f"Configured: {config_address}")
+                raise ValueError("Wallet address mismatch")
             else:
                 logger.info("Wallet address verified successfully")
             
