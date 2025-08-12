@@ -37,8 +37,8 @@ class TONWallet:
                 logger.info("Initializing wallet from private key")
                 private_key = base64.b64decode(config.TON_PRIVATE_KEY)
                 
-                # Initialize without providing address
-                self.wallet = WalletV4R2(
+                # Create wallet using from_private_key method
+                self.wallet = await WalletV4R2.from_private_key(
                     provider=self.client, 
                     private_key=private_key
                 )
