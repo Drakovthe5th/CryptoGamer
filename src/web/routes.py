@@ -9,7 +9,6 @@ import logging
 import datetime
 import os
 from games.games import games_bp
-app.register_blueprint(games_bp)
 
 logger = logging.getLogger(__name__)
 

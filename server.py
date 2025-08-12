@@ -15,6 +15,7 @@ from src.integrations.ton import (
 )
 from src.utils.security import get_user_id, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
+from games.games import games_bp
 
 # Graceful import of maintenance functions
 try:
@@ -64,6 +65,10 @@ celery = Celery(app.name, broker='redis://localhost:6379/0')
 
 # Register miniapp blueprint
 app.register_blueprint(miniapp_bp, url_prefix='/api')
+app.register_blueprint(games_bp, url_prefix='/games')
+
+from src.web.routes import configure_routes
+configure_routes(app)
 
 def initialize_app():
     """Initialize application components"""
