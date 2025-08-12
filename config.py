@@ -19,6 +19,7 @@ class Config:
         
         # Core configuration
         self.TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+        self.TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME')
         self.ADMIN_ID = os.getenv('ADMIN_ID')
         self.ENV = os.getenv('ENV', 'production')
         self.PORT = int(os.getenv('PORT', 10000))

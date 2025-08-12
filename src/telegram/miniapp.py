@@ -6,7 +6,8 @@ from src.web.flask_app import create_app
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
-from src.telegram.auth import validate_telegram_hash, validate_init_data
+# Updated auth import
+from src.telegram.auth import validate_init_data
 from src.utils import security, validators
 from src.features.mining import token_distribution, proof_of_play
 from src.security import anti_cheat
@@ -30,7 +31,8 @@ def miniapp_security():
     if not init_data:
         return jsonify({'error': 'Missing Telegram init data'}), 401
         
-    if not validate_telegram_hash(init_data, config.TELEGRAM_BOT_TOKEN):
+    # Updated validation call
+    if not validate_init_data(init_data):
         return jsonify({'error': 'Invalid Telegram authentication'}), 401
         
     # Security token validators
@@ -53,6 +55,7 @@ def miniapp_security():
     except Exception as e:
         logger.error(f"Security token error: {str(e)}")
         return jsonify({'error': 'Invalid security token'}), 401
+
 
 @miniapp_bp.route('/user/secure-data', methods=['GET'])
 def get_user_secure_data():
