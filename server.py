@@ -15,13 +15,39 @@ from src.integrations.ton import (
 )
 from src.utils.security import get_user_id, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
-from src.utils.maintenance import (
-    check_server_load,
-    check_ton_node,
-    check_payment_gateways,
-    any_issues_found,
-    send_alert_to_admin
-)
+
+# Graceful import of maintenance functions
+try:
+    from src.utils.maintenance import (
+        check_server_load,
+        check_ton_node,
+        check_payment_gateways,
+        any_issues_found,
+        send_alert_to_admin,
+        run_health_checks
+    )
+    MAINTENANCE_AVAILABLE = True
+    logger = logging.getLogger(__name__)
+    logger.info("Maintenance module imported successfully")
+except ImportError as e:
+    MAINTENANCE_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Maintenance module not available: {e}")
+    
+    # Fallback functions
+    def check_server_load(): 
+        return False
+    def check_ton_node(): 
+        return True
+    def check_payment_gateways(): 
+        return True
+    def any_issues_found(): 
+        return False
+    def send_alert_to_admin(msg): 
+        logger.warning(f"ALERT: {msg}")
+    def run_health_checks(): 
+        return {"status": "limited", "message": "Full health checks unavailable"}
+
 from config import config
 from src.web.routes import configure_routes
 from src.database.firebase import initialize_firebase
@@ -48,7 +74,12 @@ def initialize_app():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(initialize_ton_wallet())
+        success = loop.run_until_complete(initialize_ton_wallet())
+        if success:
+            logger.info("TON wallet initialized successfully")
+        else:
+            logger.error("TON wallet initialization failed")
+            send_alert_to_admin("Critical TON initialization failure")
     except Exception as e:
         logger.error(f"TON initialization failed: {e}")
         send_alert_to_admin(f"Critical TON init failure: {str(e)}")
@@ -59,6 +90,7 @@ def initialize_app():
     try:
         firebase_creds = config.FIREBASE_CREDS
         initialize_firebase(firebase_creds)
+        logger.info("Firebase initialized successfully")
     except Exception as e:
         logger.error(f"Firebase init failed: {e}")
         send_alert_to_admin(f"Firebase init failed: {str(e)}")
@@ -100,8 +132,22 @@ def api_status():
         "status": "running",
         "service": "CryptoGameMiner",
         "version": "1.0.0",
-        "crypto": "TON"
+        "crypto": "TON",
+        "maintenance_available": MAINTENANCE_AVAILABLE
     }), 200
+
+# Enhanced health check endpoint
+@app.route('/health')
+def health_status():
+    if MAINTENANCE_AVAILABLE:
+        health_data = run_health_checks()
+        return jsonify(health_data)
+    else:
+        return jsonify({
+            'status': 'basic',
+            'timestamp': datetime.datetime.utcnow().isoformat(),
+            'message': 'Limited health check - maintenance module unavailable'
+        })
 
 # Game endpoints
 @app.route('/games/<game_name>')
@@ -131,133 +177,163 @@ configure_routes(app)
 # Blockchain Enhancements
 @app.route('/api/blockchain/stake', methods=['POST'])
 def stake():
-    user_id = get_user_id(request)
-    amount = request.json.get('amount')
-    
-    if not amount or amount < 5:
-        return jsonify({'success': False, 'error': 'Invalid amount'}), 400
-    
-    contract_address = asyncio.run(create_staking_contract(user_id, amount))
-    
-    if not contract_address:
-        return jsonify({'success': False, 'error': 'Failed to create staking contract'}), 500
-    
-    # Save to database
-    from src.database.firebase import save_staking
-    save_staking(user_id, contract_address, amount)
-    
-    return jsonify({
-        'success': True,
-        'contract': contract_address,
-        'staked': amount
-    })
+    try:
+        user_id = get_user_id(request)
+        amount = request.json.get('amount')
+        
+        if not amount or amount < 5:
+            return jsonify({'success': False, 'error': 'Invalid amount'}), 400
+        
+        contract_address = asyncio.run(create_staking_contract(user_id, amount))
+        
+        if not contract_address:
+            return jsonify({'success': False, 'error': 'Failed to create staking contract'}), 500
+        
+        # Save to database
+        from src.database.firebase import save_staking
+        save_staking(user_id, contract_address, amount)
+        
+        return jsonify({
+            'success': True,
+            'contract': contract_address,
+            'staked': amount
+        })
+    except Exception as e:
+        logger.error(f"Staking error: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 @app.route('/api/blockchain/swap', methods=['POST'])
 def swap_tokens():
-    user_id = get_user_id(request)
-    from_token = request.json.get('from')
-    to_token = request.json.get('to')
-    amount = request.json.get('amount')
-    
-    tx_hash = asyncio.run(execute_swap(user_id, from_token, to_token, amount))
-    
-    if not tx_hash:
-        return jsonify({'success': False, 'error': 'Swap failed'}), 500
-    
-    return jsonify({
-        'success': True,
-        'tx_hash': tx_hash
-    })
+    try:
+        user_id = get_user_id(request)
+        from_token = request.json.get('from')
+        to_token = request.json.get('to')
+        amount = request.json.get('amount')
+        
+        tx_hash = asyncio.run(execute_swap(user_id, from_token, to_token, amount))
+        
+        if not tx_hash:
+            return jsonify({'success': False, 'error': 'Swap failed'}), 500
+        
+        return jsonify({
+            'success': True,
+            'tx_hash': tx_hash
+        })
+    except Exception as e:
+        logger.error(f"Swap error: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 # Security Endpoints
 @app.route('/api/security/whitelist', methods=['POST'])
 def add_whitelist_endpoint():
-    user_id = get_user_id(request)
-    address = request.json.get('address')
-    
-    if not is_valid_ton_address(address):
-        return jsonify({'success': False, 'error': 'Invalid address'}), 400
-    
-    from src.database.firebase import add_whitelist
-    add_whitelist(user_id, address)
-    
-    return jsonify({'success': True})
+    try:
+        user_id = get_user_id(request)
+        address = request.json.get('address')
+        
+        if not is_valid_ton_address(address):
+            return jsonify({'success': False, 'error': 'Invalid address'}), 400
+        
+        from src.database.firebase import add_whitelist
+        add_whitelist(user_id, address)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Whitelist error: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 # WebSocket Endpoint
 @socketio.on('connect')
 def handle_connect():
-    user_id = get_user_id(request)
-    if user_id:
-        join_room(user_id)
-        emit('status', {'message': 'Connected'})
-        logger.info(f"User {user_id} connected to WebSocket")
-    else:
-        logger.warning("WebSocket connection attempt without valid user ID")
+    try:
+        user_id = get_user_id(request)
+        if user_id:
+            join_room(user_id)
+            emit('status', {'message': 'Connected'})
+            logger.info(f"User {user_id} connected to WebSocket")
+        else:
+            logger.warning("WebSocket connection attempt without valid user ID")
+    except Exception as e:
+        logger.error(f"WebSocket connect error: {e}")
 
 @socketio.on('price_alert')
 def handle_price_alert(data):
-    user_id = get_user_id(request)
-    if user_id:
-        emit('priceAlert', data, room=user_id)
-        logger.info(f"Price alert sent to user {user_id}")
-    else:
-        logger.warning("Price alert attempt without valid user ID")
+    try:
+        user_id = get_user_id(request)
+        if user_id:
+            emit('priceAlert', data, room=user_id)
+            logger.info(f"Price alert sent to user {user_id}")
+        else:
+            logger.warning("Price alert attempt without valid user ID")
+    except Exception as e:
+        logger.error(f"Price alert error: {e}")
 
 # Infrastructure Monitoring
-@celery.task
-def monitor_infrastructure():
-    check_server_load()
-    check_ton_node()
-    check_payment_gateways()
-    if any_issues_found():
-        send_alert_to_admin()
+if MAINTENANCE_AVAILABLE:
+    @celery.task
+    def monitor_infrastructure():
+        try:
+            check_server_load()
+            check_ton_node()
+            check_payment_gateways()
+            if any_issues_found():
+                send_alert_to_admin("Infrastructure monitoring alert")
+        except Exception as e:
+            logger.error(f"Infrastructure monitoring error: {e}")
 
 # Load Testing Endpoint
 @app.route('/api/loadtest', methods=['POST'])
 def run_load_test():
-    test_config = request.json
-    celery.send_task('run_load_test', args=[test_config])
-    return jsonify({'success': True, 'message': 'Load test started'})
-
-# Health Check Endpoint
-@app.route('/health')
-def health_status():
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.datetime.utcnow().isoformat()
-    })
+    try:
+        test_config = request.json
+        celery.send_task('run_load_test', args=[test_config])
+        return jsonify({'success': True, 'message': 'Load test started'})
+    except Exception as e:
+        logger.error(f"Load test error: {e}")
+        return jsonify({'success': False, 'error': 'Load test failed'}), 500
 
 @app.route('/debug')
 def debug_info():
-    import sys
-    import pytoniq
-    
-    info = {
-        "python_version": sys.version,
-        "pytoniq_version": pytoniq.__version__,
-        "pytoniq_path": pytoniq.__file__,
-        "firebase_creds_available": bool(config.FIREBASE_CREDS),
-        "ton_enabled": config.TON_ENABLED,
-        "environment_keys": list(os.environ.keys())
-    }
-    
     try:
-        info["pytoniq_contents"] = dir(pytoniq)
+        import sys
+        import pytoniq
+        
+        info = {
+            "python_version": sys.version,
+            "pytoniq_version": pytoniq.__version__,
+            "pytoniq_path": pytoniq.__file__,
+            "firebase_creds_available": bool(config.FIREBASE_CREDS),
+            "ton_enabled": config.TON_ENABLED,
+            "maintenance_available": MAINTENANCE_AVAILABLE,
+            "environment": os.environ.get('NODE_ENV', 'development')
+        }
+        
+        try:
+            info["pytoniq_contents"] = dir(pytoniq)
+        except Exception as e:
+            info["pytoniq_contents_error"] = str(e)
+        
+        return jsonify(info)
     except Exception as e:
-        info["pytoniq_contents_error"] = str(e)
-    
-    return jsonify(info)
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     logger.info(f"Starting server on port {port}")
+    logger.info(f"Maintenance module available: {MAINTENANCE_AVAILABLE}")
     
-    from gevent import pywsgi
-    from geventwebsocket.handler import WebSocketHandler
-    
-    server = pywsgi.WSGIServer(
-        ('0.0.0.0', port), 
-        app,
-        handler_class=WebSocketHandler
-    )
-    server.serve_forever()
+    try:
+        from gevent import pywsgi
+        from geventwebsocket.handler import WebSocketHandler
+        
+        server = pywsgi.WSGIServer(
+            ('0.0.0.0', port), 
+            app,
+            handler_class=WebSocketHandler
+        )
+        logger.info("Starting gevent WSGI server")
+        server.serve_forever()
+    except Exception as e:
+        logger.error(f"Server startup error: {e}")
+        # Fallback to Flask development server
+        logger.info("Falling back to Flask development server")
+        app.run(host='0.0.0.0', port=port, debug=False)
