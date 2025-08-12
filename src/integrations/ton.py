@@ -53,18 +53,18 @@ class TONWallet:
         try:
             logger.info(f"Initializing TON wallet on {'testnet' if self.is_testnet else 'mainnet'}")
             
-            # Initialize LiteClient
+            # Initialize LiteClient with correct parameters
             if self.is_testnet:
                 logger.info("Connecting to TON testnet")
                 self.client = LiteClient.from_testnet_config(
-                    ls_index=0,
+                    ls_i=0,  # liteserver index
                     trust_level=2,
                     timeout=30
                 )
             else:
                 logger.info("Connecting to TON mainnet")
                 self.client = LiteClient.from_mainnet_config(
-                    ls_index=0,
+                    ls_i=0,  # liteserver index  
                     trust_level=2,
                     timeout=30
                 )
