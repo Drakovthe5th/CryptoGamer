@@ -1,55 +1,595 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<head>
-    <title>TON Clicker Miner</title>
-    <link rel="stylesheet" href="/games/clicker/static/clicker.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="/games/static/clicker/clicker.js"></script>
-    <script>
-        // Initialize after Telegram auth
-        Telegram.WebApp.ready();
-        window.securityToken = "{{ security_token }}";  // From backend
-        window.userId = "{{ user_id }}";  // From backend
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TON Clicker Miner</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    
+    .clicker-container {
+      max-width: 400px;
+      margin: 0 auto;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      margin: 0 0 10px 0;
+      color: #FFD700;
+    }
+    
+    .instructions {
+      font-size: 14px;
+      opacity: 0.8;
+      margin-bottom: 20px;
+    }
+    
+    .score-container {
+      background: rgba(255,255,255,0.1);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 20px 0;
+      backdrop-filter: blur(10px);
+    }
+    
+    .score-label {
+      font-size: 16px;
+      margin-bottom: 5px;
+      opacity: 0.8;
+    }
+    
+    #score {
+      font-size: 32px;
+      font-weight: bold;
+      color: #FFD700;
+      margin-bottom: 15px;
+    }
+    
+    .stats {
+      display: flex;
+      justify-content: space-around;
+    }
+    
+    .stat {
+      text-align: center;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 2px;
+    }
+    
+    .stat-value {
+      font-size: 16px;
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    
+    #click-button {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #FFD700, #FFA500);
+      color: #333;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 20px 0;
+      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+      transition: all 0.1s ease;
+      position: relative;
+    }
+    
+    #click-button:active {
+      transform: scale(0.95);
+    }
+    
+    #click-button::before {
+      content: '💰';
+      font-size: 60px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    
+    .controls {
+      margin: 20px 0;
+    }
+    
+    .controls button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      margin: 5px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    
+    .controls button:hover {
+      background: #45a049;
+      transform: translateY(-2px);
+    }
+    
+    .upgrades-container {
+      margin-top: 30px;
+      text-align: left;
+    }
+    
+    .upgrades-container h2 {
+      text-align: center;
+      color: #FFD700;
+      margin-bottom: 15px;
+    }
+    
+    #upgrades {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .upgrade-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      margin: 10px 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      backdrop-filter: blur(5px);
+    }
+    
+    .upgrade-info h3 {
+      margin: 0 0 5px 0;
+      color: #FFD700;
+      font-size: 16px;
+    }
+    
+    .upgrade-info p {
+      margin: 0 0 5px 0;
+      color: #ccc;
+      font-size: 12px;
+    }
+    
+    .upgrade-cost {
+      font-weight: bold;
+      color: #4CAF50;
+      font-size: 14px;
+    }
+    
+    .upgrade-buy {
+      padding: 8px 16px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+      transition: all 0.3s ease;
+    }
+    
+    .upgrade-buy:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    
+    .upgrade-buy:hover:not(:disabled) {
+      background: #1976D2;
+      transform: translateY(-1px);
+    }
+    
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 200px;
+      font-size: 18px;
+      opacity: 0.7;
+    }
+    
+    .error-message {
+      background: #f44336;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    
+    @keyframes float-up {
+      0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      100% { transform: translate(-50%, -150%) scale(1.2); opacity: 0; }
+    }
+  </style>
 </head>
 <body>
-    <div class="clicker-container">
-        <div class="header">
-            <h1>TON Clicker Miner</h1>
-            <p class="instructions">Click to mine TON coins! Buy upgrades to increase your earnings.</p>
-        </div>
-        
-        <div class="score-container">
-            <div class="score-label">Your TON Balance</div>
-            <div id="score">0.000000</div>
-            <div class="stats">
-                <div class="stat">
-                    <div class="stat-label">Per Click</div>
-                    <div id="per-click" class="stat-value">0.0001</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-label">Per Second</div>
-                    <div id="cps" class="stat-value">0.00</div>
-                </div>
-            </div>
-        </div>
-        
-        <button id="click-button"></button>
-        
-        <div class="controls">
-            <button id="auto-collect">AUTO COLLECT</button>
-            <button id="claim-button">CLAIM TON REWARDS</button>
-        </div>
-        
-        <div class="upgrades-container">
-            <h2>Upgrades</h2>
-            <div id="upgrades"></div>
-        </div>
+  <div class="clicker-container">
+    <div class="header">
+      <h1>TON Clicker Miner</h1>
+      <p class="instructions">Click the coin to mine TON! Buy upgrades to boost your earnings.</p>
     </div>
+    
+    <div class="score-container">
+      <div class="score-label">Your TON Balance</div>
+      <div id="score">0.000000</div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Per Click</div>
+          <div id="per-click" class="stat-value">0.000100</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Per Second</div>
+          <div id="cps" class="stat-value">0.00</div>
+        </div>
+      </div>
+    </div>
+    
+    <button id="click-button">CLICK ME!</button>
+    
+    <div class="controls">
+      <button id="auto-collect">AUTO COLLECT</button>
+      <button id="claim-button">CLAIM REWARDS</button>
+    </div>
+    
+    <div class="upgrades-container">
+      <h2>🛠️ Upgrades</h2>
+      <div id="upgrades">
+        <div class="loading">Loading upgrades...</div>
+      </div>
+    </div>
+  </div>
 
-    <script src="/games/clicker/static/clicker.js"></script>
+  <script>
+    // Initialize Telegram WebApp
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+    
+    // Set global variables from template
+    window.userId = "{{ user_id }}";
+    window.securityToken = "{{ security_token }}";
+    window.gameName = "{{ game_name }}";
+    
+    class ClickerGame {
+      constructor() {
+        this.score = 0;
+        this.clickValue = 0.0001;
+        this.autoClickers = 0;
+        this.incomeMultiplier = 1.0;
+        this.upgrades = [];
+        this.gameActive = false;
+        
+        this.initializeElements();
+        this.initializeGame();
+      }
+      
+      initializeElements() {
+        this.scoreElement = document.getElementById('score');
+        this.clickButton = document.getElementById('click-button');
+        this.perClickElement = document.getElementById('per-click');
+        this.cpsElement = document.getElementById('cps');
+        this.upgradesElement = document.getElementById('upgrades');
+        this.autoCollectButton = document.getElementById('auto-collect');
+        this.claimButton = document.getElementById('claim-button');
+        
+        if (this.clickButton) {
+          this.clickButton.addEventListener('click', () => this.handleClick());
+        }
+        
+        if (this.autoCollectButton) {
+          this.autoCollectButton.addEventListener('click', () => this.collectAuto());
+        }
+        
+        if (this.claimButton) {
+          this.claimButton.addEventListener('click', () => this.claimRewards());
+        }
+      }
+      
+      async initializeGame() {
+        try {
+          const response = await fetch('/api/game/clicker/init', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Telegram-InitData': window.Telegram?.WebApp?.initData || '',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({
+              user_id: window.userId
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            this.score = data.user_balance || 0;
+            this.gameActive = true;
+            this.updateUI();
+            this.loadUpgrades(data.game_config?.upgrades || []);
+            this.startAutoCollector();
+          } else {
+            this.showError(data.error || 'Failed to initialize game');
+          }
+        } catch (error) {
+          console.error('Game initialization error:', error);
+          this.showError('Network error. Please check your connection.');
+        }
+      }
+      
+      async handleClick() {
+        if (!this.gameActive) return;
+        
+        try {
+          const response = await fetch('/api/game/clicker/action', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({
+              user_id: window.userId,
+              action: 'click',
+              data: {}
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success && result.score !== undefined) {
+            this.score = result.score;
+            this.updateUI();
+            this.showClickEffect();
+          }
+        } catch (error) {
+          console.error('Click error:', error);
+        }
+      }
+      
+      async collectAuto() {
+        if (!this.gameActive) return;
+        
+        try {
+          const response = await fetch('/api/game/clicker/action', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({
+              user_id: window.userId,
+              action: 'collect_auto',
+              data: {}
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success && result.score !== undefined) {
+            this.score = result.score;
+            this.updateUI();
+            
+            if (result.auto_earnings > 0) {
+              this.showAutoEarnings(result.auto_earnings);
+            }
+          }
+        } catch (error) {
+          console.error('Auto collect error:', error);
+        }
+      }
+      
+      async buyUpgrade(upgradeId) {
+        if (!this.gameActive) return;
+        
+        try {
+          const response = await fetch('/api/game/clicker/action', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({
+              user_id: window.userId,
+              action: 'buy_upgrade',
+              data: { upgrade_id: upgradeId }
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            this.score = result.score;
+            this.clickValue = result.click_value || this.clickValue;
+            this.autoClickers = result.auto_clickers || this.autoClickers;
+            this.incomeMultiplier = result.income_multiplier || this.incomeMultiplier;
+            this.upgrades.push(upgradeId);
+            
+            this.updateUI();
+            this.updateUpgradeButtons();
+          } else {
+            this.showError(result.error || 'Failed to buy upgrade');
+          }
+        } catch (error) {
+          console.error('Upgrade error:', error);
+        }
+      }
+      
+      loadUpgrades(upgradesList) {
+        if (!this.upgradesElement) return;
+        
+        this.upgradesElement.innerHTML = '';
+        
+        upgradesList.forEach(upgrade => {
+          const upgradeDiv = document.createElement('div');
+          upgradeDiv.className = 'upgrade-item';
+          upgradeDiv.innerHTML = `
+            <div class="upgrade-info">
+              <h3>${upgrade.name}</h3>
+              <p>${upgrade.description}</p>
+              <div class="upgrade-cost">${upgrade.cost} TON</div>
+            </div>
+            <button class="upgrade-buy" data-upgrade="${upgrade.id}">
+              BUY
+            </button>
+          `;
+          
+          const buyButton = upgradeDiv.querySelector('.upgrade-buy');
+          buyButton.addEventListener('click', () => this.buyUpgrade(upgrade.id));
+          
+          this.upgradesElement.appendChild(upgradeDiv);
+        });
+        
+        this.updateUpgradeButtons();
+      }
+      
+      updateUpgradeButtons() {
+        const buttons = document.querySelectorAll('.upgrade-buy');
+        buttons.forEach(button => {
+          const upgradeId = button.dataset.upgrade;
+          const upgradeDiv = button.closest('.upgrade-item');
+          const costElement = upgradeDiv.querySelector('.upgrade-cost');
+          const cost = parseFloat(costElement.textContent);
+          
+          if (this.upgrades.includes(upgradeId)) {
+            button.textContent = 'OWNED';
+            button.disabled = true;
+            button.style.backgroundColor = '#4CAF50';
+          } else if (this.score < cost) {
+            button.disabled = true;
+            button.style.backgroundColor = '#666';
+          } else {
+            button.disabled = false;
+            button.style.backgroundColor = '#2196F3';
+          }
+        });
+      }
+      
+      updateUI() {
+        if (this.scoreElement) {
+          this.scoreElement.textContent = this.score.toFixed(6);
+        }
+        
+        if (this.perClickElement) {
+          this.perClickElement.textContent = (this.clickValue * this.incomeMultiplier).toFixed(6);
+        }
+        
+        if (this.cpsElement) {
+          this.cpsElement.textContent = (this.autoClickers * this.incomeMultiplier).toFixed(2);
+        }
+        
+        this.updateUpgradeButtons();
+      }
+      
+      showClickEffect() {
+        if (!this.clickButton) return;
+        
+        this.clickButton.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          this.clickButton.style.transform = 'scale(1)';
+        }, 100);
+        
+        const floatingText = document.createElement('div');
+        floatingText.textContent = `+${(this.clickValue * this.incomeMultiplier).toFixed(6)}`;
+        floatingText.style.cssText = `
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          color: #4CAF50;
+          font-weight: bold;
+          font-size: 20px;
+          pointer-events: none;
+          z-index: 1000;
+          animation: float-up 1s ease-out forwards;
+        `;
+        
+        document.body.appendChild(floatingText);
+        setTimeout(() => floatingText.remove(), 1000);
+      }
+      
+      showAutoEarnings(earnings) {
+        const notification = document.createElement('div');
+        notification.textContent = `Auto collected: ${earnings.toFixed(6)} TON`;
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #4CAF50;
+          color: white;
+          padding: 10px 20px;
+          border-radius: 5px;
+          z-index: 1000;
+        `;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+      }
+      
+      showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        
+        const container = document.querySelector('.clicker-container');
+        container.insertBefore(errorDiv, container.firstChild);
+        
+        setTimeout(() => errorDiv.remove(), 5000);
+      }
+      
+      startAutoCollector() {
+        setInterval(() => {
+          if (this.autoClickers > 0) {
+            this.collectAuto();
+          }
+        }, 5000);
+      }
+      
+      async claimRewards() {
+        try {
+          const response = await fetch('/api/game/clicker/complete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({
+              user_id: window.userId,
+              score: this.score
+            })
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            alert(`Rewards claimed! You earned ${result.reward?.toFixed(6) || '0'} TON`);
+            if (window.Telegram?.WebApp) {
+              window.Telegram.WebApp.close();
+            }
+          }
+        } catch (error) {
+          console.error('Claim error:', error);
+          this.showError('Failed to claim rewards');
+        }
+      }
+    }
+
+    // Initialize game when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      window.clickerGame = new ClickerGame();
+    });
+  </script>
 </body>
 </html>

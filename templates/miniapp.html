@@ -1,18 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🎮 CryptoGameMiner</title>
-
-  <!-- Telegram WebApp API -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-  <!-- Monetag SDK for rewarded ads -->
-  <script src="//d2ma4rqotp0t3m.cloudfront.net/sdk.js" data-zone="9644715" data-sdk="show_9644715"></script>
-
   <style>
-    /* ==== ROOT VARIABLES ==== */
+    /* All CSS from miniapp.html */
     :root {
       --bg-dark: #0d0d0d;
       --text-light: #f5f5f5;
@@ -45,7 +39,6 @@
       padding: 12px;
     }
 
-    /* ==== LOADING SPINNER ==== */
     .spinner-overlay {
       position: fixed;
       top: 0;
@@ -73,7 +66,6 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* ==== HEADER ==== */
     .app-header {
       display: flex; 
       justify-content: space-between; 
@@ -114,7 +106,6 @@
       font-size: 1.1rem;
     }
 
-    /* ==== SECURITY ALERT ==== */
     .security-alert {
       background: linear-gradient(135deg, #ff4444, #cc0000);
       color: white;
@@ -127,7 +118,6 @@
       box-shadow: var(--shadow-heavy);
     }
 
-    /* ==== PAGES ==== */
     .page { 
       display: none; 
       padding: 8px 0; 
@@ -143,7 +133,6 @@
       to { opacity: 1; transform: translateY(0); } 
     }
 
-    /* ==== SECTIONS ==== */
     .section {
       background: var(--secondary-gray);
       border-radius: 12px; 
@@ -163,7 +152,6 @@
       font-weight: 700;
     }
 
-    /* ==== BUTTONS ==== */
     .btn {
       background: var(--primary-yellow);
       color: #000; 
@@ -213,7 +201,6 @@
       display: inline-block;
     }
 
-    /* ==== CLICK AREA ==== */
     .click-area {
       background: linear-gradient(135deg, #111, #222);
       border: 3px dashed var(--primary-yellow);
@@ -260,7 +247,6 @@
       z-index: 1;
     }
 
-    /* ==== GAME GRID ==== */
     .game-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -302,7 +288,6 @@
       font-size: 0.9rem;
     }
 
-    /* ==== NAVIGATION ==== */
     .nav-bar {
       position: fixed; 
       bottom: 0; 
@@ -345,7 +330,6 @@
       margin-bottom: 4px;
     }
 
-    /* ==== QUEST ITEMS ==== */
     .quest-item {
       display: flex;
       justify-content: space-between;
@@ -358,7 +342,6 @@
       border-bottom: none;
     }
 
-    /* ==== REFERRAL BOX ==== */
     .referral-box {
       background: var(--gradient-purple); 
       padding: 20px;
@@ -382,7 +365,6 @@
       border: 1px solid rgba(255,204,0,0.3);
     }
 
-    /* ==== FORMS ==== */
     input, select {
       width: 100%; 
       padding: 12px; 
@@ -400,7 +382,6 @@
       border-color: var(--primary-yellow);
     }
 
-    /* ==== STATS ==== */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -428,7 +409,6 @@
       margin-top: 4px;
     }
 
-    /* ==== ACHIEVEMENTS ==== */
     .achievement-grid {
       display: flex;
       gap: 8px;
@@ -446,7 +426,6 @@
       border: 1px solid rgba(255,255,255,0.2);
     }
 
-    /* ==== RESPONSIVE ==== */
     @media (max-width: 480px) {
       .container {
         padding: 8px;
@@ -470,7 +449,6 @@
       }
     }
 
-    /* ==== ANIMATIONS ==== */
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.7; }
@@ -1179,10 +1157,7 @@
       );
 
       // In a real implementation, this would navigate to the game
-      setTimeout(() => {
-        userData.gamesPlayed++;
-        updateUI();
-      }, 1000);
+      window.location.href = `/games/${gameName}?tgWebAppData=${encodeURIComponent(tg?.initData || '')}`;
     }
 
     // Core game actions
@@ -1446,7 +1421,6 @@
         clearInterval(securityTimer);
       }
     });
-
   </script>
 </body>
 </html>

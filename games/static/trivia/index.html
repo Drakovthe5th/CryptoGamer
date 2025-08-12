@@ -1,85 +1,454 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>TON Trivia Quiz</title>
-    <link rel="stylesheet" href="/games/trivia/static/trivia.css">
-    <script src="/games/static/trivia/trivia.js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        // Initialize after Telegram auth
-        Telegram.WebApp.ready();
-        window.securityToken = "{{ security_token }}";  // From backend
-        window.userId = "{{ user_id }}";  // From backend
-    </script>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TON Blockchain Trivia</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      color: white;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .trivia-container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      margin: 0 0 10px 0;
+      color: #FFD700;
+    }
+    
+    .score-display {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px 20px;
+      border-radius: 20px;
+      margin-top: 10px;
+    }
+    
+    .ton-logo {
+      font-weight: bold;
+      margin-right: 5px;
+      color: #FFD700;
+    }
+    
+    #score {
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    
+    .stats-bar {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .question-container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    
+    #question-text {
+      font-size: 18px;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    
+    .options {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    
+    .option-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      border-radius: 10px;
+      padding: 15px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+    
+    .option-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+    
+    .option-btn.correct {
+      background: #4CAF50;
+    }
+    
+    .option-btn.incorrect {
+      background: #F44336;
+    }
+    
+    .timer-container {
+      margin: 20px 0;
+    }
+    
+    .timer-bar {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    
+    .timer-fill {
+      height: 100%;
+      background: #FFD700;
+      width: 100%;
+      transition: width 1s linear;
+    }
+    
+    #results-screen {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+      display: none;
+    }
+    
+    .results-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .rewards {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    
+    .reward-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .reward-item.total {
+      font-weight: bold;
+      border-top: 2px solid #FFD700;
+      border-bottom: none;
+      margin-top: 10px;
+      padding-top: 15px;
+    }
+    
+    #claim-button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      padding: 15px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 20px;
+      transition: all 0.3s;
+    }
+    
+    #claim-button:hover {
+      background: #45a049;
+      transform: translateY(-2px);
+    }
+  </style>
 </head>
 <body>
-      <script>
-        // Initialize before any game code
-        if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.ready();
-        window.telegramInitData = Telegram.WebApp.initDataUnsafe;
-        } else {
-        document.body.innerHTML = '<h1>Please open in Telegram</h1>';
-        }
-    </script>
-
-    <div class="trivia-container">
-        <div class="header">
-            <h1>TON Blockchain Trivia</h1>
-            <div class="score-display">
-                <span class="ton-logo">TON</span>
-                <span id="score">0.000</span>
-            </div>
-        </div>
-        
-        <div id="game-screen">
-            <div class="stats-bar">
-                <div>Answered: <span id="answered">0</span></div>
-                <div>Correct: <span id="correct">0</span></div>
-                <div>Accuracy: <span id="accuracy">0%</span></div>
-            </div>
-            
-            <div class="question-container">
-                <div id="question-text"></div>
-                <div class="options" id="options"></div>
-            </div>
-            
-            <div class="timer-container">
-                <div class="timer-bar">
-                    <div class="timer-fill" id="timer-fill"></div>
-                </div>
-            </div>
-        </div>
-        
-        <div id="results-screen" style="display:none;">
-            <h2>Quiz Completed!</h2>
-            <div class="results-stats">
-                <div>Questions: <span id="total-questions">0</span></div>
-                <div>Correct: <span id="final-correct">0</span></div>
-                <div>Accuracy: <span id="final-accuracy">0%</span></div>
-            </div>
-            <div class="rewards">
-                <h3>Your Rewards</h3>
-                <div class="reward-item">
-                    <span>Base Reward:</span>
-                    <span id="base-reward">0.000 TON</span>
-                </div>
-                <div class="reward-item">
-                    <span>Bonus:</span>
-                    <span id="bonus">0.000 TON</span>
-                </div>
-                <div class="reward-item total">
-                    <span>Total Earned:</span>
-                    <span id="total-reward">0.000 TON</span>
-                </div>
-            </div>
-            <button id="claim-button">Claim TON Rewards</button>
-        </div>
+  <div class="trivia-container">
+    <div class="header">
+      <h1>TON Blockchain Trivia</h1>
+      <div class="score-display">
+        <span class="ton-logo">TON</span>
+        <span id="score">0.000</span>
+      </div>
     </div>
+    
+    <div id="game-screen">
+      <div class="stats-bar">
+        <div>Answered: <span id="answered">0</span></div>
+        <div>Correct: <span id="correct">0</span></div>
+        <div>Accuracy: <span id="accuracy">0%</span></div>
+      </div>
+      
+      <div class="question-container">
+        <div id="question-text"></div>
+        <div class="options" id="options"></div>
+      </div>
+      
+      <div class="timer-container">
+        <div class="timer-bar">
+          <div class="timer-fill" id="timer-fill"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="results-screen">
+      <h2>Quiz Completed!</h2>
+      <div class="results-stats">
+        <div>Questions: <span id="total-questions">0</span></div>
+        <div>Correct: <span id="final-correct">0</span></div>
+        <div>Accuracy: <span id="final-accuracy">0%</span></div>
+      </div>
+      <div class="rewards">
+        <h3>Your Rewards</h3>
+        <div class="reward-item">
+          <span>Base Reward:</span>
+          <span id="base-reward">0.000 TON</span>
+        </div>
+        <div class="reward-item">
+          <span>Bonus:</span>
+          <span id="bonus">0.000 TON</span>
+        </div>
+        <div class="reward-item total">
+          <span>Total Earned:</span>
+          <span id="total-reward">0.000 TON</span>
+        </div>
+      </div>
+      <button id="claim-button">Claim TON Rewards</button>
+    </div>
+  </div>
 
-    <script src="/games/trivia/static/trivia.js"></script>
+  <script>
+    // Initialize Telegram WebApp
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+    
+    // Set global variables from template
+    window.userId = "{{ user_id }}";
+    window.securityToken = "{{ security_token }}";
+    window.gameName = "trivia";
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      const tg = window.Telegram?.WebApp;
+      const userId = window.userId || tg?.initDataUnsafe?.user?.id || 'guest';
+      
+      // DOM elements
+      const questionEl = document.getElementById('question-text');
+      const optionsEl = document.getElementById('options');
+      const timerFillEl = document.getElementById('timer-fill');
+      const scoreEl = document.getElementById('score');
+      const answeredEl = document.getElementById('answered');
+      const correctEl = document.getElementById('correct');
+      const accuracyEl = document.getElementById('accuracy');
+      const gameScreen = document.getElementById('game-screen');
+      const resultsScreen = document.getElementById('results-screen');
+      const claimButton = document.getElementById('claim-button');
+      
+      // Game state
+      let currentQuestion = null;
+      let timer = null;
+      let timeLeft = 0;
+      let gameActive = false;
+      
+      // Initialize game
+      startGame();
+      
+      async function startGame() {
+        try {
+          const response = await fetch(`/api/game/${window.gameName}/start`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Telegram-InitData': tg?.initData || '',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({ user_id: userId })
+          });
+          
+          const data = await response.json();
+          if (data.success && data.question) {
+            gameActive = true;
+            displayQuestion(data.question);
+          } else {
+            showError(data.error || 'Failed to start game');
+          }
+        } catch (error) {
+          console.error('Game start error:', error);
+          showError('Network error. Please check your connection.');
+        }
+      }
+      
+      function displayQuestion(question) {
+        currentQuestion = question;
+        questionEl.textContent = question.question;
+        optionsEl.innerHTML = '';
+        
+        // Create option buttons
+        question.options.forEach((option, index) => {
+          const button = document.createElement('button');
+          button.className = 'option-btn';
+          button.textContent = option;
+          button.dataset.index = index;
+          button.addEventListener('click', () => selectOption(index));
+          optionsEl.appendChild(button);
+        });
+        
+        // Start timer
+        startTimer(30);
+      }
+      
+      function startTimer(seconds) {
+        timeLeft = seconds;
+        timerFillEl.style.width = '100%';
+        
+        clearInterval(timer);
+        timer = setInterval(() => {
+          timeLeft--;
+          timerFillEl.style.width = `${(timeLeft / seconds) * 100}%`;
+          
+          if (timeLeft <= 0) {
+            clearInterval(timer);
+            handleAnswer(-1); // Time's up
+          }
+        }, 1000);
+      }
+      
+      function selectOption(optionIndex) {
+        if (!gameActive) return;
+        clearInterval(timer);
+        handleAnswer(optionIndex);
+      }
+      
+      async function handleAnswer(selectedIndex) {
+        gameActive = false;
+        
+        try {
+          const response = await fetch(`/api/game/${window.gameName}/action`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              action: "answer",
+              data: {
+                question_id: currentQuestion.id,
+                selected: selectedIndex
+              }
+            })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            // Update UI with answer feedback
+            highlightAnswer(data.correct_index, selectedIndex);
+            
+            // Update score and stats
+            scoreEl.textContent = data.score.toFixed(3);
+            answeredEl.textContent = data.stats.answered;
+            correctEl.textContent = data.stats.correct;
+            accuracyEl.textContent = `${Math.round(data.stats.correct / data.stats.answered * 100)}%`;
+            
+            // Show next question after delay
+            setTimeout(() => {
+              if (data.next_question) {
+                displayQuestion(data.next_question);
+                gameActive = true;
+              } else {
+                endGame();
+              }
+            }, 3000);
+          } else {
+            showError(data.error || 'Failed to process answer');
+          }
+        } catch (error) {
+          console.error('Answer error:', error);
+        }
+      }
+      
+      function highlightAnswer(correctIndex, selectedIndex) {
+        const options = document.querySelectorAll('.option-btn');
+        
+        options.forEach((option, index) => {
+          if (index === correctIndex) {
+            option.classList.add('correct');
+          }
+          
+          if (index === selectedIndex && index !== correctIndex) {
+            option.classList.add('incorrect');
+          }
+          
+          option.disabled = true;
+        });
+      }
+      
+      async function endGame() {
+        try {
+          const response = await fetch(`/api/game/${window.gameName}/complete`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Security-Token': window.securityToken || ''
+            },
+            body: JSON.stringify({ user_id: userId })
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            gameScreen.style.display = 'none';
+            resultsScreen.style.display = 'block';
+            
+            document.getElementById('total-questions').textContent = data.stats.total_questions;
+            document.getElementById('final-correct').textContent = data.stats.correct_answers;
+            document.getElementById('final-accuracy').textContent = `${data.stats.accuracy}%`;
+            document.getElementById('base-reward').textContent = `${data.base_reward.toFixed(3)} TON`;
+            document.getElementById('bonus').textContent = `${data.bonus.toFixed(3)} TON`;
+            document.getElementById('total-reward').textContent = `${data.total_reward.toFixed(3)} TON`;
+            
+            // Handle claim button
+            claimButton.addEventListener('click', claimRewards);
+          } else {
+            showError(data.error || 'Failed to complete game');
+          }
+        } catch (error) {
+          console.error('Game completion error:', error);
+        }
+      }
+      
+      function claimRewards() {
+        if (tg && tg.sendData) {
+          tg.sendData(JSON.stringify({
+            type: "claim_rewards",
+            game: "trivia",
+            user_id: userId
+          }));
+          tg.close();
+        } else {
+          alert('Rewards claimed successfully!');
+        }
+      }
+      
+      function showError(message) {
+        alert(message);
+      }
+    });
+  </script>
 </body>
 </html>
