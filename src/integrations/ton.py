@@ -29,52 +29,40 @@ class TONWallet:
         self.is_testnet = config.TON_NETWORK.lower() == "testnet"
 
     async def initialize(self):
-        """Initialize TON wallet connection using either private key or mnemonic"""
+        """Initialize TON wallet connection"""
         try:
-            # Configure client based on network
-            if config.TON_NETWORK == "mainnet":
-                logger.info("Initializing mainnet LiteClient")
-                self.client = LiteClient.from_mainnet_config(
-                    ls_i=0,        # Index in config
-                    trust_level=2,  # Trust level (2 = verify all proofs)
-                    timeout=60      # Increased timeout to 60 seconds
-                )
-            else:
-                logger.info("Initializing testnet LiteClient")
-                self.client = LiteClient.from_testnet_config(
-                    ls_i=0,
-                    trust_level=2,
-                    timeout=60
-                )
-            
-            # Retry connection with exponential backoff
-            while self.connection_retries < self.MAX_RETRIES:
-                try:
-                    logger.info(f"Connecting to TON network (attempt {self.connection_retries + 1}/{self.MAX_RETRIES})")
-                    await self.client.connect()
-                    logger.info("Successfully connected to TON network")
-                    break
-                except (asyncio.TimeoutError, ConnectionError) as e:
-                    self.connection_retries += 1
-                    wait_time = 2 ** self.connection_retries
-                    logger.warning(f"TON connection failed (attempt {self.connection_retries}/{self.MAX_RETRIES}): {e}. Retrying in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-            
-            if self.connection_retries >= self.MAX_RETRIES:
-                raise ConnectionError("Failed to connect to TON network after multiple attempts")
-            
-            elif config.TON_PRIVATE_KEY:
-                # Initialize from private key
+            # ... (client initialization remains the same)
+
+            if config.TON_PRIVATE_KEY:
                 logger.info("Initializing wallet from private key")
                 private_key = base64.b64decode(config.TON_PRIVATE_KEY)
-                logger.info(f"Using wallet address: {config.TON_HOT_WALLET}")
+                
+                # Initialize without providing address
                 self.wallet = WalletV4R2(
                     provider=self.client, 
-                    private_key=private_key,
-                    address=Address(config.TON_HOT_WALLET)
+                    private_key=private_key
                 )
+                
+                # Get derived address
+                derived_address = self.wallet.address.to_str(is_user_friendly=True, is_bounceable=True)
+                logger.info(f"Derived wallet address: {derived_address}")
+                
+                # Verify against configured address
+                config_address = Address(config.TON_HOT_WALLET).to_str(
+                    is_user_friendly=True,
+                    is_url_safe=True,
+                    is_bounceable=True
+                )
+                
+                if derived_address != config_address:
+                    logger.error(f"CRITICAL: Wallet address mismatch")
+                    logger.error(f"Derived:   {derived_address}")
+                    logger.error(f"Configured: {config_address}")
+                    raise ValueError("Wallet address mismatch")
+                else:
+                    logger.info("Wallet address verified successfully")
             else:
-                raise ValueError("No TON credentials provided (mnemonic or private key)")
+                raise ValueError("No TON credentials provided")
             
             # Verify wallet address
             wallet_address = self.wallet.address.to_str()

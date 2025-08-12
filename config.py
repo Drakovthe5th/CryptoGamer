@@ -211,60 +211,43 @@ class Config:
             return value
         return value + ('=' * pad_length)
 
+
     def load_firebase_creds(self):
         """Load Firebase credentials with enhanced error handling"""
-        creds = {}
         try:
-            # Strategy 1: Direct environment variable (single-line JSON)
-            creds_str = os.getenv('FIREBASE_CREDS')
-            if creds_str:
-                logger.info("Attempting to parse FIREBASE_CREDS from env")
-                try:
-                    creds = json.loads(creds_str)
-                    if self.validate_firebase_creds(creds):
-                        logger.info("Loaded Firebase credentials from FIREBASE_CREDS env")
-                        return creds
-                    else:
-                        logger.warning("FIREBASE_CREDS env exists but validation failed")
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON decode error in FIREBASE_CREDS: {e.doc}")
-                    logger.error(f"Error position: {e.pos}, Error: {e.msg}")
-            
-            # Strategy 2: File path
-            creds_path = os.getenv('FIREBASE_CREDS_PATH', '/etc/secrets/firebase_creds.json')
-            if creds_path and os.path.exists(creds_path):
-                logger.info(f"Attempting to load Firebase creds from {creds_path}")
-                try:
-                    with open(creds_path, 'r') as f:
-                        creds = json.load(f)
-                    if self.validate_firebase_creds(creds):
-                        logger.info(f"Loaded Firebase credentials from {creds_path}")
-                        return creds
-                    else:
-                        logger.warning(f"Firebase credentials from {creds_path} failed validation")
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON decode error in {creds_path}: {e.doc}")
-                    logger.error(f"Error position: {e.pos}, Error: {e.msg}")
-                except Exception as e:
-                    logger.error(f"Error reading {creds_path}: {str(e)}")
-            
-            # Strategy 3: Direct JSON in alternative env variable
-            creds_json_str = os.getenv('FIREBASE_CREDS_JSON')
-            if creds_json_str:
+            # Strategy 1: Direct JSON in environment variable
+            creds_json = os.getenv('FIREBASE_CREDS_JSON')
+            if creds_json:
                 logger.info("Attempting to parse FIREBASE_CREDS_JSON")
                 try:
-                    creds = json.loads(creds_json_str)
+                    creds = json.loads(creds_json)
                     if self.validate_firebase_creds(creds):
                         logger.info("Loaded Firebase credentials from FIREBASE_CREDS_JSON")
                         return creds
-                    else:
-                        logger.warning("FIREBASE_CREDS_JSON exists but validation failed")
                 except json.JSONDecodeError as e:
-                    logger.error(f"JSON decode error in FIREBASE_CREDS_JSON: {e.doc}")
-                    logger.error(f"Error position: {e.pos}, Error: {e.msg}")
+                    logger.error(f"JSON decode error in FIREBASE_CREDS_JSON: {e}")
+
+            # Strategy 2: File path
+            creds_path = os.getenv('FIREBASE_CREDS_PATH', '/etc/secrets/firebase_creds.json')
+            if os.path.exists(creds_path):
+                logger.info(f"Loading Firebase creds from {creds_path}")
+                try:
+                    with open(creds_path, 'r') as f:
+                        return json.load(f)
+                except Exception as e:
+                    logger.error(f"Error reading {creds_path}: {str(e)}")
+            
+            # Strategy 3: Direct environment variable (deprecated)
+            creds_str = os.getenv('FIREBASE_CREDS')
+            if creds_str:
+                logger.warning("FIREBASE_CREDS is deprecated. Use FIREBASE_CREDS_JSON instead.")
+                try:
+                    return json.loads(creds_str)
+                except json.JSONDecodeError:
+                    pass
                     
         except Exception as e:
-            logger.error(f"Critical error loading Firebase credentials: {str(e)}", exc_info=True)
+            logger.error(f"Error loading Firebase credentials: {str(e)}")
         
         logger.error("No valid Firebase credentials found")
         return {}
