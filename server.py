@@ -15,7 +15,6 @@ from src.integrations.ton import (
 )
 from src.utils.security import get_user_id, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
-from games.games import games_bp
 
 # Graceful import of maintenance functions
 try:
@@ -53,6 +52,7 @@ from config import config
 from src.web.routes import configure_routes
 from src.database.firebase import initialize_firebase
 from src.telegram.miniapp import miniapp_bp  # Import the miniapp blueprint
+from games.games import games_bp
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

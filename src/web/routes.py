@@ -8,13 +8,12 @@ from config import Config
 import logging
 import datetime
 import os
-from games.games import games_bp
 
 logger = logging.getLogger(__name__)
 
 def configure_routes(app):
     @app.route('/')
-    def index():
+    def home():  # Changed from 'index' to 'home'
         return "CryptoGameBot is running!"
     
     @app.route('/miniapp')
