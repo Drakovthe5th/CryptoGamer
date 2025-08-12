@@ -1,7 +1,7 @@
 import time
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 

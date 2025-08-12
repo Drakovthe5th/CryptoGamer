@@ -44,3 +44,6 @@ aiohttp==3.12.15
 
 psutil==5.9.4
 backoff==2.2.1
+grpcio==1.74.0
+grpcio-status==1.62.3
+setuptools==80.9.0
