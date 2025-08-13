@@ -6,7 +6,8 @@ import base64
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple, Union
-from pytoniq import LiteClient, WalletV4R2, TonCenterClient
+from pytoniq import LiteClient, WalletV4R2
+from pytoniq.toncenter import TonCenterClient
 from pytoniq_core import Cell, begin_cell, Address
 from mnemonic import Mnemonic
 from src.database.firebase import db
