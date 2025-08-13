@@ -524,7 +524,7 @@ def is_valid_ton_address(address: str) -> bool:
             return False
             
         # Basic format check
-        if not (address.startswith(('EQ', 'UQ', 'kQ')) and len(address) < 48:
+        if not address.startswith(('EQ', 'UQ', 'kQ')) or len(address) < 48:
             return False
             
         # Try to parse
