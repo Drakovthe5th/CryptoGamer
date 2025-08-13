@@ -6,22 +6,9 @@ import base64
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple, Union
-from pytoniq import LiteClient, WalletV4R2
+from pytoniq import LiteClient, WalletV4R2, TonCenterClient
 from pytoniq_core import Cell, begin_cell, Address
 from mnemonic import Mnemonic
-try:
-    # Try the correct PyNaCl import
-    from nacl.signing import SigningKey
-    PYNACL_AVAILABLE = True
-except ImportError:
-    try:
-        # Alternative: use pytoniq's crypto functions
-        from pytoniq_core.crypto.keys import private_key_to_public_key
-        PYNACL_AVAILABLE = False
-    except ImportError:
-        # Fallback: use basic crypto
-        import hashlib
-        PYNACL_AVAILABLE = False
 from src.database.firebase import db
 from config import config
 
@@ -34,71 +21,122 @@ class TONWallet:
     TRANSACTION_TIMEOUT = 120
     MAX_RETRY_ATTEMPTS = 3
     NANOTON_CONVERSION = 1e9
+    CONNECTION_TIMEOUT = 15  # seconds
+    DAILY_WITHDRAWAL_LIMIT = 1000  # TON per day
+    USER_DAILY_WITHDRAWAL_LIMIT = 100  # TON per user per day
     
     def __init__(self) -> None:
         # Initialize connection parameters
         self.client: Optional[LiteClient] = None
+        self.http_client: Optional[TonCenterClient] = None
         self.wallet: Optional[WalletV4R2] = None
-        self.last_balance_check: datetime = datetime.min
         self.balance_cache: float = 0.0
-        self.last_tx_check: datetime = datetime.min
-        self.pending_withdrawals: Dict[str, Dict] = {}
+        self.last_balance_check: datetime = datetime.min
         self.initialized: bool = False
-        self.connection_retries: int = 0
-        self.MAX_RETRIES: int = 3
         self.is_testnet: bool = config.TON_NETWORK.lower() == "testnet"
+        self.use_http_fallback: bool = False
+        self.liteserver_indices = [0, 1, 2]  # Multiple liteservers to try
+        self.pending_withdrawals: Dict[str, Dict] = {}
 
     async def initialize(self) -> bool:
-        """Initialize TON wallet connection with retries"""
-        for attempt in range(self.MAX_RETRY_ATTEMPTS):
+        """Initialize TON wallet connection with multiple fallback options"""
+        logger.info(f"Initializing TON wallet on {'testnet' if self.is_testnet else 'mainnet'}")
+        
+        # First try LiteClient with multiple servers
+        if await self._try_liteclient_connection():
+            logger.info("Successfully connected via LiteClient")
+            self.use_http_fallback = False
+            self.initialized = True
+            return True
+        
+        # Then try HTTP client (TonCenter) as fallback
+        if await self._try_http_connection():
+            logger.info("Successfully connected via HTTP client")
+            self.use_http_fallback = True
+            self.initialized = True
+            return True
+        
+        logger.error("All connection methods failed")
+        return False
+
+    async def _try_liteclient_connection(self) -> bool:
+        """Try connecting to LiteClient with multiple servers"""
+        for ls_index in self.liteserver_indices:
             try:
-                logger.info(f"Initializing TON wallet on {'testnet' if self.is_testnet else 'mainnet'}")
+                logger.info(f"Trying LiteClient connection (index: {ls_index})")
                 
-                # Initialize LiteClient with correct parameters
                 if self.is_testnet:
-                    logger.info("Connecting to TON testnet")
                     self.client = LiteClient.from_testnet_config(
-                        ls_i=0,  # liteserver index
+                        ls_i=ls_index,
                         trust_level=2,
-                        timeout=30
+                        timeout=self.CONNECTION_TIMEOUT
                     )
                 else:
-                    logger.info("Connecting to TON mainnet")
                     self.client = LiteClient.from_mainnet_config(
-                        ls_i=0,  # liteserver index  
+                        ls_i=ls_index,
                         trust_level=2,
-                        timeout=30
+                        timeout=self.CONNECTION_TIMEOUT
                     )
                 
-                # Connect to the network
                 await self.client.connect()
-                logger.info("Successfully connected to TON network")
                 
-                # Initialize wallet from mnemonic or private key
-                if config.TON_MNEMONIC:
-                    await self._init_from_mnemonic()
-                elif config.TON_PRIVATE_KEY:
-                    await self._init_from_private_key()
-                else:
-                    raise ValueError("No TON credentials provided (mnemonic or private key)")
+                # Initialize wallet credentials
+                if not await self._init_wallet_credentials():
+                    return False
                 
                 # Verify wallet address
                 await self._verify_wallet_address()
                 
-                logger.info(f"TON wallet initialized successfully: {self.get_address()}")
-                self.initialized = True
-                self.connection_retries = 0
                 return True
                 
             except (asyncio.TimeoutError, ConnectionError) as e:
-                logger.warning(f"Connection attempt {attempt+1} failed: {e}")
-                if attempt < self.MAX_RETRY_ATTEMPTS - 1:
-                    wait_time = 2 ** attempt  # Exponential backoff
-                    logger.info(f"Retrying in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    logger.error("TON wallet initialization failed after retries")
+                logger.warning(f"LiteClient connection failed (index {ls_index}): {e}")
+            except Exception as e:
+                logger.error(f"Unexpected LiteClient error: {e}")
+        
         return False
+
+    async def _try_http_connection(self) -> bool:
+        """Try connecting via HTTP (TonCenter)"""
+        try:
+            logger.info("Trying HTTP client connection")
+            
+            # Use testnet or mainnet endpoint
+            if self.is_testnet:
+                self.http_client = TonCenterClient(base_url='https://testnet.toncenter.com/api/v2/')
+            else:
+                self.http_client = TonCenterClient(base_url='https://toncenter.com/api/v2/')
+            
+            # Add API key if configured
+            if hasattr(config, 'TONCENTER_API_KEY') and config.TONCENTER_API_KEY:
+                self.http_client.api_key = config.TONCENTER_API_KEY
+            
+            # Initialize wallet credentials
+            if not await self._init_wallet_credentials():
+                return False
+                
+            # Verify wallet address
+            await self._verify_wallet_address()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"HTTP client connection failed: {e}")
+            return False
+
+    async def _init_wallet_credentials(self) -> bool:
+        """Initialize wallet credentials"""
+        try:
+            if hasattr(config, 'TON_MNEMONIC') and config.TON_MNEMONIC:
+                await self._init_from_mnemonic()
+            elif hasattr(config, 'TON_PRIVATE_KEY') and config.TON_PRIVATE_KEY:
+                await self._init_from_private_key()
+            else:
+                raise ValueError("No TON credentials provided")
+            return True
+        except Exception as e:
+            logger.error(f"Wallet credential initialization failed: {e}")
+            return False
 
     async def _init_from_mnemonic(self) -> None:
         """Initialize wallet from mnemonic phrase"""
@@ -111,59 +149,36 @@ class TONWallet:
         
         # Generate seed from mnemonic
         seed = mnemo.to_seed(config.TON_MNEMONIC, passphrase="")
+        private_key = seed[:32]
         
-        # Derive key pair using the best available method
-        if PYNACL_AVAILABLE:
-            # Use PyNaCl (preferred method)
-            signing_key = SigningKey(seed[:32])
-            private_key = bytes(signing_key)
-            public_key = bytes(signing_key.verify_key)
-        else:
-            try:
-                # Use pytoniq's crypto functions
-                private_key = seed[:32]
-                public_key = private_key_to_public_key(private_key)
-            except:
-                # Fallback: use basic derivation (not recommended for production)
-                private_key = seed[:32]
-                public_key = hashlib.sha256(private_key).digest()
-                logger.warning("Using fallback key derivation - install PyNaCl for security")
-        
-        self.wallet = WalletV4R2(
-            provider=self.client,
-            public_key=public_key,
-            private_key=private_key
-        )
+        # Initialize wallet
+        if self.client:
+            self.wallet = WalletV4R2(
+                provider=self.client,
+                private_key=private_key
+            )
+        elif self.http_client:
+            self.wallet = WalletV4R2(
+                provider=self.http_client,
+                private_key=private_key
+            )
 
     async def _init_from_private_key(self) -> None:
         """Initialize wallet from private key"""
         logger.info("Initializing wallet from private key")
-        private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
+        private_key = base64.b64decode(config.TON_PRIVATE_KEY)
         
-        # If we have 64-byte key, split into private/public
-        if len(private_key_bytes) == 64:
-            public_key = private_key_bytes[32:]
-            private_key = private_key_bytes[:32]
-        else:
-            # Generate public key from private key using the best available method
-            private_key = private_key_bytes
-            if PYNACL_AVAILABLE:
-                signing_key = SigningKey(private_key)
-                public_key = bytes(signing_key.verify_key)
-            else:
-                try:
-                    # Use pytoniq's crypto functions
-                    public_key = private_key_to_public_key(private_key)
-                except:
-                    # Fallback method
-                    public_key = hashlib.sha256(private_key).digest()
-                    logger.warning("Using fallback key derivation - install PyNaCl for security")
-        
-        self.wallet = WalletV4R2(
-            provider=self.client,
-            public_key=public_key,
-            private_key=private_key
-        )
+        # Initialize wallet
+        if self.client:
+            self.wallet = WalletV4R2(
+                provider=self.client,
+                private_key=private_key
+            )
+        elif self.http_client:
+            self.wallet = WalletV4R2(
+                provider=self.http_client,
+                private_key=private_key
+            )
 
     async def _verify_wallet_address(self) -> None:
         """Verify wallet address matches configuration"""
@@ -171,47 +186,44 @@ class TONWallet:
             raise ValueError("Wallet not initialized")
             
         # Get derived address
-        derived_address = self.wallet.address.to_str(
-            is_user_friendly=True,
-            is_url_safe=True,
-            is_bounceable=True
-        )
+        derived_address = self.wallet.address.to_str()
         logger.info(f"Derived wallet address: {derived_address}")
         
-        # Verify against configured address
-        config_address = Address(config.TON_HOT_WALLET).to_str(
-            is_user_friendly=True,
-            is_url_safe=True,
-            is_bounceable=True
-        )
-        
-        if derived_address != config_address:
-            logger.error(f"CRITICAL: Wallet address mismatch")
-            logger.error(f"Derived:   {derived_address}")
-            logger.error(f"Configured: {config_address}")
-            raise ValueError("Wallet address mismatch - check your credentials")
+        # Verify against configured address if available
+        if hasattr(config, 'TON_HOT_WALLET') and config.TON_HOT_WALLET:
+            config_address = Address(config.TON_HOT_WALLET).to_str()
+            
+            if derived_address != config_address:
+                logger.error(f"CRITICAL: Wallet address mismatch")
+                logger.error(f"Derived:   {derived_address}")
+                logger.error(f"Configured: {config_address}")
+                raise ValueError("Wallet address mismatch - check your credentials")
+            else:
+                logger.info("Wallet address verified successfully")
         else:
-            logger.info("Wallet address verified successfully")
+            logger.warning("No TON_HOT_WALLET configured - skipping address verification")
 
     def get_address(self) -> str:
         """Get wallet address in user-friendly format"""
         if not self.wallet:
             return ""
-        return self.wallet.address.to_str(
-            is_user_friendly=True, 
-            is_url_safe=True, 
-            is_bounceable=True
-        )
+        return self.wallet.address.to_str()
 
     async def health_check(self) -> bool:
         """Check if TON connection is healthy"""
         try:
-            if not self.client or not self.initialized or not self.wallet:
+            if not self.initialized or not self.wallet:
                 return False
             
-            # Try to get current seqno to test connection
-            await self.wallet.get_seqno()
-            return True
+            # Different checks based on connection type
+            if self.client and not self.use_http_fallback:
+                await self.wallet.get_seqno()
+                return True
+            elif self.http_client:
+                # Simple balance check for HTTP client
+                balance = await self.wallet.get_balance()
+                return balance >= 0
+            return False
         except Exception as e:
             logger.warning(f"TON health check failed: {e}")
             return False
@@ -219,7 +231,7 @@ class TONWallet:
     async def ensure_connection(self) -> None:
         """Ensure TON connection is active"""
         if not await self.health_check():
-            logger.info("Reconnecting to TON network...")
+            logger.warning("TON connection lost, reinitializing...")
             await self.initialize()
 
     async def get_balance(self, force_update: bool = False) -> float:
@@ -227,35 +239,34 @@ class TONWallet:
         try:
             # Use cache to avoid frequent requests
             if not force_update and (datetime.now() - self.last_balance_check < timedelta(minutes=self.BALANCE_CACHE_MINUTES)):
-                logger.debug(f"Returning cached balance: {self.balance_cache}")
                 return self.balance_cache
                 
             # Ensure connection is healthy
             await self.ensure_connection()
                 
-            logger.info("Fetching wallet balance from blockchain")
+            logger.info("Fetching wallet balance")
             balance = await self.wallet.get_balance()
-            ton_balance = balance / self.NANOTON_CONVERSION  # Convert nanoton to TON
+            ton_balance = balance / self.NANOTON_CONVERSION
             
             self.balance_cache = ton_balance
             self.last_balance_check = datetime.now()
             logger.info(f"Wallet balance: {ton_balance:.6f} TON")
             
-            # Check if below threshold
-            if ton_balance < config.MIN_HOT_BALANCE:
+            # Alert if balance is low
+            if hasattr(config, 'MIN_HOT_BALANCE') and ton_balance < config.MIN_HOT_BALANCE:
                 alert_msg = f"🔥 TON HOT WALLET LOW BALANCE: {ton_balance:.6f} TON"
                 logger.warning(alert_msg)
                 self.send_alert(alert_msg)
             
             return ton_balance
         except Exception as e:
-            logger.error(f"Failed to get TON balance: {str(e)}")
+            logger.error(f"Failed to get TON balance: {e}")
             return 0.0
 
     async def send_transaction(self, destination: str, amount: float, memo: str = "") -> Dict[str, Union[str, float]]:
-        """Send TON transaction to external address"""
+        """Send TON transaction with fallback mechanism"""
         try:
-            logger.info(f"Preparing transaction: {amount} TON to {destination}")
+            logger.info(f"Sending {amount} TON to {destination}")
             
             # Ensure connection is healthy
             await self.ensure_connection()
@@ -267,10 +278,6 @@ class TONWallet:
             # Convert TON to nanoton
             amount_nano = int(amount * self.NANOTON_CONVERSION)
             
-            # Get current seqno for transaction
-            seqno = await self.wallet.get_seqno()
-            logger.debug(f"Current seqno: {seqno}")
-            
             # Prepare message body
             body = begin_cell()
             if memo:
@@ -279,7 +286,6 @@ class TONWallet:
             body = body.end_cell()
             
             # Create and send transaction
-            logger.info("Creating and sending transfer message")
             result = await self.wallet.transfer(
                 destination=Address(destination),
                 amount=amount_nano,
@@ -287,33 +293,38 @@ class TONWallet:
                 timeout=self.TRANSACTION_TIMEOUT
             )
             
-            # Clear balance cache to force update
+            # Clear balance cache
             self.last_balance_check = datetime.min
             
-            logger.info(f"TON transaction sent successfully: {amount:.6f} TON to {destination}")
-            logger.info(f"Transaction hash: {result.hash.hex()}")
+            logger.info(f"TON transaction sent successfully: {result.hash.hex()}")
             
             return {
                 'status': 'success',
                 'tx_hash': result.hash.hex(),
                 'amount': amount,
-                'destination': destination,
-                'seqno': seqno
+                'destination': destination
             }
             
         except Exception as e:
-            logger.error(f"TON transaction failed: {str(e)}")
-            
-            # Add specific error handling for common TON errors
+            # Try HTTP fallback if LiteClient failed
+            if not self.use_http_fallback and self.http_client:
+                logger.warning("Retrying with HTTP client...")
+                self.wallet = WalletV4R2(
+                    provider=self.http_client,
+                    private_key=self.wallet.private_key
+                )
+                self.use_http_fallback = True
+                return await self.send_transaction(destination, amount, memo)
+                
             error_message = str(e).lower()
             if "insufficient funds" in error_message:
                 return {'status': 'error', 'error': 'Insufficient wallet balance'}
             elif "invalid address" in error_message:
                 return {'status': 'error', 'error': 'Invalid destination address'}
-            elif "timeout" in error_message:
-                return {'status': 'error', 'error': 'Transaction timeout - please try again'}
             elif "seqno" in error_message:
-                return {'status': 'error', 'error': 'Sequence number error - please retry'}
+                return {'status': 'error', 'error': 'Sequence number mismatch - please retry'}
+            elif "timeout" in error_message:
+                return {'status': 'error', 'error': 'Transaction timed out - please check later'}
             else:
                 return {'status': 'error', 'error': f'Transaction failed: {str(e)}'}
 
@@ -354,8 +365,8 @@ class TONWallet:
                 
             # Check daily user limit
             user_daily = self.get_user_daily_withdrawal(user_id)
-            if user_daily + amount > config.USER_DAILY_WITHDRAWAL_LIMIT:
-                error_msg = f"Daily withdrawal limit exceeded: {config.USER_DAILY_WITHDRAWAL_LIMIT} TON"
+            if user_daily + amount > self.USER_DAILY_WITHDRAWAL_LIMIT:
+                error_msg = f"Daily withdrawal limit exceeded: {self.USER_DAILY_WITHDRAWAL_LIMIT} TON"
                 logger.warning(error_msg)
                 return {
                     'status': 'error',
@@ -364,7 +375,7 @@ class TONWallet:
                 
             # Check system daily limit
             system_daily = self.get_system_daily_withdrawal()
-            if system_daily + amount > config.DAILY_WITHDRAWAL_LIMIT:
+            if system_daily + amount > self.DAILY_WITHDRAWAL_LIMIT:
                 error_msg = "System daily withdrawal limit reached"
                 logger.warning(error_msg)
                 return {
@@ -480,15 +491,20 @@ class TONWallet:
             return []
 
     async def close(self) -> None:
-        """Close TON connection"""
+        """Close TON connections"""
         if self.client:
             try:
-                logger.info("Closing TON client connection")
+                logger.info("Closing LiteClient connection")
                 await self.client.close()
-                self.initialized = False
-                logger.info("TON client connection closed")
             except Exception as e:
-                logger.error(f"Error closing TON client: {str(e)}")
+                logger.error(f"Error closing LiteClient: {e}")
+        if self.http_client:
+            try:
+                logger.info("Closing HTTP client connection")
+                await self.http_client.close()
+            except Exception as e:
+                logger.error(f"Error closing HTTP client: {e}")
+        self.initialized = False
 
 # Global TON wallet instance
 ton_wallet = TONWallet()
@@ -507,16 +523,15 @@ def is_valid_ton_address(address: str) -> bool:
         if not address or not isinstance(address, str):
             return False
             
-        # Check basic format
-        if not (address.startswith(('EQ', 'UQ', 'kQ')) and len(address) >= 48):
+        # Basic format check
+        if not (address.startswith(('EQ', 'UQ', 'kQ')) and len(address) < 48:
             return False
             
-        # Try to parse with pytoniq
-        parsed_addr = Address(address)
-        return parsed_addr.wc in [-1, 0]  # Valid workchains (masterchain and basechain)
+        # Try to parse
+        Address(address)
+        return True
         
-    except Exception as e:
-        logger.debug(f"Address validation failed for {address}: {e}")
+    except Exception:
         return False
 
 async def create_staking_contract(user_id: str, amount: float) -> str:
@@ -546,7 +561,7 @@ async def execute_swap(user_id: str, from_token: str, to_token: str, amount: flo
         # Ensure wallet is connected
         await ton_wallet.ensure_connection()
         
-        # In a real implementation, this would interact with a DEX like DeDust or STON.fi
+        # In a real implementation, this would interact with a DEX
         # For now, return a placeholder transaction hash
         tx_hash = f"tx_{user_id}_{from_token}_{to_token}_{int(time.time())}"
         
@@ -561,7 +576,6 @@ async def process_ton_withdrawal(user_id: int, amount: float, address: str) -> D
     """Process TON withdrawal (public interface)"""
     return await ton_wallet.process_withdrawal(user_id, amount, address)
 
-# Utility functions for monitoring
 async def get_wallet_status() -> Dict[str, Union[str, float, bool]]:
     """Get comprehensive wallet status"""
     try:
@@ -574,7 +588,8 @@ async def get_wallet_status() -> Dict[str, Union[str, float, bool]]:
             'healthy': health,
             'network': 'testnet' if ton_wallet.is_testnet else 'mainnet',
             'initialized': ton_wallet.initialized,
-            'last_balance_check': ton_wallet.last_balance_check.isoformat()
+            'last_balance_check': ton_wallet.last_balance_check.isoformat(),
+            'connection_type': 'HTTP' if ton_wallet.use_http_fallback else 'LiteClient'
         }
     except Exception as e:
         logger.error(f"Failed to get wallet status: {e}")

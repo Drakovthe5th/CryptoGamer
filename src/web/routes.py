@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def configure_routes(app):
     @app.route('/')
-    def home():  # Changed from 'index' to 'home'
+    def home_route():  # Changed from 'index' to 'home'
         return "CryptoGameBot is running!"
     
     @app.route('/miniapp')
