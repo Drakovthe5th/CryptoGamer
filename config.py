@@ -31,17 +31,16 @@ class Config:
         self.TON_ADMIN_ADDRESS = os.getenv('TON_ADMIN_ADDRESS')
         self.TON_NETWORK = os.getenv('TON_NETWORK', 'mainnet')
         self.TON_API_KEY = os.getenv('TON_API_KEY')
-        self.TON_PUBLIC_KEY = os.getenv('TON_PUBLIC_KEY')
         
         # Handle TON private key padding issue
         raw_private_key = os.getenv('TON_PRIVATE_KEY', '')
         self.TON_PRIVATE_KEY = self.fix_base64_padding(raw_private_key)
         
         # Security and limits
-        self.MIN_HOT_BALANCE = float(os.getenv('MIN_HOT_BALANCE', '10.0'))
+        self.MIN_HOT_BALANCE = float(os.getenv('MIN_HOT_BALANCE', '1.0'))
         self.FREE_DAILY_EARN_LIMIT = float(os.getenv('FREE_DAILY_EARN_LIMIT', '0.5'))
-        self.USER_DAILY_WITHDRAWAL_LIMIT = float(os.getenv('USER_DAILY_WITHDRAWAL_LIMIT', '100.0'))
-        self.DAILY_WITHDRAWAL_LIMIT = float(os.getenv('DAILY_WITHDRAWAL_LIMIT', '1000.0'))
+        self.USER_DAILY_WITHDRAWAL_LIMIT = float(os.getenv('USER_DAILY_WITHDRAWAL_LIMIT', '10.0'))
+        self.DAILY_WITHDRAWAL_LIMIT = float(os.getenv('DAILY_WITHDRAWAL_LIMIT', '10.0'))
         self.ALERT_WEBHOOK = os.getenv('ALERT_WEBHOOK')
         self.SECRET_KEY = os.getenv('SECRET_KEY', 'your_secret_key_here')
         
@@ -146,7 +145,7 @@ class Config:
             'edge-surf': {'base': 0.003, 'per_minute': 0.007},
             'trex-runner': {'base': 0.001, 'per_100_meters': 0.005},
             'clicker': {'base': 0.000, 'per_1000_points': 0.015},
-            'trivia': {'base': 0.002, 'per_correct_answer': 0.008},
+            'trivia': {'base': 0.002, 'per_correct_answer': 0.005},
             'spin': {'base': 0.004}
         }
 
@@ -196,7 +195,7 @@ class Config:
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
         
         # Wallet Thresholds
-        self.MIN_ADMIN_BALANCE = 50.0  # TON (triggers alert)
+        self.MIN_ADMIN_BALANCE = 1.0  # TON (triggers alert)
 
         self.DEFAULT_COUNTRY = 'KE'
         

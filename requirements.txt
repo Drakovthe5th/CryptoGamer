@@ -47,3 +47,5 @@ backoff==2.2.1
 grpcio==1.74.0
 grpcio-status==1.62.3
 setuptools==80.9.0
+ton-client-py
+mnemonic
