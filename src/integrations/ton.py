@@ -14,18 +14,16 @@ from config import config
 
 # Production TON libraries
 from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
-# Replace pytoniq.toncenter with toncenter.client
-from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
 try:
-    from pytoncenter.client import Client as TonCenterClient  # Changed from toncenter to pytoncenter
+    from pytoncenter.client import Client as TonCenterClient
     TONCENTER_AVAILABLE = True
 except ImportError:
     TONCENTER_AVAILABLE = False
     logger.warning("pytoncenter package not available. HTTP fallback will not work")
+
+# Corrected pytoniq_core imports
 from pytoniq_core import Cell, begin_cell, Address, Slice, Builder
-from pytoniq_core.boc import Boc  # Specific import for Boc
-from pytoniq_core.tlb import MsgAddress
-from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, Boc
+from pytoniq_core.boc.boc import BagOfCells  # Updated import
 from pytoniq_core.tlb import MsgAddress
 
 # Configure logger
