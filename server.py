@@ -83,7 +83,7 @@ def initialize_app():
         if not success:
             logger.warning("Falling back to HTTP client")
             # Initialize HTTP client if LiteClient fails
-            loop.run_until_complete(get_ton_http_client(config.TON_API_KEY))
+            client = loop.run_until_complete(get_ton_http_client(config.TON_API_KEY))
         status = loop.run_until_complete(get_wallet_status())
         logger.info(f"Wallet status: {status}")
     except Exception as e:
