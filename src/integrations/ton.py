@@ -17,8 +17,7 @@ from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
 # Replace pytoniq.toncenter with toncenter.client
 from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
 try:
-    # Try to import toncenter client
-    from toncenter.client import Client as TonCenterClient
+    from pytoncenter.client import Client as TonCenterClient  # Changed from toncenter to pytoncenter
     TONCENTER_AVAILABLE = True
 except ImportError:
     TONCENTER_AVAILABLE = False
