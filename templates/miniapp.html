@@ -106,6 +106,33 @@
       font-size: 1.1rem;
     }
 
+    .wallet-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px;
+      background: rgba(0, 230, 118, 0.1);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      border: 1px solid var(--accent-green);
+    }
+
+    .wallet-status.disconnected {
+      background: rgba(255, 68, 68, 0.1);
+      border-color: #ff4444;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+    }
+
+    .status-indicator.disconnected {
+      background: #ff4444;
+    }
+
     .security-alert {
       background: linear-gradient(135deg, #ff4444, #cc0000);
       color: white;
@@ -199,6 +226,30 @@
       font-size: 0.9rem;
       width: auto;
       display: inline-block;
+    }
+
+    .withdrawal-form {
+      display: none;
+      background: rgba(255,255,255,0.05);
+      padding: 20px;
+      border-radius: 12px;
+      margin-top: 16px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .withdrawal-form.active {
+      display: block;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--text-light);
     }
 
     .click-area {
@@ -426,6 +477,34 @@
       border: 1px solid rgba(255,255,255,0.2);
     }
 
+    .transaction-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .transaction-type {
+      font-weight: 600;
+      color: var(--text-light);
+    }
+
+    .transaction-amount {
+      font-weight: 700;
+    }
+
+    .transaction-amount.positive {
+      color: var(--accent-green);
+    }
+
+    .transaction-amount.negative {
+      color: #ff4444;
+    }
+
     @media (max-width: 480px) {
       .container {
         padding: 8px;
@@ -493,9 +572,15 @@
         <span id="profile-username">Guest</span>
       </button>
       <div class="balance-display">
-        <span id="balance">0.00</span> TON
+        <span id="balance">0.000000</span> TON
       </div>
     </header>
+
+    <!-- Wallet Status -->
+    <div class="wallet-status" id="wallet-status">
+      <div class="status-indicator" id="status-indicator"></div>
+      <span id="wallet-status-text">Connecting to TON network...</span>
+    </div>
 
     <!-- HOME -->
     <div id="home-page" class="page active">
@@ -505,7 +590,7 @@
           Grab your daily reward and keep the momentum going!
         </p>
         <button class="btn" id="bonus-btn" onclick="claimDailyBonus()">
-          🎁 Claim 0.05 TON
+          🎁 Claim Daily Bonus
         </button>
       </div>
 
@@ -550,7 +635,7 @@
           Watch video ads and boost your TON balance instantly!
         </p>
         <button class="btn" onclick="rewardedInterstitial()">
-          ▶️ Watch Ad & Earn 0.003 TON
+          ▶️ Watch Ad & Earn TON
         </button>
         <div style="margin-top: 16px; padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
           <small style="color: #ffcc00;">💡 Tip: Weekend ads give 20% bonus!</small>
@@ -574,21 +659,45 @@
         <h2 class="section-title">💰 Your Wallet</h2>
         <div style="text-align: center; margin: 20px 0;">
           <div style="font-size: 3rem; font-weight: 700; color: var(--accent-green);">
-            <span id="wallet-balance">0.00</span> TON
+            <span id="wallet-balance">0.000000</span> TON
           </div>
           <div style="color: #888; margin-top: 8px;">Total Balance</div>
+          <div style="font-size: 0.8rem; color: #666; margin-top: 4px;" id="wallet-address">
+            Wallet: Loading...
+          </div>
         </div>
         
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-          <button class="btn btn-secondary" onclick="receive()">
-            📥<br/>Receive
+          <button class="btn btn-secondary" onclick="showWithdrawalForm()">
+            📤<br/>Withdraw
           </button>
-          <button class="btn btn-secondary" onclick="send()">
-            📤<br/>Send
+          <button class="btn btn-secondary" onclick="showTransactionHistory()">
+            📋<br/>History
           </button>
           <button class="btn btn-secondary" onclick="showPage('otc')">
             💱<br/>Trade
           </button>
+        </div>
+
+        <!-- Withdrawal Form -->
+        <div class="withdrawal-form" id="withdrawal-form">
+          <h3 style="margin-bottom: 16px; color: var(--primary-yellow);">Withdraw TON</h3>
+          
+          <div class="input-group">
+            <label for="withdraw-address">TON Wallet Address</label>
+            <input type="text" id="withdraw-address" placeholder="EQxxxxx..." />
+          </div>
+          
+          <div class="input-group">
+            <label for="withdraw-amount">Amount (TON)</label>
+            <input type="number" id="withdraw-amount" placeholder="0.000000" step="0.000001" min="0.1" />
+            <small style="color: #888;">Minimum withdrawal: 0.1 TON</small>
+          </div>
+          
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="hideWithdrawalForm()">Cancel</button>
+            <button class="btn" onclick="processWithdrawal()">Withdraw</button>
+          </div>
         </div>
       </div>
 
@@ -598,7 +707,7 @@
           <p>Earn <span style="color: var(--accent-green); font-weight: bold;">8.5% APY</span> on deposits of 5+ TON</p>
           <small style="color: #888;">Rewards are distributed daily</small>
         </div>
-        <button class="btn" onclick="stake()">
+        <button class="btn" onclick="startStaking()">
           💰 Start Staking (5 TON min)
         </button>
       </div>
@@ -607,7 +716,7 @@
         <h2 class="section-title">📊 Stats</h2>
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-value" id="total-earned">0.00</div>
+            <div class="stat-value" id="total-earned">0.000000</div>
             <div class="stat-label">Total Earned</div>
           </div>
           <div class="stat-card">
@@ -622,6 +731,14 @@
             <div class="stat-value" id="referrals-count">0</div>
             <div class="stat-label">Referrals</div>
           </div>
+        </div>
+      </div>
+
+      <!-- Transaction History -->
+      <div class="section" id="transaction-history" style="display: none;">
+        <h2 class="section-title">📋 Recent Transactions</h2>
+        <div id="transaction-list">
+          <!-- Transactions will be loaded here -->
         </div>
       </div>
     </div>
@@ -685,15 +802,15 @@
         <div class="quest-item">
           <div>
             <div style="font-weight: 600;">✅ Claim Daily Bonus</div>
-            <small style="color: #888;">Reward: 0.05 TON</small>
+            <small style="color: #888;">Reward: <span id="quest-bonus-reward">0.01</span> TON</small>
           </div>
-          <button class="btn btn-small" id="quest-bonus" disabled>Done</button>
+          <button class="btn btn-small" id="quest-bonus" onclick="claimDailyBonus()">Claim</button>
         </div>
         
         <div class="quest-item">
           <div>
             <div style="font-weight: 600;">📺 Watch 3 Ads</div>
-            <small style="color: #888;">Progress: <span id="quest-ads">0</span>/3 | Reward: 0.02 TON</small>
+            <small style="color: #888;">Progress: <span id="quest-ads">0</span>/3 | Reward: <span id="quest-ads-reward">0.009</span> TON</small>
           </div>
           <button class="btn btn-small btn-secondary" onclick="showPage('watch')">Watch</button>
         </div>
@@ -701,7 +818,7 @@
         <div class="quest-item">
           <div>
             <div style="font-weight: 600;">🎮 Play 2 Games</div>
-            <small style="color: #888;">Progress: <span id="quest-games">0</span>/2 | Reward: 0.03 TON</small>
+            <small style="color: #888;">Progress: <span id="quest-games">0</span>/2 | Reward: <span id="quest-games-reward">0.006</span> TON</small>
           </div>
           <button class="btn btn-small btn-secondary" onclick="showPage('games')">Play</button>
         </div>
@@ -709,7 +826,7 @@
         <div class="quest-item">
           <div>
             <div style="font-weight: 600;">👥 Invite 1 Friend</div>
-            <small style="color: #888;">Progress: <span id="quest-invite">0</span>/1 | Reward: 0.05 TON</small>
+            <small style="color: #888;">Progress: <span id="quest-invite">0</span>/1 | Reward: <span id="quest-invite-reward">0.05</span> TON</small>
           </div>
           <button class="btn btn-small btn-secondary" onclick="showPage('referrals')">Invite</button>
         </div>
@@ -723,7 +840,7 @@
             <div style="font-weight: 600;">🔥 7-Day Streak</div>
             <small style="color: #888;">Login daily for a week | Reward: 0.5 TON</small>
           </div>
-          <div style="color: var(--primary-yellow); font-weight: bold;">3/7</div>
+          <div style="color: var(--primary-yellow); font-weight: bold;" id="daily-streak">0/7</div>
         </div>
         
         <div class="quest-item">
@@ -731,7 +848,7 @@
             <div style="font-weight: 600;">💯 Score 1000+ Points</div>
             <small style="color: #888;">In any game | Reward: 0.1 TON</small>
           </div>
-          <div style="color: #888;">0/1000</div>
+          <div style="color: #888;" id="high-score">0/1000</div>
         </div>
         
         <div class="quest-item">
@@ -754,7 +871,7 @@
         
         <div style="margin-bottom: 16px;">
           <label style="display: block; margin-bottom: 8px; font-weight: 600;">Amount (TON)</label>
-          <input type="number" id="otc-amount" placeholder="0.00" step="0.01" min="0.1" />
+          <input type="number" id="otc-amount" placeholder="0.000000" step="0.000001" min="0.1" />
         </div>
         
         <div style="margin-bottom: 16px;">
@@ -770,7 +887,7 @@
         <div id="conversion-preview" style="background: rgba(255,204,0,0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; display: none;">
           <div style="color: var(--primary-yellow); font-weight: 600;">Conversion Preview:</div>
           <div id="conversion-text"></div>
-          <small style="color: #888;">Fee: 3% (min $1.00)</small>
+          <small style="color: #888;" id="fee-text">Fee: 3% (min $1.00)</small>
         </div>
         
         <button class="btn" onclick="swapTon()">
@@ -782,19 +899,19 @@
         <h2 class="section-title">💹 Current Rates</h2>
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-value">$5.82</div>
+            <div class="stat-value" id="rate-usd">$6.80</div>
             <div class="stat-label">1 TON = USD</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">750</div>
+            <div class="stat-value" id="rate-kes">950</div>
             <div class="stat-label">1 TON = KES</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">€5.32</div>
+            <div class="stat-value" id="rate-eur">€6.20</div>
             <div class="stat-label">1 TON = EUR</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">5.80</div>
+            <div class="stat-value" id="rate-usdt">6.75</div>
             <div class="stat-label">1 TON = USDT</div>
           </div>
         </div>
@@ -825,7 +942,7 @@
             <div class="stat-label">Friends Invited</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="ref-earnings">0.00</div>
+            <div class="stat-value" id="ref-earnings">0.000000</div>
             <div class="stat-label">Total Earned (TON)</div>
           </div>
           <div class="stat-card">
@@ -844,19 +961,19 @@
         <div style="margin: 16px 0;">
           <div class="quest-item">
             <span>🥉 3 referrals → Bonus 0.01 TON</span>
-            <span style="color: var(--accent-green);">✅</span>
+            <span style="color: var(--accent-green);" id="milestone-3">0/3</span>
           </div>
           <div class="quest-item">
             <span>🥈 10 referrals → Bonus 0.05 TON</span>
-            <span style="color: #888;">0/10</span>
+            <span style="color: #888;" id="milestone-10">0/10</span>
           </div>
           <div class="quest-item">
             <span>🥇 50 referrals → Bonus 0.25 TON</span>
-            <span style="color: #888;">0/50</span>
+            <span style="color: #888;" id="milestone-50">0/50</span>
           </div>
           <div class="quest-item">
             <span>💎 100 referrals → Bonus 1.0 TON</span>
-            <span style="color: #888;">0/100</span>
+            <span style="color: #888;" id="milestone-100">0/100</span>
           </div>
         </div>
       </div>
@@ -871,28 +988,28 @@
             👤
           </div>
           <h3 id="profile-name">Guest</h3>
-          <p style="color: #888;">Member since today</p>
+          <p style="color: #888;" id="member-since">Member since today</p>
         </div>
         
         <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin: 16px 0;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <span>Current Balance:</span>
-            <span style="color: var(--accent-green); font-weight: bold;"><span id="profile-balance">0.00</span> TON</span>
+            <span style="color: var(--accent-green); font-weight: bold;"><span id="profile-balance">0.000000</span> TON</span>
           </div>
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <span>Total Earned:</span>
-            <span style="color: var(--primary-yellow); font-weight: bold;">0.00 TON</span>
+            <span style="color: var(--primary-yellow); font-weight: bold;"><span id="profile-total-earned">0.000000</span> TON</span>
           </div>
           <div style="display: flex; justify-content: space-between;">
             <span>Account Level:</span>
-            <span style="color: #888;">Beginner</span>
+            <span style="color: #888;" id="account-level">Beginner</span>
           </div>
         </div>
       </div>
 
       <div class="section">
         <h2 class="section-title">🏆 Achievements</h2>
-        <div class="achievement-grid">
+        <div class="achievement-grid" id="achievements-list">
           <div class="achievement-badge">🎯 First Click</div>
           <div class="achievement-badge">📺 Ad Watcher</div>
           <div class="achievement-badge" style="opacity: 0.5;">🎮 Game Master</div>
@@ -962,6 +1079,31 @@
       tg.enableClosingConfirmation();
     }
 
+    // Configuration from backend
+    const CONFIG = {
+      MIN_WITHDRAWAL: 0.1,
+      DAILY_WITHDRAWAL_LIMIT: 10.0,
+      USER_DAILY_WITHDRAWAL_LIMIT: 100.0,
+      OTC_RATES: {
+        USD: 6.80,
+        EUR: 6.20,
+        KES: 950,
+        USDT: 6.75
+      },
+      OTC_FEE_PERCENT: 3.0,
+      MIN_OTC_FEE: 1.0,
+      REWARDS: {
+        faucet: 0.01,
+        trivia_correct: 0.005,
+        trivia_incorrect: 0.001,
+        spin_win: 0.02,
+        spin_loss: 0.001,
+        ad_view: 0.003,
+        referral: 0.05,
+        quest: 0.03
+      }
+    };
+
     // Application state
     let userData = {
       id: null,
@@ -972,15 +1114,25 @@
       refEarnings: 0,
       bonusClaimed: false,
       adsWatched: 0,
-      gamesPlayed: 0
+      gamesPlayed: 0,
+      totalEarned: 0,
+      walletAddress: null,
+      memberSince: new Date().toLocaleDateString()
     };
 
-    let securityToken = null;
-    let securityTimer = null;
+    let walletStatus = {
+      connected: false,
+      healthy: false,
+      address: null,
+      network: 'mainnet'
+    };
 
     // Utility functions
+    function formatTON(amount) {
+      return parseFloat(amount || 0).toFixed(6);
+    }
+
     function generateSecurityToken() {
-      const token = Math.random().toString(36).substring(2, 15);
       const timestamp = Math.floor(Date.now() / 1000);
       return btoa(`${userData.id || 'anon'}:${timestamp}`);
     }
@@ -1005,11 +1157,29 @@
       }
     }
 
-    // API request helper
+    function showConfirm(title, message, callback) {
+      if (tg && tg.showPopup) {
+        tg.showPopup({
+          title: title,
+          message: message,
+          buttons: [
+            { id: 'cancel', type: 'cancel' },
+            { id: 'ok', type: 'ok' }
+          ]
+        }, (buttonId) => {
+          if (buttonId === 'ok') callback();
+        });
+      } else {
+        if (confirm(`${title}: ${message}`)) callback();
+      }
+    }
+
+    // API request helper with TON-specific error handling
     async function apiRequest(endpoint, method = 'GET', body = null) {
       const headers = {
         'Content-Type': 'application/json',
-        'X-Telegram-InitData': tg?.initData || '',
+        'X-Telegram-User-ID': userData.id || '',
+        'X-Telegram-Hash': tg?.initData || '',
         'X-Security-Token': generateSecurityToken()
       };
 
@@ -1023,7 +1193,7 @@
 
         const response = await fetch(endpoint, options);
 
-        // Handle security restrictions
+        // Handle specific TON-related errors
         if (response.status === 403) {
           document.getElementById('security-alert').style.display = 'block';
           showAlert('Account Restricted', 'Please contact support for assistance.');
@@ -1038,22 +1208,58 @@
         return await response.json();
       } catch (error) {
         console.error('API request failed:', error);
-        showAlert('Error', error.message || 'Something went wrong');
+        
+        // Handle specific TON errors
+        if (error.message.includes('insufficient')) {
+          showAlert('Insufficient Balance', 'You do not have enough TON for this operation.');
+        } else if (error.message.includes('invalid address')) {
+          showAlert('Invalid Address', 'Please check the TON wallet address format.');
+        } else if (error.message.includes('daily limit')) {
+          showAlert('Daily Limit', 'Daily withdrawal limit exceeded. Try again tomorrow.');
+        } else {
+          showAlert('Error', error.message || 'Something went wrong');
+        }
         throw error;
       } finally {
         hideSpinner();
       }
     }
 
+    // Update wallet status
+    function updateWalletStatus() {
+      const statusEl = document.getElementById('wallet-status');
+      const indicatorEl = document.getElementById('status-indicator');
+      const textEl = document.getElementById('wallet-status-text');
+
+      if (walletStatus.connected && walletStatus.healthy) {
+        statusEl.classList.remove('disconnected');
+        indicatorEl.classList.remove('disconnected');
+        textEl.textContent = `Connected to TON ${walletStatus.network}`;
+      } else {
+        statusEl.classList.add('disconnected');
+        indicatorEl.classList.add('disconnected');
+        textEl.textContent = 'TON wallet connection issues';
+      }
+    }
+
     // Update UI elements
     function updateUI() {
-      // Update balance displays
+      // Update balance displays with proper TON formatting
       document.querySelectorAll('#balance, #wallet-balance, #profile-balance').forEach(el => {
-        el.textContent = userData.balance.toFixed(2);
+        el.textContent = formatTON(userData.balance);
       });
 
-      // Update click count
+      // Update wallet address
+      const walletAddressEl = document.getElementById('wallet-address');
+      if (walletAddressEl && walletStatus.address) {
+        const shortAddr = `${walletStatus.address.slice(0, 6)}...${walletStatus.address.slice(-6)}`;
+        walletAddressEl.textContent = `Wallet: ${shortAddr}`;
+      }
+
+      // Update other displays
       document.getElementById('click-count').textContent = userData.clicks;
+      document.getElementById('total-earned').textContent = formatTON(userData.totalEarned);
+      document.getElementById('profile-total-earned').textContent = formatTON(userData.totalEarned);
 
       // Update username displays
       document.querySelectorAll('#profile-username, #profile-name').forEach(el => {
@@ -1062,11 +1268,17 @@
 
       // Update referral stats
       document.getElementById('ref-count').textContent = userData.referrals;
-      document.getElementById('ref-earnings').textContent = userData.refEarnings.toFixed(2);
+      document.getElementById('ref-earnings').textContent = formatTON(userData.refEarnings);
 
       // Update quest progress
       document.getElementById('quest-ads').textContent = userData.adsWatched;
       document.getElementById('quest-games').textContent = userData.gamesPlayed;
+
+      // Update quest rewards from config
+      document.getElementById('quest-bonus-reward').textContent = formatTON(CONFIG.REWARDS.faucet);
+      document.getElementById('quest-ads-reward').textContent = formatTON(CONFIG.REWARDS.ad_view * 3);
+      document.getElementById('quest-games-reward').textContent = formatTON(CONFIG.REWARDS.quest * 0.2);
+      document.getElementById('quest-invite-reward').textContent = formatTON(CONFIG.REWARDS.referral);
 
       // Update bonus button
       const bonusBtn = document.getElementById('bonus-btn');
@@ -1076,22 +1288,37 @@
           bonusBtn.disabled = true;
           bonusBtn.style.background = '#666';
         } else {
-          bonusBtn.textContent = '🎁 Claim 0.05 TON';
+          bonusBtn.textContent = `🎁 Claim ${formatTON(CONFIG.REWARDS.faucet)} TON`;
           bonusBtn.disabled = false;
           bonusBtn.style.background = 'var(--primary-yellow)';
         }
       }
+
+      // Update OTC rates
+      document.getElementById('rate-usd').textContent = `${CONFIG.OTC_RATES.USD}`;
+      document.getElementById('rate-eur').textContent = `€${CONFIG.OTC_RATES.EUR}`;
+      document.getElementById('rate-kes').textContent = CONFIG.OTC_RATES.KES;
+      document.getElementById('rate-usdt').textContent = CONFIG.OTC_RATES.USDT;
+
+      // Update member since
+      document.getElementById('member-since').textContent = `Member since ${userData.memberSince}`;
     }
 
-    // Load user data from API
+    // Load user data and wallet status
     async function loadUserData() {
       try {
         const response = await apiRequest('/api/user/data');
-        if (response && response.success) {
+        if (response) {
           userData.balance = response.balance || 0;
           userData.clicks = response.clicks_today || 0;
           userData.username = response.username || 'Guest';
           userData.bonusClaimed = response.bonus_claimed || false;
+          userData.adsWatched = response.ads_watched || 0;
+          userData.gamesPlayed = response.games_played || 0;
+          userData.totalEarned = response.total_earned || 0;
+          userData.referrals = response.referrals || 0;
+          userData.refEarnings = response.ref_earnings || 0;
+          userData.memberSince = response.member_since || new Date().toLocaleDateString();
           updateUI();
         }
       } catch (error) {
@@ -1099,18 +1326,23 @@
       }
     }
 
-    // Security monitoring
-    function startSecurityMonitoring() {
-      securityTimer = setInterval(async () => {
-        try {
-          const response = await apiRequest('/api/security/check');
-          if (response && response.restricted) {
-            document.getElementById('security-alert').style.display = 'block';
-          }
-        } catch (error) {
-          console.error('Security check failed:', error);
+    // Load wallet status
+    async function loadWalletStatus() {
+      try {
+        const response = await apiRequest('/api/wallet/status');
+        if (response) {
+          walletStatus.connected = response.initialized || false;
+          walletStatus.healthy = response.healthy || false;
+          walletStatus.address = response.address || null;
+          walletStatus.network = response.network || 'mainnet';
+          updateWalletStatus();
         }
-      }, 30000); // Check every 30 seconds
+      } catch (error) {
+        console.error('Failed to load wallet status:', error);
+        walletStatus.connected = false;
+        walletStatus.healthy = false;
+        updateWalletStatus();
+      }
     }
 
     // Page navigation
@@ -1139,6 +1371,11 @@
       if (pageIndex !== -1 && navButtons[pageIndex]) {
         navButtons[pageIndex].classList.add('active');
       }
+
+      // Load page-specific data
+      if (pageId === 'wallet') {
+        loadWalletStatus();
+      }
     }
 
     // Game functions
@@ -1151,39 +1388,40 @@
         'edge-surf': 'Edge Surf'
       };
 
-  
-
-            // Get user data from Telegram WebApp
-      const tg = window.Telegram?.WebApp;
-      const userId = tg?.initDataUnsafe?.user?.id || 'guest';
-      
-      // Create simple token (timestamp-based)
-      const token = btoa(`${userId}:${Date.now()}`);
+      const userId = userData.id || 'guest';
+      const token = generateSecurityToken();
 
       showAlert(
         'Launch Game',
         `Starting ${gameNames[gameName] || gameName}...`
       );
       
-      // Launch game with user parameters
-      const gameUrl = `/games/${gameName}?user_id=${userId}&token=${token}`;
-      window.location.href = gameUrl;
-      
+      // Initialize game session
+      apiRequest('/api/game/init', 'POST', {
+        user_id: userId,
+        game_name: gameName
+      }).then(() => {
+        const gameUrl = `/games/${gameName}?user_id=${userId}&token=${token}`;
+        window.location.href = gameUrl;
+      }).catch(error => {
+        console.error('Failed to initialize game:', error);
+      });
     }
-    
+
     // Core game actions
     async function claimDailyBonus() {
       try {
-        const response = await apiRequest('/api/quests/claim_bonus', 'POST', {
+        const response = await apiRequest('/api/bonus/claim', 'POST', {
           user_id: userData.id
         });
 
         if (response && response.success) {
           userData.balance = response.new_balance;
           userData.bonusClaimed = true;
+          userData.totalEarned += CONFIG.REWARDS.faucet;
           updateUI();
           
-          showAlert('Bonus Claimed!', '+0.05 TON has been added to your balance!');
+          showAlert('Bonus Claimed!', `+${formatTON(CONFIG.REWARDS.faucet)} TON has been added to your balance!`);
         } else {
           showAlert('Already Claimed', 'You have already claimed your daily bonus today.');
         }
@@ -1199,13 +1437,14 @@
       }
 
       try {
-        const response = await apiRequest('/api/quests/record_click', 'POST', {
+        const response = await apiRequest('/api/click', 'POST', {
           user_id: userData.id
         });
 
         if (response && response.success) {
           userData.clicks = response.clicks;
           userData.balance = response.balance;
+          userData.totalEarned += response.reward || 0.001;
           updateUI();
 
           // Visual feedback
@@ -1224,26 +1463,24 @@
 
     async function rewardedInterstitial() {
       try {
-        // Show ad loading
         showAlert('Loading Ad', 'Please wait while we load your reward...');
 
-        // Simulate ad viewing
         setTimeout(async () => {
           try {
             const response = await apiRequest('/api/ads/reward', 'POST', {
-              user_id: userData.id,
-              ad_id: 'monetag_9644715'
+              user_id: userData.id
             });
 
             if (response && response.success) {
               userData.balance = response.new_balance;
               userData.adsWatched++;
+              userData.totalEarned += response.reward;
               updateUI();
 
               const bonusText = response.weekend_boost ? ' (Weekend Bonus!)' : '';
               showAlert(
                 'Ad Reward Earned!',
-                `+${response.reward.toFixed(3)} TON has been added to your balance!${bonusText}`
+                `+${formatTON(response.reward)} TON has been added to your balance!${bonusText}`
               );
             }
           } catch (error) {
@@ -1257,24 +1494,155 @@
     }
 
     // Wallet functions
-    function receive() {
-      showAlert('Receive TON', 'Connect your TON wallet to receive payments directly.');
+    function showWithdrawalForm() {
+      document.getElementById('withdrawal-form').classList.add('active');
     }
 
-    function send() {
-      showAlert('Send TON', 'Feature coming soon! You will be able to send TON to other users.');
+    function hideWithdrawalForm() {
+      document.getElementById('withdrawal-form').classList.remove('active');
     }
 
-    function stake() {
+    async function processWithdrawal() {
+      const address = document.getElementById('withdraw-address').value.trim();
+      const amount = parseFloat(document.getElementById('withdraw-amount').value) || 0;
+
+      if (!address) {
+        showAlert('Invalid Address', 'Please enter a valid TON wallet address.');
+        return;
+      }
+
+      if (amount < CONFIG.MIN_WITHDRAWAL) {
+        showAlert('Invalid Amount', `Minimum withdrawal is ${CONFIG.MIN_WITHDRAWAL} TON.`);
+        return;
+      }
+
+      if (amount > userData.balance) {
+        showAlert('Insufficient Balance', 'You do not have enough TON for this withdrawal.');
+        return;
+      }
+
+      showConfirm(
+        'Confirm Withdrawal',
+        `Withdraw ${formatTON(amount)} TON to ${address.slice(0, 10)}...?`,
+        async () => {
+          try {
+            const response = await apiRequest('/api/withdraw', 'POST', {
+              method: 'ton',
+              amount: amount,
+              address: address
+            });
+
+            if (response && response.success) {
+              userData.balance -= amount;
+              updateUI();
+              hideWithdrawalForm();
+              
+              showAlert(
+                'Withdrawal Submitted!',
+                `Your withdrawal of ${formatTON(amount)} TON is being processed. TX: ${response.tx_hash || 'Processing'}`
+              );
+            }
+          } catch (error) {
+            console.error('Withdrawal failed:', error);
+          }
+        }
+      );
+    }
+
+    async function showTransactionHistory() {
+      try {
+        const response = await apiRequest('/api/transactions');
+        const historySection = document.getElementById('transaction-history');
+        const transactionList = document.getElementById('transaction-list');
+
+        if (response && response.transactions) {
+          transactionList.innerHTML = '';
+          
+          response.transactions.forEach(tx => {
+            const txEl = document.createElement('div');
+            txEl.className = 'transaction-item';
+            
+            const isPositive = tx.type === 'incoming' || tx.amount > 0;
+            const amountClass = isPositive ? 'positive' : 'negative';
+            const sign = isPositive ? '+' : '-';
+            
+            txEl.innerHTML = `
+              <div>
+                <div class="transaction-type">${tx.type || 'Transaction'}</div>
+                <small style="color: #888;">${new Date(tx.timestamp * 1000).toLocaleDateString()}</small>
+              </div>
+              <div class="transaction-amount ${amountClass}">
+                ${sign}${formatTON(Math.abs(tx.value || tx.amount))} TON
+              </div>
+            `;
+            
+            transactionList.appendChild(txEl);
+          });
+          
+          historySection.style.display = 'block';
+        } else {
+          transactionList.innerHTML = '<p style="color: #888; text-align: center;">No transactions found</p>';
+          historySection.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Failed to load transaction history:', error);
+      }
+    }
+
+    async function startStaking() {
       if (userData.balance < 5) {
         showAlert('Insufficient Balance', 'You need at least 5 TON to start staking.');
         return;
       }
-      showAlert('Staking', 'Staking feature will be available soon! Earn 8.5% APY on your TON.');
+
+      showConfirm(
+        'Start Staking',
+        'Stake your TON to earn 8.5% APY. Minimum stake is 5 TON. Continue?',
+        async () => {
+          try {
+            const response = await apiRequest('/api/staking/create', 'POST', {
+              amount: 5,
+              user_id: userData.id
+            });
+
+            if (response && response.success) {
+              userData.balance -= 5;
+              updateUI();
+              showAlert('Staking Started!', `Successfully staked 5 TON. Contract: ${response.contract_address || 'Processing'}`);
+            }
+          } catch (error) {
+            console.error('Staking failed:', error);
+          }
+        }
+      );
     }
 
     // OTC functions
-    function swapTon() {
+    function updateConversionPreview() {
+      const amount = parseFloat(document.getElementById('otc-amount').value) || 0;
+      const currency = document.getElementById('otc-currency').value;
+      const preview = document.getElementById('conversion-preview');
+      const previewText = document.getElementById('conversion-text');
+      const feeText = document.getElementById('fee-text');
+      
+      if (amount > 0 && CONFIG.OTC_RATES[currency]) {
+        const rate = CONFIG.OTC_RATES[currency];
+        const converted = (amount * rate).toFixed(2);
+        const fee = Math.max(amount * rate * (CONFIG.OTC_FEE_PERCENT / 100), CONFIG.MIN_OTC_FEE).toFixed(2);
+        const final = (amount * rate - parseFloat(fee)).toFixed(2);
+        
+        previewText.innerHTML = `
+          ${formatTON(amount)} TON → ${converted} ${currency}<br>
+          After fees: ${final} ${currency}
+        `;
+        feeText.textContent = `Fee: ${CONFIG.OTC_FEE_PERCENT}% (min ${CONFIG.MIN_OTC_FEE})`;
+        preview.style.display = 'block';
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+
+    async function swapTon() {
       const amount = parseFloat(document.getElementById('otc-amount').value) || 0;
       const currency = document.getElementById('otc-currency').value;
 
@@ -1288,12 +1656,33 @@
         return;
       }
 
-      const rates = { USDT: 5.80, USD: 5.82, KES: 750, EUR: 5.32 };
-      const converted = (amount * rates[currency]).toFixed(2);
+      const rate = CONFIG.OTC_RATES[currency];
+      const converted = (amount * rate).toFixed(2);
 
-      showAlert(
-        'Exchange Initiated',
-        `Exchanging ${amount} TON for ${converted} ${currency}. You will receive payment within 24 hours.`
+      showConfirm(
+        'Confirm Exchange',
+        `Exchange ${formatTON(amount)} TON for ${converted} ${currency}?`,
+        async () => {
+          try {
+            const response = await apiRequest('/api/otc/exchange', 'POST', {
+              amount: amount,
+              currency: currency,
+              user_id: userData.id
+            });
+
+            if (response && response.success) {
+              userData.balance -= amount;
+              updateUI();
+              
+              showAlert(
+                'Exchange Initiated',
+                `Exchanging ${formatTON(amount)} TON for ${converted} ${currency}. You will receive payment within 24 hours.`
+              );
+            }
+          } catch (error) {
+            console.error('OTC exchange failed:', error);
+          }
+        }
       );
     }
 
@@ -1329,61 +1718,80 @@
     function showHelp() {
       showAlert(
         'Help & Support',
-        'Need help? Contact our support team at support@cryptogameminer.com'
+        'Need help? Contact our support team at support@cryptogameminer.com or join our Telegram support group.'
       );
     }
 
     function showAbout() {
       showAlert(
         'About CryptoGameMiner',
-        'CryptoGameMiner v1.0 - Earn TON cryptocurrency by playing games, watching ads, and completing quests!'
+        'CryptoGameMiner v2.0 - Earn real TON cryptocurrency by playing games, watching ads, and completing quests! Powered by TON blockchain.'
       );
     }
 
     function showTerms() {
       showAlert(
         'Terms of Service',
-        'Please read our full Terms of Service on our website. By using this app, you agree to our terms.'
+        'Please read our full Terms of Service on our website. By using this app, you agree to our terms and TON blockchain policies.'
       );
     }
 
     function showPrivacy() {
       showAlert(
         'Privacy Policy',
-        'We respect your privacy. Read our full Privacy Policy on our website to learn how we protect your data.'
+        'We respect your privacy and protect your TON wallet data. Read our full Privacy Policy on our website.'
       );
+    }
+
+    // Security monitoring
+    let securityTimer = null;
+    function startSecurityMonitoring() {
+      securityTimer = setInterval(async () => {
+        try {
+          const response = await apiRequest('/api/security/check');
+          if (response && response.restricted) {
+            document.getElementById('security-alert').style.display = 'block';
+          }
+        } catch (error) {
+          console.error('Security check failed:', error);
+        }
+      }, 30000); // Check every 30 seconds
     }
 
     // Input handlers for OTC
     document.addEventListener('DOMContentLoaded', () => {
       const amountInput = document.getElementById('otc-amount');
       const currencySelect = document.getElementById('otc-currency');
-      const preview = document.getElementById('conversion-preview');
-      const previewText = document.getElementById('conversion-text');
-
-      function updateConversionPreview() {
-        const amount = parseFloat(amountInput.value) || 0;
-        const currency = currencySelect.value;
-        
-        if (amount > 0) {
-          const rates = { USDT: 5.80, USD: 5.82, KES: 750, EUR: 5.32 };
-          const converted = (amount * rates[currency]).toFixed(2);
-          const fee = Math.max(amount * rates[currency] * 0.03, 1).toFixed(2);
-          const final = (amount * rates[currency] - parseFloat(fee)).toFixed(2);
-          
-          previewText.innerHTML = `
-            ${amount} TON → ${converted} ${currency}<br>
-            After fees: ${final} ${currency}
-          `;
-          preview.style.display = 'block';
-        } else {
-          preview.style.display = 'none';
-        }
-      }
 
       if (amountInput && currencySelect) {
         amountInput.addEventListener('input', updateConversionPreview);
         currencySelect.addEventListener('change', updateConversionPreview);
+      }
+
+      // Withdrawal form validation
+      const withdrawAddress = document.getElementById('withdraw-address');
+      const withdrawAmount = document.getElementById('withdraw-amount');
+
+      if (withdrawAddress) {
+        withdrawAddress.addEventListener('input', (e) => {
+          const address = e.target.value.trim();
+          if (address && !address.match(/^[UE]Q[A-Za-z0-9_-]{46}$/)) {
+            e.target.style.borderColor = '#ff4444';
+          } else {
+            e.target.style.borderColor = 'var(--primary-yellow)';
+          }
+        });
+      }
+
+      if (withdrawAmount) {
+        withdrawAmount.addEventListener('input', (e) => {
+          const amount = parseFloat(e.target.value) || 0;
+          if (amount < CONFIG.MIN_WITHDRAWAL || amount > userData.balance) {
+            e.target.style.borderColor = '#ff4444';
+          } else {
+            e.target.style.borderColor = 'var(--primary-yellow)';
+          }
+        });
       }
     });
 
@@ -1398,8 +1806,11 @@
                              'Guest';
         }
 
-        // Load user data from backend
-        await loadUserData();
+        // Load user data and wallet status from backend
+        await Promise.all([
+          loadUserData(),
+          loadWalletStatus()
+        ]);
 
         // Start security monitoring
         startSecurityMonitoring();
@@ -1410,14 +1821,28 @@
             `https://t.me/CryptoGameMinerBot?start=ref-${userData.id}`;
         }
 
+        // Update referral milestones
+        updateReferralMilestones();
+
         // Show welcome message
-        if (tg) {
+        if (tg && !sessionStorage.getItem('welcomed')) {
           setTimeout(() => {
             showAlert(
               'Welcome to CryptoGameMiner!',
-              `Start earning TON coins, ${userData.username}! 🎮💰`
+              `Start earning real TON cryptocurrency, ${userData.username}! 🎮💰`
             );
+            sessionStorage.setItem('welcomed', 'true');
           }, 1000);
+        }
+
+        // Check for low balance alert
+        if (userData.balance < 0.01) {
+          setTimeout(() => {
+            showAlert(
+              'Get Started!',
+              'Claim your daily bonus and start clicking to earn your first TON coins!'
+            );
+          }, 3000);
         }
 
       } catch (error) {
@@ -1426,12 +1851,102 @@
       }
     });
 
+    // Update referral milestones based on current referral count
+    function updateReferralMilestones() {
+      const milestones = [
+        { id: 'milestone-3', target: 3 },
+        { id: 'milestone-10', target: 10 },
+        { id: 'milestone-50', target: 50 },
+        { id: 'milestone-100', target: 100 }
+      ];
+
+      milestones.forEach(milestone => {
+        const el = document.getElementById(milestone.id);
+        if (el) {
+          const current = Math.min(userData.referrals, milestone.target);
+          el.textContent = `${current}/${milestone.target}`;
+          
+          if (current >= milestone.target) {
+            el.style.color = 'var(--accent-green)';
+            el.textContent = '✅';
+          }
+        }
+      });
+    }
+
+    // Periodic data refresh
+    setInterval(async () => {
+      try {
+        await loadUserData();
+        if (document.querySelector('.nav-btn.active')?.textContent.includes('Wallet')) {
+          await loadWalletStatus();
+        }
+      } catch (error) {
+        console.error('Periodic refresh failed:', error);
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    // Handle TON network events
+    window.addEventListener('tonconnect-ui-connection-restoring-started', () => {
+      walletStatus.connected = false;
+      updateWalletStatus();
+    });
+
+    window.addEventListener('tonconnect-ui-connection-restoring-completed', () => {
+      loadWalletStatus();
+    });
+
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
       if (securityTimer) {
         clearInterval(securityTimer);
       }
     });
+
+    // Handle Telegram WebApp theme changes
+    if (tg) {
+      tg.onEvent('themeChanged', () => {
+        // Update CSS variables based on Telegram theme
+        const theme = tg.colorScheme;
+        if (theme === 'light') {
+          document.documentElement.style.setProperty('--bg-dark', '#ffffff');
+          document.documentElement.style.setProperty('--text-light', '#000000');
+          document.documentElement.style.setProperty('--secondary-gray', '#f0f0f0');
+        }
+      });
+
+      // Handle main button
+      tg.MainButton.setText('Open Game');
+      tg.MainButton.onClick(() => {
+        showPage('games');
+      });
+    }
+
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey) {
+        switch(e.key) {
+          case '1': showPage('home'); break;
+          case '2': showPage('watch'); break;
+          case '3': showPage('wallet'); break;
+          case '4': showPage('games'); break;
+          case '5': showPage('quests'); break;
+          case '6': showPage('otc'); break;
+          case '7': showPage('referrals'); break;
+        }
+      }
+    });
+
+    // Export functions for debugging
+    window.CryptoGameMiner = {
+      userData,
+      walletStatus,
+      CONFIG,
+      apiRequest,
+      loadUserData,
+      loadWalletStatus,
+      showPage
+    };
   </script>
 </body>
 </html>
