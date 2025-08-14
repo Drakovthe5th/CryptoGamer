@@ -22,8 +22,7 @@ except ImportError:
     logger.warning("pytoncenter package not available. HTTP fallback will not work")
 
 # Corrected pytoniq_core imports
-from pytoniq_core import Cell, begin_cell, Address, Slice, Builder
-from pytoniq_core.boc.boc import BagOfCells  # Updated import
+from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, BagOfCells
 from pytoniq_core.tlb import MsgAddress
 
 # Configure logger
