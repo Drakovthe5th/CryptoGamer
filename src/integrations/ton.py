@@ -783,8 +783,8 @@ class TONWallet:
         # TON to Jetton
         if from_token == "ton":
             return begin_cell()\
-                .store_uint(0xf8a7ea5, 32)  # swap op\
-                .store_uint(0, 64)  # query_id\
+                .store_uint(0xf8a7ea5, 32)\
+                .store_uint(0, 64)\
                 .store_coins(min_out)\
                 .store_address(Address(to_token))\
                 .store_address(Address(self.get_address()))\
@@ -793,8 +793,8 @@ class TONWallet:
         # Jetton to TON
         elif to_token == "ton":
             return begin_cell()\
-                .store_uint(0xdf069f3, 32)  # swap op\
-                .store_uint(0, 64)  # query_id\
+                .store_uint(0xdf069f3, 32)\
+                .store_uint(0, 64)\
                 .store_coins(min_out)\
                 .store_address(Address(self.get_address()))\
                 .store_address(None)\
@@ -802,8 +802,8 @@ class TONWallet:
         # Jetton to Jetton
         else:
             return begin_cell()\
-                .store_uint(0xe3a0d482, 32)  # swap op\
-                .store_uint(0, 64)  # query_id\
+                .store_uint(0xe3a0d482, 32)\
+                .store_uint(0, 64)\
                 .store_address(Address(to_token))\
                 .store_coins(min_out)\
                 .store_address(Address(self.get_address()))\
@@ -824,15 +824,15 @@ class TONWallet:
         # TON to Jetton
         if from_token == "ton":
             return begin_cell()\
-                .store_uint(0xea06185, 32)  # swap ton op\
+                .store_uint(0xea06185, 32)\
                 .store_ref(swap_params)\
                 .end_cell()
         # Jetton to TON or Jetton
         else:
             return begin_cell()\
-                .store_uint(0x9d90a8a7, 32)  # swap jetton op\
+                .store_uint(0x9d90a8a7, 32)\
                 .store_address(Address(from_token))\
-                .store_coins(int(amount * 1e9))  # assuming 9 decimals\
+                .store_coins(int(amount * 1e9))\
                 .store_ref(swap_params)\
                 .end_cell()
 
