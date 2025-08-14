@@ -16,6 +16,7 @@ from src.integrations.ton import (
 )
 from src.utils.security import get_user_id, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
+from src.integrations.ton import get_ton_http_client
 
 # Graceful import of maintenance functions
 try:
@@ -77,18 +78,17 @@ def initialize_app():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
+        # Try LiteClient first
         success = loop.run_until_complete(initialize_ton_wallet())
-        if success:
-            logger.info("TON wallet initialized successfully")
-            # Get initial wallet status
-            status = loop.run_until_complete(get_wallet_status())
-            logger.info(f"Initial wallet status: {status}")
-        else:
-            logger.error("TON wallet initialization failed")
-            send_alert_to_admin("Critical TON initialization failure")
+        if not success:
+            logger.warning("Falling back to HTTP client")
+            # Initialize HTTP client if LiteClient fails
+            loop.run_until_complete(get_ton_http_client(config.TON_API_KEY))
+        status = loop.run_until_complete(get_wallet_status())
+        logger.info(f"Wallet status: {status}")
     except Exception as e:
         logger.error(f"TON initialization failed: {e}")
-        send_alert_to_admin(f"Critical TON init failure: {str(e)}")
+        send_alert_to_admin(f"TON init failure: {str(e)}")
     finally:
         loop.close()
 

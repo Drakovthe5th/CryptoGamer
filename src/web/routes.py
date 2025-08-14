@@ -4,7 +4,7 @@ from src.database.firebase import (
     process_ton_withdrawal, track_ad_reward, SERVER_TIMESTAMP
 )
 from src.utils.security import validate_telegram_hash
-from config import Config
+from config import config
 import logging
 import datetime
 import os
@@ -43,7 +43,7 @@ def configure_routes(app):
     # Telegram webhook endpoint
     @app.route('/webhook', methods=['POST'])
     def telegram_webhook():
-        if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != Config.TELEGRAM_TOKEN:
+        if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != config.TELEGRAM_TOKEN:
             return jsonify({"error": "Unauthorized"}), 401
         return jsonify(success=True), 200
 
@@ -54,8 +54,8 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-InitData') 
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            from config import Config
-            if not validate_telegram_hash(init_data, Config.TELEGRAM_TOKEN):
+            from config import config
+            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
 
             user_data = get_user_data(int(user_id))
@@ -64,7 +64,7 @@ def configure_routes(app):
 
             return jsonify({
                 'balance': user_data.get('balance', 0),
-                'min_withdrawal': Config.MIN_WITHDRAWAL,
+                'min_withdrawal': config.MIN_WITHDRAWAL,
                 'currency': 'TON'
             })
         except Exception as e:
@@ -138,14 +138,14 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            from config import Config
-            if not validate_telegram_hash(init_data, Config.TELEGRAM_TOKEN):
+            from config import config
+            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
 
             now = datetime.datetime.now()
             is_weekend = now.weekday() in [5, 6]
-            base_reward = Config.AD_REWARD_AMOUNT
-            reward = base_reward * (Config.WEEKEND_BOOST_MULTIPLIER if is_weekend else 1.0)
+            base_reward = config.AD_REWARD_AMOUNT
+            reward = base_reward * (config.WEEKEND_BOOST_MULTIPLIER if is_weekend else 1.0)
             
             new_balance = update_balance(int(user_id), reward)
             track_ad_reward(int(user_id), reward, 'telegram_miniapp', is_weekend)
@@ -166,8 +166,8 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            from config import Config
-            if not validate_telegram_hash(init_data, Config.TELEGRAM_TOKEN):
+            from config import config
+            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
                 
             data = request.get_json()
@@ -185,10 +185,10 @@ def configure_routes(app):
                 
             balance = user_data.get('balance', 0)
             
-            if balance < Config.MIN_WITHDRAWAL:
+            if balance < config.MIN_WITHDRAWAL:
                 return jsonify({
                     'success': False,
-                    'error': f'Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON'
+                    'error': f'Minimum withdrawal: {config.MIN_WITHDRAWAL} TON'
                 })
                 
             if amount > balance:

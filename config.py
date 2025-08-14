@@ -32,6 +32,10 @@ class Config:
         self.TON_NETWORK = os.getenv('TON_NETWORK', 'mainnet')
         self.TON_API_KEY = os.getenv('TON_API_KEY')
         
+        # Ensure TON_API_KEY is set if LiteClient fails
+        if not self.TON_API_KEY:
+            logger.warning("TON_API_KEY not set - HTTP fallback unavailable")
+
         # Handle TON private key padding issue
         raw_private_key = os.getenv('TON_PRIVATE_KEY', '')
         self.TON_PRIVATE_KEY = self.fix_base64_padding(raw_private_key)

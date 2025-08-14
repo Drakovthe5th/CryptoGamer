@@ -137,6 +137,13 @@ class TONWallet:
             logger.error(f"HTTP client connection failed: {e}")
             return False
 
+    async def get_ton_http_client(api_key: str):
+        """Initialize HTTP client as fallback"""
+        from pytoncenter import get_client
+        client = get_client(version="v2", network="mainnet", api_key=api_key)
+        logger.info("TON HTTP client initialized")
+        return client
+
     async def _init_wallet_credentials(self) -> bool:
         """Initialize wallet credentials"""
         try:
