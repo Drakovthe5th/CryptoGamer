@@ -36,6 +36,12 @@ def create_app():
             'pending_withdrawals': get_pending_withdrawals(),
             'ton_reserves': get_wallet_balance()
         })
+    
+    @app.after_request
+    def add_security_headers(response):
+        ...
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'  # Add HSTS
+        return response
         
     # Configure all routes
     configure_routes(app)

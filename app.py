@@ -64,7 +64,13 @@ def create_app():
                     
                 try:
                     # Use base64.b64decode instead of atob (which is JavaScript)
+                    security_token = security_token.replace('-', '+').replace('_', '/')
+                    padding = len(security_token) % 4
+                    if padding > 0:
+                        security_token += '=' * (4 - padding)
+                        
                     token_data = base64.b64decode(security_token).decode('utf-8').split(':')
+                    
                     if len(token_data) != 2:
                         return jsonify({'error': 'Invalid security token format'}), 401
                         

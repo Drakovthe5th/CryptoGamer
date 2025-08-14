@@ -32,13 +32,15 @@ def miniapp_security():
         return jsonify({'error': 'Missing Telegram init data'}), 401
         
     # Updated validation call
-    if not validate_init_data(init_data):
+    if not validate_init_data(init_data, config.TELEGRAM_TOKEN):
         return jsonify({'error': 'Invalid Telegram authentication'}), 401
         
     # Security token validators
-    security_token = request.headers.get('X-Security-Token')
-    if not security_token:
-        return jsonify({'error': 'Security token missing'}), 401
+    security_token = security_token.replace('-', '+').replace('_', '/')
+    padding = len(security_token) % 4
+    if padding > 0:
+        security_token += '=' * (4 - padding)
+    decoded_token = base64.b64decode(security_token).decode('utf-8')
         
     try:
         # Decode the base64 string
@@ -228,7 +230,7 @@ def create_staking():
         }), 403
     
     try:
-        from src.integrations.ton import create_staking_contract
+        from src.integrations.tonE2 import create_staking_contract
         contract_address = asyncio.run(create_staking_contract(user_id, amount))
         
         if not contract_address:

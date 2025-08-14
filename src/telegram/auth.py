@@ -37,7 +37,7 @@ def validate_telegram_data(init_data: str) -> bool:
         # Generate secret key from bot token
         secret_key = hmac.new(
             key=b"WebAppData",
-            msg=config.TELEGRAM_TOKEN.encode(),
+            msg=bot_token.encode(),
             digestmod=hashlib.sha256
         ).digest()
         

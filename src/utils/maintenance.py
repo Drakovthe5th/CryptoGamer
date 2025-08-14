@@ -57,7 +57,7 @@ def check_server_load() -> bool:
 def check_ton_node() -> bool:
     """Check TON node connectivity"""
     try:
-        from src.integrations.ton import ton_wallet
+        from src.integrations.tonE2 import ton_wallet
         
         # Check if wallet is initialized
         if not ton_wallet.initialized:
@@ -328,7 +328,7 @@ def get_system_info() -> dict:
 def get_wallet_info() -> dict:
     """Get TON wallet information"""
     try:
-        from src.integrations.ton import ton_wallet
+        from src.integrations.tonE2 import ton_wallet
         
         if not ton_wallet.initialized:
             return {"status": "not_initialized"}
@@ -452,7 +452,7 @@ def restart_services() -> bool:
         logger.info("Restarting services...")
         
         # Restart TON wallet connection
-        from src.integrations.ton import ton_wallet
+        from src.integrations.tonE2 import ton_wallet
         asyncio.run(ton_wallet.initialize())
         
         logger.info("Services restarted successfully")

@@ -51,10 +51,11 @@ def configure_routes(app):
     @app.route('/api/user/data', methods=['GET'])
     def get_user_data_api():
         try:
-            init_data = request.headers.get('X-Telegram-Hash')
+            init_data = request.headers.get('X-Telegram-InitData') 
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            if not validate_telegram_hash(init_data):
+            from config import Config
+            if not validate_telegram_hash(init_data, Config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
 
             user_data = get_user_data(int(user_id))
@@ -137,7 +138,8 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            if not validate_telegram_hash(init_data):
+            from config import Config
+            if not validate_telegram_hash(init_data, Config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
 
             now = datetime.datetime.now()
@@ -164,7 +166,8 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            if not validate_telegram_hash(init_data):
+            from config import Config
+            if not validate_telegram_hash(init_data, Config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
                 
             data = request.get_json()
@@ -235,3 +238,5 @@ def configure_routes(app):
         except Exception as e:
             logger.error(f"Error processing M-Pesa callback: {str(e)}")
             return jsonify({"ResultCode": 1, "ResultDesc": "Server error"}), 500
+        
+        

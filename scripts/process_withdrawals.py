@@ -1,7 +1,7 @@
 import time
 import logging
 from src.database.firebase import db
-from src.integrations.ton import ton_manager
+from src.integrations.tonE2 import ton_manager
 from src.integrations.mpesa import send_mpesa_payment
 from src.integrations.paypal import create_payout
 from src.integrations.banking import process_bank_transfer

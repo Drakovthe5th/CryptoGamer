@@ -1133,8 +1133,12 @@
     }
 
     function generateSecurityToken() {
-      const timestamp = Math.floor(Date.now() / 1000);
-      return btoa(`${userData.id || 'anon'}:${timestamp}`);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const data = `${userData.id || 'anon'}:${timestamp}`;
+    return btoa(data)
+        .replace(/\+/g, '-')  // URL-safe encoding
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
     }
 
     function showSpinner() {
@@ -1179,7 +1183,7 @@
       const headers = {
         'Content-Type': 'application/json',
         'X-Telegram-User-ID': userData.id || '',
-        'X-Telegram-Hash': tg?.initData || '',
+        'X-Telegram-InitData': tg?.initData || '',
         'X-Security-Token': generateSecurityToken()
       };
 
