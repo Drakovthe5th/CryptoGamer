@@ -21,8 +21,9 @@ try:
     TONCENTER_AVAILABLE = True
 except ImportError:
     TONCENTER_AVAILABLE = False
-    logger.warning("toncenter package not available. HTTP fallback will not work")
-from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, Boc
+    logger.warning("pytoncenter package not available. HTTP fallback will not work")
+from pytoniq_core import Cell, begin_cell, Address, Slice, Builder
+from pytoniq_core.boc import Boc  # Specific import for Boc
 from pytoniq_core.tlb import MsgAddress
 from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, Boc
 from pytoniq_core.tlb import MsgAddress
