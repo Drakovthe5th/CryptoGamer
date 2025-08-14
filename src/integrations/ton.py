@@ -547,8 +547,8 @@ class TONWallet:
         self.initialized = False
 
     # ---------- Simplified Staking Implementation ----------
-    async def deploy_staking_contract(self, min_stake: float, reward_rate: int) -> str:
-        """Deploy a new staking contract to the blockchain"""
+        async def deploy_staking_contract(self, min_stake: float, reward_rate: int) -> str:
+            """Deploy a new staking contract to the blockchain"""
         if self.halted:
             return ""
             
@@ -569,7 +569,7 @@ class TONWallet:
                 .store_address(Address(owner_address))\
                 .store_coins(int(min_stake * self.NANOTON_CONVERSION))\
                 .store_uint(reward_rate, 8)\
-                .store_dict(None).end_cell()   # Fixed: combined with previous line
+                .store_dict(None).end_cell()
                 
             # Prepare state init
             state_init = begin_cell()\
@@ -587,7 +587,7 @@ class TONWallet:
             deploy_msg = begin_cell()\
                 .store_uint(0x10, 6)\
                 .store_address(contract_address)\
-                .store_coins(0.1 * self.NANOTON_CONVERSION)  # Initial balance\
+                .store_coins(int(0.1 * self.NANOTON_CONVERSION))\
                 .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)\
                 .store_ref(state_init)\
                 .end_cell()
@@ -644,8 +644,8 @@ class TONWallet:
                 
             # Build stake message
             body = begin_cell()\
-                .store_uint(0x4f4f4f, 32)  # stake opcode\
-                .store_uint(0, 64)  # query_id\
+                .store_uint(0x4f4f4f, 32)\
+                .store_uint(0, 64)\
                 .end_cell()
             
             # Send transaction to staking contract
