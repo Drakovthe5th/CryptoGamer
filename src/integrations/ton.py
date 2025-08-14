@@ -569,9 +569,8 @@ class TONWallet:
                 .store_address(Address(owner_address))\
                 .store_coins(int(min_stake * self.NANOTON_CONVERSION))\
                 .store_uint(reward_rate, 8)\
-                .store_dict(None)  # Stakers dictionary
-                .end_cell()
-            
+                .store_dict(None).end_cell()   # Fixed: combined with previous line
+                
             # Prepare state init
             state_init = begin_cell()\
                 .store_bit(0)\
