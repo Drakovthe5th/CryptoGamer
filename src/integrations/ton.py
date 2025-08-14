@@ -13,7 +13,8 @@ from config import config
 
 # Production TON libraries
 from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
-from pytoniq.toncenter import TonCenterClient
+# Replace pytoniq.toncenter with toncenter.client
+from toncenter.client import Client as TonCenterClient
 from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, Boc
 from pytoniq_core.tlb import MsgAddress
 
@@ -117,14 +118,17 @@ class TONWallet:
             logger.info("Trying HTTP client connection")
             
             # Use testnet or mainnet endpoint
-            if self.is_testnet:
-                self.http_client = TonCenterClient(base_url='https://testnet.toncenter.com/api/v2/', timeout=self.CONNECTION_TIMEOUT)
-            else:
-                self.http_client = TonCenterClient(base_url='https://toncenter.com/api/v2/', timeout=self.CONNECTION_TIMEOUT)
+            network = "testnet" if self.is_testnet else "mainnet"
             
-            # Add API key if configured
-            if hasattr(config, 'TONCENTER_API_KEY') and config.TONCENTER_API_KEY:
-                self.http_client.api_key = config.TONCENTER_API_KEY
+            # Initialize TonCenterClient
+            api_key = getattr(config, 'TONCENTER_API_KEY', None)
+            self.http_client = TonCenterClient(
+                api_key=api_key,
+                network=network
+            )
+            
+            # Start the client
+            await self.http_client.start()
             
             # Initialize wallet credentials
             if not await self._init_wallet_credentials():
