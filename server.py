@@ -68,9 +68,6 @@ celery = Celery(app.name, broker='redis://localhost:6379/0')
 app.register_blueprint(miniapp_bp, url_prefix='/api')
 app.register_blueprint(games_bp, url_prefix='/games')
 
-from src.web.routes import configure_routes
-configure_routes(app)
-
 def initialize_app():
     """Initialize application components"""
     logger.info("Initializing application...")
@@ -130,7 +127,7 @@ initialize_app()
 atexit.register(shutdown_app)
 
 # Serve miniapp HTML at root endpoint
-@app.route('/')
+@app.route('/', endpoint='main_miniapp')
 def serve_miniapp():
     return render_template('miniapp.html')
 
@@ -180,7 +177,7 @@ def serve_game(game_name):
 def game_static(path):
     return send_from_directory('static', path)
 
-# Configure all routes
+# Configure all routes - moved after other route definitions
 configure_routes(app)
 
 # Blockchain Endpoints
