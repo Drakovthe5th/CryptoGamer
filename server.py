@@ -7,11 +7,12 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.integrations.ton import (
-    create_staking_contract, 
-    execute_swap, 
     is_valid_ton_address,
     initialize_ton_wallet,
-    close_ton_wallet
+    close_ton_wallet,
+    process_ton_withdrawal,
+    ton_wallet,
+    get_wallet_status
 )
 from src.utils.security import get_user_id, is_abnormal_activity
 from src.integrations.telegram import send_telegram_message
@@ -82,6 +83,9 @@ def initialize_app():
         success = loop.run_until_complete(initialize_ton_wallet())
         if success:
             logger.info("TON wallet initialized successfully")
+            # Get initial wallet status
+            status = loop.run_until_complete(get_wallet_status())
+            logger.info(f"Initial wallet status: {status}")
         else:
             logger.error("TON wallet initialization failed")
             send_alert_to_admin("Critical TON initialization failure")
@@ -179,9 +183,13 @@ def game_static(path):
 # Configure all routes
 configure_routes(app)
 
-# Blockchain Enhancements
+# Blockchain Endpoints
 @app.route('/api/blockchain/stake', methods=['POST'])
 def stake():
+    """
+    Simplified staking endpoint that uses the TON wallet address
+    instead of creating a staking contract
+    """
     try:
         user_id = get_user_id(request)
         amount = request.json.get('amount')
@@ -189,18 +197,19 @@ def stake():
         if not amount or amount < 5:
             return jsonify({'success': False, 'error': 'Invalid amount'}), 400
         
-        contract_address = asyncio.run(create_staking_contract(user_id, amount))
+        # Get wallet address instead of creating contract
+        wallet_address = ton_wallet.get_address()
         
-        if not contract_address:
-            return jsonify({'success': False, 'error': 'Failed to create staking contract'}), 500
+        if not wallet_address:
+            return jsonify({'success': False, 'error': 'Wallet not initialized'}), 500
         
         # Save to database
         from src.database.firebase import save_staking
-        save_staking(user_id, contract_address, amount)
+        save_staking(user_id, wallet_address, amount)
         
         return jsonify({
             'success': True,
-            'contract': contract_address,
+            'address': wallet_address,
             'staked': amount
         })
     except Exception as e:
@@ -209,24 +218,44 @@ def stake():
 
 @app.route('/api/blockchain/swap', methods=['POST'])
 def swap_tokens():
+    """
+    Simplified swap endpoint that processes the transaction as a withdrawal
+    to the specified address
+    """
     try:
         user_id = get_user_id(request)
-        from_token = request.json.get('from')
-        to_token = request.json.get('to')
+        to_address = request.json.get('to')  # Destination address
         amount = request.json.get('amount')
         
-        tx_hash = asyncio.run(execute_swap(user_id, from_token, to_token, amount))
+        # Validate address
+        if not is_valid_ton_address(to_address):
+            return jsonify({'success': False, 'error': 'Invalid TON address'}), 400
         
-        if not tx_hash:
-            return jsonify({'success': False, 'error': 'Swap failed'}), 500
+        # Process as withdrawal
+        result = asyncio.run(process_ton_withdrawal(user_id, amount, to_address))
+        
+        if result['status'] != 'success':
+            error = result.get('error', 'Swap failed')
+            logger.error(f"Swap failed: {error}")
+            return jsonify({'success': False, 'error': error}), 500
         
         return jsonify({
             'success': True,
-            'tx_hash': tx_hash
+            'tx_hash': result.get('tx_hash', '')
         })
     except Exception as e:
         logger.error(f"Swap error: {e}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+@app.route('/api/blockchain/wallet_status', methods=['GET'])
+def wallet_status():
+    """Get current wallet status"""
+    try:
+        status = asyncio.run(get_wallet_status())
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Wallet status error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 # Security Endpoints
 @app.route('/api/security/whitelist', methods=['POST'])
