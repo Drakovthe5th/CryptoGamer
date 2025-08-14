@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Union, Tuple
 from mnemonic import Mnemonic
 from src.database.firebase import db
+from src.utils.logger import logger, logging
 from config import config
 
 # Production TON libraries
