@@ -14,7 +14,16 @@ from config import config
 # Production TON libraries
 from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
 # Replace pytoniq.toncenter with toncenter.client
-from toncenter.client import Client as TonCenterClient
+from pytoniq import LiteClient, WalletV4R2, Contract, LiteServerError
+try:
+    # Try to import toncenter client
+    from toncenter.client import Client as TonCenterClient
+    TONCENTER_AVAILABLE = True
+except ImportError:
+    TONCENTER_AVAILABLE = False
+    logger.warning("toncenter package not available. HTTP fallback will not work")
+from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, Boc
+from pytoniq_core.tlb import MsgAddress
 from pytoniq_core import Cell, begin_cell, Address, Slice, Builder, Boc
 from pytoniq_core.tlb import MsgAddress
 
@@ -114,6 +123,10 @@ class TONWallet:
 
     async def _try_http_connection(self) -> bool:
         """Try connecting via HTTP (TonCenter)"""
+        if not TONCENTER_AVAILABLE:
+            logger.error("Cannot use HTTP fallback: toncenter package not installed")
+            return False
+            
         try:
             logger.info("Trying HTTP client connection")
             
@@ -126,9 +139,6 @@ class TONWallet:
                 api_key=api_key,
                 network=network
             )
-            
-            # Start the client
-            await self.http_client.start()
             
             # Initialize wallet credentials
             if not await self._init_wallet_credentials():
