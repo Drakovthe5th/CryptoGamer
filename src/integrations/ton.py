@@ -81,22 +81,56 @@ class TONWallet:
         return True  # Still return True to allow app to run
 
     async def _init_liteclient(self) -> bool:
-        """Initialize using pytoniq LiteClient"""
-        for ls_index in range(3):  # Try 3 different servers
-            try:
-                if self.is_testnet:
-                    self.lite_client = LiteClient.from_testnet_config(ls_index, timeout=self.CONNECTION_TIMEOUT)
-                else:
-                    self.lite_client = LiteClient.from_mainnet_config(ls_index, timeout=self.CONNECTION_TIMEOUT)
-                
-                await self.lite_client.connect()
-                await self._init_wallet_credentials()
-                return True
-            except (asyncio.TimeoutError, ConnectionError) as e:
-                logger.warning(f"LiteClient server {ls_index} failed: {e}")
-            except Exception as e:
-                logger.error(f"LiteClient error: {e}")
-        return False
+        """Initialize using pytoniq LiteClient with better error handling"""
+        # Use custom config with known good servers
+        servers = [
+            {
+                'ip': 135125197,
+                'port': 17728,
+                'id': {
+                    '@type': 'pub.ed25519',
+                    'key': 'n4VDnSCUuSpjnCyUk9e3QOOd6o0ItSWYbTnU3lTYP08='
+                }
+            },
+            {
+                'ip': -2018135749,
+                'port': 13206,
+                'id': {
+                    '@type': 'pub.ed25519',
+                    'key': '3XO67K/qi+gu3T9v8CdcF5yZ+ZQJ3pXHj1Im4sF0LGQ='
+                }
+            }
+        ]
+        
+        try:
+            self.lite_client = LiteClient(
+                ls_index=0,
+                config={
+                    '@type': 'config.global',
+                    'liteservers': servers,
+                    'validator': {
+                        '@type': 'validator.config.global',
+                        'zero_state': {
+                            'workchain': -1,
+                            'shard': -9223372036854775808,
+                            'seqno': 0,
+                            'root_hash': 'VCSXxDHhTALFxReyTZRd8E4Ya3ySOmpOW5HBy2nqX3I=',
+                            'file_hash': 'eh9yvebVDe8q8OnZ0OkmBKeJU39E1n0U/mB8e4p5T2A='
+                        }
+                    }
+                },
+                timeout=15  # Lower timeout to 15 seconds
+            )
+            
+            await self.lite_client.connect()
+            await self._init_wallet_credentials()
+            return True
+        except (asyncio.TimeoutError, ConnectionError) as e:
+            logger.warning(f"LiteClient connection failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"LiteClient error: {e}")
+            return False
 
     async def _init_direct_http(self) -> bool:
         """Initialize using direct HTTP API calls"""
@@ -124,19 +158,33 @@ class TONWallet:
             raise ValueError("No TON credentials provided")
 
     async def _init_from_mnemonic(self) -> None:
-        """Initialize wallet from mnemonic phrase"""
+        """Initialize wallet from mnemonic phrase with better validation"""
         phrase = config.TON_MNEMONIC.strip()
-        words = re.split(r'\s+', phrase)
+        words = phrase.split()
         
-        # Validate word count
-        if len(words) not in [12, 15, 18, 21, 24]:
-            raise ValueError(f"Invalid mnemonic word count: {len(words)}")
-        
+        # Normalize the phrase by joining with single spaces
         clean_phrase = " ".join(words)
         mnemo = Mnemonic("english")
         
+        # Check word count first
+        if len(words) not in [12, 15, 18, 21, 24]:
+            logger.error(f"Invalid mnemonic word count: {len(words)}. Must be 12, 15, 18, 21, or 24 words.")
+            raise ValueError(f"Invalid word count: {len(words)}")
+        
+        # Validate word list
+        invalid_words = [word for word in words if word not in mnemo.wordlist]
+        if invalid_words:
+            logger.error(f"Invalid words in mnemonic: {', '.join(invalid_words[:3])}...")
+            raise ValueError(f"Invalid words detected")
+        
         # Validate checksum
         if not mnemo.check(clean_phrase):
+            # More helpful error message
+            logger.error("Mnemonic checksum failed. Possible reasons:")
+            logger.error("- Typo in one or more words")
+            logger.error("- Incorrect word order")
+            logger.error("- Extra/missing words")
+            logger.error("- Phrase from different language")
             raise ValueError("Invalid mnemonic checksum")
         
         # Generate keys

@@ -127,6 +127,20 @@
         }
       }
 
+      // Show ad when game starts
+      document.addEventListener('DOMContentLoaded', () => {
+          setTimeout(() => {
+              showRewardedAd('game_start_interstitial');
+          }, 2000);
+      });
+
+      // Show ad when player achieves milestone
+      function checkMilestone(score) {
+          if (score % 100 === 0) {
+              showRewardedAd('game_milestone_popup');
+          }
+      }
+
       // Initialize and start the game
       startGame();
 

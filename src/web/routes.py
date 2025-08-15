@@ -5,6 +5,7 @@ from src.database.firebase import (
 )
 from src.database.firebase import get_games_list, record_game_start
 from src.utils.security import validate_telegram_hash
+from src.features.monetization.ads import ad_manager
 from config import config
 import logging
 import datetime
@@ -302,4 +303,28 @@ def configure_routes(app):
             logger.error(f"Error processing M-Pesa callback: {str(e)}")
             return jsonify({"ResultCode": 1, "ResultDesc": "Server error"}), 500
         
-        
+    @app.route('/api/ads/slot/<slot_name>')
+    def get_ad_slot(slot_name):
+        ad = ad_manager.get_available_ad(slot_name)
+        if ad:
+            return jsonify(ad)
+        return jsonify({'error': 'No ad available'}), 404
+
+    @app.route('/api/ads/show/<slot_name>')
+    def show_rewarded_ad(slot_name):
+        ad = ad_manager.get_available_ad(slot_name)
+        if ad and 'rewarded' in slot_name:
+            return jsonify(ad)
+        return jsonify({'error': 'No rewarded ad available'}), 404
+
+    @app.route('/api/ads/view/<slot_name>')
+    def track_ad_view(slot_name):
+        ad_manager.record_ad_view(slot_name)
+        return jsonify({'status': 'recorded'})
+
+    @app.route('/api/ads/reward')
+    def reward_ad_view():
+        slot_name = request.args.get('slot')
+        ad_type = request.args.get('type')
+        # Add reward logic here
+        return jsonify({'status': 'rewarded'})

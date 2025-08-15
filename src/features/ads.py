@@ -115,3 +115,125 @@ class AdMonetization:
         """Reset cooldown timer (for testing/admin)"""
         if user_id in self.last_ad_times:
             del self.last_ad_times[user_id]
+
+class AdManager:
+    def __init__(self):
+        self.networks = {
+            'monetag': {
+                'rewarded_interstitial': self._monetag_interstitial,
+                'rewarded_popup': self._monetag_popup,
+                'in_app': self._monetag_in_app
+            },
+            'a-ads': {
+                'banner': self._aads_banner
+            },
+            'coinzilla': {
+                'banner': self._coinzilla_banner
+            }
+        }
+        self.ad_slots = {}
+        
+    def register_ad_slot(self, slot_name, slot_type, network, position):
+        """Register a new ad slot in the app"""
+        self.ad_slots[slot_name] = {
+            'type': slot_type,
+            'network': network,
+            'position': position,
+            'last_used': 0,
+            'cooldown': 30  # seconds
+        }
+    
+    def get_available_ad(self, slot_name):
+        """Get ad implementation for a slot if available"""
+        slot = self.ad_slots.get(slot_name)
+        if not slot:
+            return None
+            
+        current_time = time.time()
+        if current_time - slot['last_used'] < slot['cooldown']:
+            return None
+            
+        network = self.networks.get(slot['network'])
+        if not network:
+            return None
+            
+        ad_handler = network.get(slot['type'])
+        if not ad_handler:
+            return None
+            
+        return ad_handler(slot_name)
+    
+    def record_ad_view(self, slot_name):
+        """Update slot usage timestamp"""
+        if slot_name in self.ad_slots:
+            self.ad_slots[slot_name]['last_used'] = time.time()
+    
+    # Monetag implementations
+    def _monetag_interstitial(self, slot_name):
+        return {
+            'html': """
+            <script>
+            show_9644715().then(() => {
+                fetch('/api/ads/reward?slot=${slot_name}&type=interstitial');
+            })
+            </script>
+            """,
+            'type': 'script'
+        }
+    
+    def _monetag_popup(self, slot_name):
+        return {
+            'html': """
+            <script>
+            show_9644715('pop').then(() => {
+                fetch('/api/ads/reward?slot=${slot_name}&type=popup');
+            })
+            </script>
+            """,
+            'type': 'script'
+        }
+    
+    def _monetag_in_app(self, slot_name):
+        return {
+            'html': """
+            <script>
+            show_9644715({
+                type: 'inApp',
+                inAppSettings: {frequency: 2, capping: 0.1, interval: 30}
+            })
+            </script>
+            """,
+            'type': 'script'
+        }
+    
+    # A-ADS implementation
+    def _aads_banner(self, slot_name):
+        return {
+            'html': """
+            <div style="width:100%;height:100%;">
+                <iframe data-aa='2405512' src='//acceptable.a-ads.com/2405512' 
+                    style='border:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;'>
+                </iframe>
+            </div>
+            """,
+            'type': 'iframe'
+        }
+    
+    # Coinzilla implementation
+    def _coinzilla_banner(self, slot_name):
+        return {
+            'html': """
+            <script src="https://coinzilla.com/static/js/coinzilla.js"></script>
+            <div class="coinzilla" data-zone="C-123456"></div>
+            """,
+            'type': 'script'
+        }
+
+# Initialize ad manager
+ad_manager = AdManager()
+
+# Register ad slots
+ad_manager.register_ad_slot('home_top_banner', 'banner', 'a-ads', 'home_top')
+ad_manager.register_ad_slot('game_bottom_banner', 'banner', 'coinzilla', 'game_bottom')
+ad_manager.register_ad_slot('rewarded_interstitial', 'rewarded_interstitial', 'monetag', 'any')
+ad_manager.register_ad_slot('quest_reward_popup', 'rewarded_popup', 'monetag', 'quest_completion')

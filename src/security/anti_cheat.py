@@ -153,3 +153,17 @@ class AntiCheatSystem:
             return False
             
         return True
+class AdValidator:
+    def __init__(self):
+        self.ad_events = {}
+    
+    def validate_ad_request(self, user_id, slot_name):
+        key = f"{user_id}:{slot_name}"
+        current_time = time.time()
+        
+        # Allow at most 1 ad per minute per slot per user
+        if key in self.ad_events and current_time - self.ad_events[key] < 60:
+            return False
+            
+        self.ad_events[key] = current_time
+        return True

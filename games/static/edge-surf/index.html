@@ -261,6 +261,22 @@
     }
   </script>
 
+  <script>
+    // Show ad when game starts
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            showRewardedAd('game_start_interstitial');
+        }, 2000);
+    });
+
+    // Show ad when player achieves milestone
+    function checkMilestone(score) {
+        if (score % 100 === 0) {
+            showRewardedAd('game_milestone_popup');
+        }
+    }
+  </script>
+
   <script src="/games/static/egde-surf/resources/js/base-error-reporting.js"></script>
   <script src="/games/static/egde-surf/resources/js/surf-error-reporting.js"></script>
   <script src="/games/static/egde-surf/resources/js/assert.js"></script>

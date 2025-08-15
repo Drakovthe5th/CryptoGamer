@@ -7,7 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/miniapp.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='js/charts.css') }}">
+
 </head>
 <body>
   <div class="container">
@@ -45,6 +45,7 @@
         <p style="margin-bottom: 16px; color: #ccc;">
           Grab your daily reward and keep the momentum going!
         </p>
+        <div class="ad-slot" id="home_top_banner" style="height:90px; margin:10px 0;"></div>
         <button class="btn" id="bonus-btn" onclick="claimDailyBonus()">
           🎁 Claim Daily Bonus
         </button>
@@ -104,6 +105,9 @@
           <div style="text-align: center; color: #666;">
             <div style="font-size: 2rem; margin-bottom: 8px;">📺</div>
             <div>Ad Banner Placeholder</div>
+            <div class="section slide-in">
+            <div class="ad-slot" id="home_bottom_banner" style="height:250px;"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -120,6 +124,9 @@
           <div style="color: #888; margin-top: 8px;">Total Balance</div>
           <div style="font-size: 0.8rem; color: #666; margin-top: 4px;" id="wallet-address">
             Wallet: Loading...
+          </div>
+          <div class="section">
+          <div class="ad-slot" id="wallet_mid_banner" style="height:100px;"></div>
           </div>
         </div>
         
@@ -243,6 +250,9 @@
             <div class="game-name">More Games</div>
             <small style="color: #888;">Coming soon</small>
           </div>
+          <div class="section">
+          <div class="ad-slot" id="game_bottom_banner" style="height:120px;"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -261,6 +271,10 @@
             <small style="color: #888;">Reward: <span id="quest-bonus-reward">0.01</span> TON</small>
           </div>
           <button class="btn btn-small" id="quest-bonus" onclick="claimDailyBonus()">Claim</button>
+        </div>
+
+        <div class="section">
+        <div class="ad-slot" id="quest_bottom_banner" style="height:80px;"></div>
         </div>
         
         <div class="quest-item">
@@ -531,7 +545,6 @@
   <script src="{{ url_for('static', filename='js/ads.js') }}"></script>
   <script src="{{ url_for('templates', filename='base.html') }}"></script>
   <script src="{{ url_for('static', filename='js/staking.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 
 </body>
 </html>
