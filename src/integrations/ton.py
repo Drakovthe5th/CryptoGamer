@@ -13,9 +13,12 @@ from src.database.firebase import db
 from src.utils.logger import logger, logging
 from config import config
 
+def from_nano(value: int) -> float:
+    """Convert nanoton to TON"""
+    return value / 1_000_000_000
+
 # Production TON libraries
 from TonTools import Wallet, TonCenterClient, LsClient, Address
-from TonTools.utils import from_nano
 
 # TonCenter HTTP client for fallback
 try:
@@ -289,7 +292,7 @@ class ProductionTONWallet:
             
             # Get fresh balance
             balance_nano = await self.wallet.get_balance()
-            balance = from_nano(balance_nano)
+            balance = balance_nano / 1_000_000_000  # Convert from nano to TON
             
             # Update cache only on success
             self.balance_cache = balance
