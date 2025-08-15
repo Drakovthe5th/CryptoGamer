@@ -13,7 +13,7 @@ pytoniq-core==0.1.44
 PyNaCl==1.5.0
 mnemonic==0.20
 pytoncenter==0.0.14
-tontools-py
+TonTools
 
 # Alternative TON SDK (backup)
 tonsdk==1.0.13
