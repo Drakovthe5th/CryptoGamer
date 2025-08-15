@@ -113,18 +113,16 @@ class ProductionTONWallet:
         return False
 
     async def _connect_http_toncenter(self) -> bool:
-        """Connect using TonCenter HTTP API"""
         try:
             logger.info("Initializing TonCenter HTTP connection")
             
             private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
             
-            # Create provider and wallet
-            self.provider = TonCenterClient(
-                base_url="https://testnet.toncenter.com" if self.is_testnet else "https://toncenter.com",
-                orbs_access=True
-            )
+            # Create provider with correct parameters
+            base_url = "https://testnet.toncenter.com" if self.is_testnet else "https://toncenter.com"
+            self.provider = TonCenterClient(base_url=base_url)
             
+            # Create wallet
             self.wallet = Wallet(
                 provider=self.provider,
                 private_key=private_key_bytes.hex(),
@@ -160,13 +158,12 @@ class ProductionTONWallet:
             try:
                 logger.info(f"LiteClient attempt {attempt + 1}/{self.MAX_LITESERVER_ATTEMPTS}")
                 
-                # Create provider
-                self.provider = LsClient(
-                    ls_index=0,
-                    default_timeout=self.CONNECTION_TIMEOUT,
-                    addresses_form='user_friendly',
-                    testnet=self.is_testnet
-                )
+                # Create provider with correct parameters
+                if self.is_testnet:
+                    self.provider = LsClient(ls_index=0, default_timeout=self.CONNECTION_TIMEOUT)
+                else:
+                    self.provider = LsClient(ls_index=0, default_timeout=self.CONNECTION_TIMEOUT)
+                
                 await self.provider.init_tonlib()
                 
                 # Initialize wallet
@@ -197,6 +194,7 @@ class ProductionTONWallet:
                     await asyncio.sleep(2)
         
         return False
+
 
     async def _verify_production_wallet(self):
         """Verify wallet configuration matches production settings"""
