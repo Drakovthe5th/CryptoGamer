@@ -14,8 +14,8 @@ from src.utils.logger import logger, logging
 from config import config
 
 # Production TON libraries
-from tontools import Wallet, TonCenterClient, LsClient, Address
-from tontools.utils import from_nano
+from TonTools import Wallet, TonCenterClient, LsClient, Address
+from TonTools.utils import from_nano
 
 # TonCenter HTTP client for fallback
 try:
