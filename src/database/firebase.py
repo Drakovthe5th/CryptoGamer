@@ -152,7 +152,7 @@ def record_game_start(user_id: int, game_id: str) -> str:
             'user_id': str(user_id),
             'game_id': game_id,
             'start_time': SERVER_TIMESTAMP,
-            'status': 'started'
+            'status': 'active'  # Add status field
         }
         doc_ref = db.collection('game_sessions').document()
         doc_ref.set(session_data)
@@ -160,6 +160,35 @@ def record_game_start(user_id: int, game_id: str) -> str:
     except Exception as e:
         logger.error(f"Error recording game start: {str(e)}")
         return ""
+
+def get_game_session(session_id: str) -> dict:
+    """Get game session by session ID"""
+    try:
+        sessions_ref = db.collection('game_sessions')
+        query = sessions_ref.where('session_id', '==', session_id).limit(1)
+        results = [doc.to_dict() for doc in query.stream()]
+        return results[0] if results else None
+    except Exception as e:
+        logger.error(f"Error getting game session: {str(e)}")
+        return None
+    
+def save_game_session(user_id: int, game_id: str, score: int, reward: float, session_id: str) -> bool:
+    """Save completed game session"""
+    try:
+        session_data = {
+            'user_id': str(user_id),
+            'game_id': game_id,
+            'score': score,
+            'reward': reward,
+            'session_id': session_id,
+            'completed_at': SERVER_TIMESTAMP
+        }
+        
+        db.collection('game_sessions').add(session_data)
+        return True
+    except Exception as e:
+        logger.error(f"Error saving game session: {str(e)}")
+        return False
 
 # Quest operations
 def save_quest_progress(user_id: int, user_data: dict) -> bool:
