@@ -55,3 +55,4 @@ setuptools==80.9.0
 ton-client-py
 requests>=2.32
 ed25519==1.5
+pip install pytoncenter
