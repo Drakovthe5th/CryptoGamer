@@ -3,6 +3,7 @@ from src.database.firebase import (
     get_user_data, update_balance, 
     process_ton_withdrawal, track_ad_reward, SERVER_TIMESTAMP
 )
+from src.database.firebase import get_games_list, record_game_start
 from src.utils.security import validate_telegram_hash
 from config import config
 import logging
@@ -26,6 +27,68 @@ def configure_routes(app):
         root_dir = os.path.dirname(os.path.abspath(__file__))
         static_dir = os.path.join(root_dir, '../../../static')
         return send_from_directory(static_dir, filename)
+    
+
+    @app.route('/api/games/list', methods=['GET'])
+    def get_games_list():
+        """Get list of available games"""
+        try:
+            games = get_games_list()
+            return jsonify([{
+                'id': g['id'],
+                'name': g['name'],
+                'icon': g['icon'],
+                'reward': g['reward']
+            } for g in games])
+        except Exception as e:
+            logger.error(f"Games list error: {str(e)}")
+            return jsonify({'error': 'Failed to load games'}), 500
+
+    @app.route('/api/game/start', methods=['POST'])
+    def start_game_session():
+        """Record game start event"""
+        try:
+            data = request.get_json()
+            user_id = data.get('user_id')
+            game_id = data.get('game_id')
+            
+            if not user_id or not game_id:
+                return jsonify({'error': 'Missing parameters'}), 400
+            
+            # Security validation
+            init_data = request.headers.get('X-Telegram-InitData')
+            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
+                return jsonify({'error': 'Invalid Telegram hash'}), 401
+            
+            # Record game start
+            session_id = record_game_start(user_id, game_id)
+            return jsonify({
+                'success': True,
+                'session_id': session_id
+            })
+        except Exception as e:
+            logger.error(f"Game start error: {str(e)}")
+            return jsonify({'error': 'Failed to start game session'}), 500
+
+    @app.route('/games/<game_id>', methods=['GET'])
+    def serve_game(game_id):
+        """Serve game interface"""
+        try:
+            # Validate game exists
+            games = get_games_list()
+            if not any(g['id'] == game_id for g in games):
+                return "Game not found", 404
+            
+            # Serve game HTML
+            return send_from_directory(f'games/static/{game_id}', 'index.html')
+        except Exception as e:
+            logger.error(f"Game serve error: {str(e)}")
+            return "Error loading game", 500
+
+    @app.route('/games/<game_id>/static/<path:filename>', methods=['GET'])
+    def serve_game_static(game_id, filename):
+        """Serve game static assets"""
+        return send_from_directory(f'games/static/{game_id}/static', filename)
     
     @app.route('/api/game/edge-surf/init', methods=['POST'])
     def init_edge_surf():

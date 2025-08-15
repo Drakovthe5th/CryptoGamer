@@ -3,101 +3,396 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>TON Game Miner</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script>
-        // Initialize after Telegram auth
-        Telegram.WebApp.ready();
-        window.securityToken = "{{ security_token }}";  // From backend
-        window.userId = "{{ user_id }}";  // From backend
-    </script>
-    <style>
-        .game-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            padding: 20px;
-        }
-        .game-card {
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            background: #1a1d28;
-            color: white;
-            text-align: center;
-            transition: transform 0.3s;
-        }
-        .game-card:hover {
-            transform: translateY(-5px);
-        }
-        .game-icon {
-            width: 100%;
-            height: 120px;
-            background-size: cover;
-        }
-        .game-name {
-            padding: 10px;
-            font-weight: bold;
-        }
-    </style>
+  <title>TON Game Miner</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .header h1 {
+      font-size: 1.8rem;
+      background: linear-gradient(90deg, #12c2e9, #c471ed, #f64f59);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 700;
+    }
+    
+    .wallet-section {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    
+    #wallet-address {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      display: none;
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    #connect-wallet {
+      background: linear-gradient(90deg, #1d976c, #93f9b9);
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(29, 151, 108, 0.3);
+    }
+    
+    #connect-wallet:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(29, 151, 108, 0.4);
+    }
+    
+    #connect-wallet:active {
+      transform: translateY(1px);
+    }
+    
+    #loading {
+      text-align: center;
+      padding: 40px 0;
+      font-size: 1.2rem;
+      color: #93f9b9;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.1);
+      border-top: 5px solid #1d976c;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 20px;
+      padding: 10px 0;
+    }
+    
+    .game-card {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+      background: rgba(26, 29, 40, 0.8);
+      color: white;
+      text-align: center;
+      transition: transform 0.3s, box-shadow 0.3s;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .game-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 25px rgba(0, 0, 0, 0.4);
+      background: rgba(32, 36, 50, 0.9);
+    }
+    
+    .game-icon {
+      width: 100%;
+      height: 140px;
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .default-icon {
+      font-size: 3rem;
+      opacity: 0.7;
+    }
+    
+    .game-name {
+      padding: 15px 10px;
+      font-weight: 600;
+      background: rgba(0, 0, 0, 0.3);
+    }
+    
+    .game-reward {
+      font-size: 0.85rem;
+      padding: 5px;
+      color: #93f9b9;
+      background: rgba(29, 151, 108, 0.2);
+    }
+    
+    #error-message {
+      text-align: center;
+      padding: 30px;
+      color: #f64f59;
+      display: none;
+    }
+    
+    .retry-button {
+      background: rgba(246, 79, 89, 0.2);
+      color: #f64f59;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 20px;
+      margin-top: 15px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 30px 0 20px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.9rem;
+    }
+    
+    @media (max-width: 600px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+      
+      .game-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 15px;
+      }
+      
+      .game-icon {
+        height: 120px;
+      }
+    }
+  </style>
 </head>
 <body>
-      <script>
-        // Initialize before any game code
-        if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.ready();
-        window.telegramInitData = Telegram.WebApp.initDataUnsafe;
-        } else {
-        document.body.innerHTML = '<h1>Please open in Telegram</h1>';
+  <div class="header">
+    <h1>TON Game Miner</h1>
+    <div class="wallet-section">
+      <div id="wallet-address"></div>
+      <button id="connect-wallet">Connect Wallet</button>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <div>Loading games...</div>
+  </div>
+
+  <div id="error-message">
+    <h3>⚠️ Failed to Load Games</h3>
+    <p>Please check your connection and try again</p>
+    <button class="retry-button" onclick="loadGames()">Retry</button>
+  </div>
+
+  <div class="game-grid" id="games-container"></div>
+
+  <div class="footer">
+    <p>Play games to mine $TON tokens | Powered by TON Blockchain</p>
+  </div>
+
+  <script>
+    // Initialize Telegram WebApp
+    if (window.Telegram && Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+      window.telegramInitData = Telegram.WebApp.initDataUnsafe;
+      window.securityToken = "{{ security_token }}";
+      window.userId = "{{ user_id }}";
+    } else {
+      document.body.innerHTML = `
+        <div style="text-align:center;padding:50px 20px;">
+          <h1>Please open in Telegram</h1>
+          <p>This application must be opened within the Telegram messenger</p>
+          <button style="margin-top:20px;padding:10px 20px;background:#0088cc;color:white;border:none;border-radius:8px;"
+                  onclick="window.location.href='https://t.me/Got3dBot'">
+            Open in Telegram
+          </button>
+        </div>
+      `;
+    }
+
+    // DOM elements
+    const connectWalletBtn = document.getElementById('connect-wallet');
+    const walletAddress = document.getElementById('wallet-address');
+    const gamesContainer = document.getElementById('games-container');
+    const loadingElement = document.getElementById('loading');
+    const errorElement = document.getElementById('error-message');
+
+    // Check if wallet is already connected
+    function checkWalletConnection() {
+      const savedAddress = localStorage.getItem('ton_wallet_address');
+      if (savedAddress) {
+        walletAddress.textContent = `${savedAddress.substring(0, 6)}...${savedAddress.substring(savedAddress.length - 4)}`;
+        walletAddress.style.display = 'block';
+        connectWalletBtn.textContent = 'Disconnect';
+      }
+    }
+
+    // Connect TON Wallet
+    function connectTONWallet() {
+      const savedAddress = localStorage.getItem('ton_wallet_address');
+      
+      if (savedAddress) {
+        // Disconnect wallet
+        localStorage.removeItem('ton_wallet_address');
+        walletAddress.style.display = 'none';
+        connectWalletBtn.textContent = 'Connect Wallet';
+        Telegram.WebApp.showAlert('Wallet disconnected successfully');
+        return;
+      }
+
+      // Connect wallet
+      Telegram.WebApp.sendData(JSON.stringify({
+        action: 'connect_wallet',
+        user_id: window.userId,
+        security_token: window.securityToken
+      }));
+      
+      // Listen for wallet connection response
+      window.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'wallet_connected') {
+          const address = event.data.address;
+          localStorage.setItem('ton_wallet_address', address);
+          walletAddress.textContent = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+          walletAddress.style.display = 'block';
+          connectWalletBtn.textContent = 'Disconnect';
+          Telegram.WebApp.showAlert(`Wallet connected: ${address}`);
         }
+      });
+    }
 
-        if (!window.Telegram || !window.Telegram.WebApp) {
-            alert("Please open this game in Telegram");
-            window.location.href = "https://t.me/Got3dBot";
-        }
-    </script>
-
-    <div class="game-grid" id="games-container"></div>
-
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+    // Load games with authentication
+    async function loadGames() {
+      try {
+        // Show loading, hide error
+        loadingElement.style.display = 'flex';
+        errorElement.style.display = 'none';
         
-        // Load games list
-        fetch('/')
-            .then(res => res.text())
-            .then(html => {
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-                const games = JSON.parse(doc.getElementById('games-data').textContent);
-                renderGames(games);
-            });
-        
-        function renderGames(games) {
-            const container = document.getElementById('games-container');
-            games.forEach(game => {
-                const gameCard = document.createElement('div');
-                gameCard.className = 'game-card';
-                gameCard.innerHTML = `
-                    <div class="game-icon" style="background-image: url('/games/${game.id}/static/icon.png')"></div>
-                    <div class="game-name">${game.name}</div>
-                `;
-                gameCard.addEventListener('click', () => {
-                    tg.showPopup({
-                        title: `Play ${game.name}`,
-                        message: 'Start playing to earn TON coins!',
-                        buttons: [
-                            {id: 'play', type: 'default', text: 'Play Now'}
-                        ]
-                    }, (btnId) => {
-                        if(btnId === 'play') {
-                            window.location.href = `/games/${game.id}`;
-                        }
-                    });
-                });
-                container.appendChild(gameCard);
-            });
+        const response = await fetch('/api/games/list', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': window.securityToken,
+            'X-User-ID': window.userId
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-    </script>
+
+        const games = await response.json();
+        renderGames(games);
+        loadingElement.style.display = 'none';
+        
+      } catch (error) {
+        console.error('Failed to load games:', error);
+        loadingElement.style.display = 'none';
+        errorElement.style.display = 'block';
+        Telegram.WebApp.showAlert('Failed to load games. Please try again later.');
+      }
+    }
+
+    // Render games in grid
+    function renderGames(games) {
+      gamesContainer.innerHTML = '';
+      
+      games.forEach(game => {
+        const gameCard = document.createElement('div');
+        gameCard.className = 'game-card';
+        
+        gameCard.innerHTML = `
+          <div class="game-icon" style="background-image: ${game.icon ? 
+            `url('/games/${game.id}/static/${game.icon}')` : 'none'};">
+            ${!game.icon ? '<div class="default-icon">🎮</div>' : ''}
+          </div>
+          <div class="game-name">${game.name}</div>
+          <div class="game-reward">Earn up to ${game.reward || 5} $TON/hr</div>
+        `;
+        
+        gameCard.addEventListener('click', () => {
+          Telegram.WebApp.showPopup({
+            title: `Play ${game.name}`,
+            message: `Start playing to earn ${game.reward || 5} TON coins per hour!`,
+            buttons: [
+              {id: 'cancel', type: 'cancel', text: 'Later'},
+              {id: 'play', type: 'default', text: 'Play Now'}
+            ]
+          }, (btnId) => {
+            if (btnId === 'play') {
+              // Track game start event
+              fetch('/api/game/start', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-Security-Token': window.securityToken,
+                  'X-User-ID': window.userId
+                },
+                body: JSON.stringify({ game_id: game.id })
+              });
+              
+              window.location.href = `/games/${game.id}`;
+            }
+          });
+        });
+        
+        gamesContainer.appendChild(gameCard);
+      });
+    }
+
+    // Event listeners
+    connectWalletBtn.addEventListener('click', connectTONWallet);
+    
+    // Initial setup
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.Telegram && Telegram.WebApp) {
+        checkWalletConnection();
+        loadGames();
+      }
+    });
+
+    // Simulate wallet connection event for demonstration
+    // In production, this would come from the TON integration
+    setTimeout(() => {
+      window.postMessage({ 
+        type: 'wallet_connected', 
+        address: 'EQDrjaMAd1uyVtVb1hECV3a6F5Kc_ZLrjV7lLp7DZqNJiA1D' 
+      }, '*');
+    }, 2000);
+  </script>
 </body>
 </html>

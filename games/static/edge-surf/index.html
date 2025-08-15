@@ -5,88 +5,278 @@
 <!DOCTYPE html>
 <!-- saved from url=edge://surf/ -->
 <html dir="ltr" lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="apple-touch-icon" sizes="57x57" href="resources/icons/apple-icon-57x57.png">
-    <link rel="apple-touch-icon" sizes="60x60" href="resources/icons/apple-icon-60x60.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="resources/icons/apple-icon-72x72.png">
-    <link rel="apple-touch-icon" sizes="76x76" href="resources/icons/apple-icon-76x76.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="resources/icons/apple-icon-114x114.png">
-    <link rel="apple-touch-icon" sizes="120x120" href="resources/icons/apple-icon-120x120.png">
-    <link rel="apple-touch-icon" sizes="144x144" href="resources/icons/apple-icon-144x144.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="resources/icons/apple-icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="resources/icons/apple-icon-180x180.png">
-    <link rel="icon" type="image/png" sizes="192x192"  href="resources/icons/android-icon-192x192.png">
-    <link rel="icon" type="image/svg+xml" href="resources/icons/favicon.svg">
-    <link rel="manifest" href="manifest.json">
-    <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="resources/icons/ms-icon-144x144.png">
-    <meta name="theme-color" content="#ffffff">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="57x57" href="resources/icons/apple-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="resources/icons/apple-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="resources/icons/apple-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="resources/icons/apple-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="resources/icons/apple-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="resources/icons/apple-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="resources/icons/apple-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="resources/icons/apple-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="resources/icons/apple-icon-180x180.png">
+  <link rel="icon" type="image/png" sizes="192x192"  href="resources/icons/android-icon-192x192.png">
+  <link rel="icon" type="image/svg+xml" href="resources/icons/favicon.svg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="msapplication-TileColor" content="#ffffff">
+  <meta name="msapplication-TileImage" content="resources/icons/ms-icon-144x144.png">
+  <meta name="theme-color" content="#ffffff">
 
-    <script>
-      // Initialize Telegram WebApp
-      Telegram.WebApp.ready();
-      window.securityToken = "{{ security_token }}";  // From backend
-      window.userId = "{{ user_id }}";  // From backend
-      
-      // Fetch initialization data
-      fetch('/api/game/edge-surf/init', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({user_id: Telegram.WebApp.initDataUnsafe.user.id})
-      })
-      .then(response => response.json())
-      .then(data => {
-          window.securityToken = data.token;
-          window.gameConfig = data.game_config;
-      });
-
+  <script>
+    // Consolidated initialization logic
+    document.addEventListener('DOMContentLoaded', () => {
+      // Telegram WebApp check
       if (!window.Telegram || !window.Telegram.WebApp) {
         alert("Please open this game in Telegram");
         window.location.href = "https://t.me/Got3dBot";
+        return;
+      }
+      
+      Telegram.WebApp.ready();
+      
+      // Get user data from Telegram
+      const userId = Telegram.WebApp.initDataUnsafe.user?.id;
+      if (!userId) {
+        console.error("User ID not available");
+        return;
       }
 
-      document.addEventListener('DOMContentLoaded', () => {
-        // Get user data from URL params
-        const urlParams = new URLSearchParams(window.location.search);
-        window.userId = urlParams.get('user_id');
-        window.securityToken = urlParams.get('token');
-        
-        // Initialize game with user data
-        initGame(window.userId, window.securityToken);
+      // Initialize game
+      fetch('/api/game/edge-surf/init', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({user_id: userId})
+      })
+      .then(response => response.json())
+      .then(data => {
+        initGame(userId, data.token, data.game_config);
+      })
+      .catch(error => {
+        console.error('Initialization error:', error);
+      });
+    });
+
+    async function initGame(userId, token, gameConfig) {
+      // Initialize game with user-specific data
+      window.securityToken = token;
+      window.userId = userId;
+      window.gameConfig = gameConfig;
+
+      // Start game after initialization
+      startTRexGame();
+    }
+
+    // T-Rex Game Implementation
+    function startTRexGame() {
+      // Game constants
+      const DINO_WIDTH = 50;
+      const DINO_HEIGHT = 50;
+      const CACTUS_WIDTH = 20;
+      const CACTUS_HEIGHT = 40;
+      const GROUND_HEIGHT = 10;
+      const GRAVITY = 1.5;
+      const JUMP_FORCE = -25;
+      const GAME_SPEED_START = 5;
+      const GAME_SPEED_INCREMENT = 0.001;
+
+      // Game state
+      let gameSpeed = GAME_SPEED_START;
+      let isJumping = false;
+      let isGameOver = false;
+      let score = 0;
+      let dinoY = 0;
+      let dinoVelocity = 0;
+      let lastTime = 0;
+      let obstacles = [];
+      let gameStarted = false;
+
+      // DOM elements
+      const container = document.createElement('div');
+      container.style.cssText = `
+        position: relative;
+        width: 600px;
+        height: 150px;
+        margin: 0 auto;
+        overflow: hidden;
+        background-color: #f7f7f7;
+      `;
+      document.body.appendChild(container);
+
+      const dino = document.createElement('div');
+      dino.style.cssText = `
+        position: absolute;
+        bottom: ${GROUND_HEIGHT}px;
+        left: 50px;
+        width: ${DINO_WIDTH}px;
+        height: ${DINO_HEIGHT}px;
+        background-color: #666;
+        z-index: 2;
+      `;
+      container.appendChild(dino);
+
+      const ground = document.createElement('div');
+      ground.style.cssText = `
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        height: ${GROUND_HEIGHT}px;
+        background-color: #555;
+      `;
+      container.appendChild(ground);
+
+      const scoreDisplay = document.createElement('div');
+      scoreDisplay.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 20px;
+        font-family: Arial;
+        color: #666;
+      `;
+      scoreDisplay.textContent = 'Score: 0';
+      container.appendChild(scoreDisplay);
+
+      // Game controls
+      document.addEventListener('keydown', (e) => {
+        if ((e.code === 'Space' || e.key === 'ArrowUp') && !isJumping && gameStarted) {
+          isJumping = true;
+          dinoVelocity = JUMP_FORCE;
+        } else if (e.code === 'Enter' && isGameOver) {
+          resetGame();
+        } else if (!gameStarted) {
+          gameStarted = true;
+        }
       });
 
+      // Touch support
+      container.addEventListener('touchstart', () => {
+        if (!isJumping && gameStarted) {
+          isJumping = true;
+          dinoVelocity = JUMP_FORCE;
+        } else if (isGameOver) {
+          resetGame();
+        } else if (!gameStarted) {
+          gameStarted = true;
+        }
+      });
 
-      async function initGame(userId, token) {
-          // Initialize game with user-specific data
-          const response = await fetch(`/api/game/${gameName}/init`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-                  'X-Security-Token': token
-              },
-              body: JSON.stringify({user_id: userId})
-          });
+      // Game logic
+      function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+
+        if (gameStarted && !isGameOver) {
+          updateGame(deltaTime);
+          renderGame();
+          score += deltaTime * 0.01;
+          scoreDisplay.textContent = `Score: ${Math.floor(score)}`;
+        }
+
+        requestAnimationFrame(gameLoop);
       }
-    </script>
 
-    <script src="resources/js/base-error-reporting.js"></script>
-    <script src="resources/js/surf-error-reporting.js"></script>
-    <script src="resources/js/assert.js"></script>
-    <script src="resources/js/promise_resolver.js"></script>
-    <script src="resources/js/cr.js"></script>
-    <script src="resources/js/parse_html_subset.js"></script>
-    <script src="resources/js/load_time_data.js"></script>
-    <script src="resources/js/util.js"></script>
-    <script src="resources/js/strings.js"></script>
-    <link href="resources/css/interface.css" rel="stylesheet" media="all"/>
-  </head>
-    <body>
-        <div id="hamburger-container"></div>
-        <div id="modal-root"></div>
-        <script defer="defer" src="resources/js/lib_react.chunk.js"></script>
-        <script defer="defer" src="resources/js/lib_common.chunk.js"></script>
-        <script defer="defer" src="resources/js/surf.bundle.js"></script>
-    </body>
+      function updateGame(deltaTime) {
+        // Update dino
+        dinoY += dinoVelocity;
+        dinoVelocity += GRAVITY;
+
+        if (dinoY > 0) {
+          dinoY = 0;
+          isJumping = false;
+        }
+
+        dino.style.bottom = `${GROUND_HEIGHT + dinoY}px`;
+
+        // Update obstacles
+        gameSpeed += GAME_SPEED_INCREMENT * deltaTime;
+        generateObstacles(deltaTime);
+
+        obstacles.forEach((obstacle, index) => {
+          obstacle.x -= gameSpeed * deltaTime * 0.1;
+          obstacle.element.style.right = `${obstacle.x}px`;
+
+          // Collision detection
+          if (
+            obstacle.x < 100 &&
+            obstacle.x + CACTUS_WIDTH > 50 &&
+            dinoY < CACTUS_HEIGHT
+          ) {
+            isGameOver = true;
+          }
+
+          // Remove off-screen obstacles
+          if (obstacle.x < -CACTUS_WIDTH) {
+            obstacle.element.remove();
+            obstacles.splice(index, 1);
+          }
+        });
+      }
+
+      function renderGame() {
+        // Update dino position
+        dino.style.bottom = `${GROUND_HEIGHT + dinoY}px`;
+      }
+
+      function generateObstacles(deltaTime) {
+        if (Math.random() < 0.01 * deltaTime) {
+          const obstacle = document.createElement('div');
+          obstacle.style.cssText = `
+            position: absolute;
+            bottom: ${GROUND_HEIGHT}px;
+            right: 0;
+            width: ${CACTUS_WIDTH}px;
+            height: ${CACTUS_HEIGHT}px;
+            background-color: green;
+          `;
+          container.appendChild(obstacle);
+          
+          obstacles.push({
+            element: obstacle,
+            x: 0
+          });
+        }
+      }
+
+      function resetGame() {
+        // Reset game state
+        isGameOver = false;
+        gameSpeed = GAME_SPEED_START;
+        score = 0;
+        dinoY = 0;
+        dinoVelocity = 0;
+        
+        // Remove obstacles
+        obstacles.forEach(obstacle => obstacle.element.remove());
+        obstacles = [];
+        
+        // Reset dino position
+        dino.style.bottom = `${GROUND_HEIGHT}px`;
+      }
+
+      // Start the game loop
+      requestAnimationFrame(gameLoop);
+    }
+  </script>
+
+  <script src="resources/js/base-error-reporting.js"></script>
+  <script src="resources/js/surf-error-reporting.js"></script>
+  <script src="resources/js/assert.js"></script>
+  <script src="resources/js/promise_resolver.js"></script>
+  <script src="resources/js/cr.js"></script>
+  <script src="resources/js/parse_html_subset.js"></script>
+  <script src="resources/js/load_time_data.js"></script>
+  <script src="resources/js/util.js"></script>
+  <script src="resources/js/strings.js"></script>
+  <link href="resources/css/interface.css" rel="stylesheet" media="all"/>
+</head>
+<body>
+  <div id="hamburger-container"></div>
+  <div id="modal-root"></div>
+  <script defer="defer" src="resources/js/lib_react.chunk.js"></script>
+  <script defer="defer" src="resources/js/lib_common.chunk.js"></script>
+  <script defer="defer" src="resources/js/surf.bundle.js"></script>
+</body>
 </html>

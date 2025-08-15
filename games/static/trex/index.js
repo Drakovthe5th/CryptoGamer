@@ -35,6 +35,7 @@ async function loadUserData() {
 document.addEventListener('DOMContentLoaded', () => {
     // Get user data from URL params
     const urlParams = new URLSearchParams(window.location.search);
+    window.gameSessionId = urlParams.get('session_id');
     window.userId = urlParams.get('user_id');
     window.securityToken = urlParams.get('token');
     
@@ -1110,8 +1111,68 @@ document.addEventListener('keydown', (e) => {
         this.textImgPos = textImgPos;
         this.restartImgPos = restartImgPos;
         this.draw();
+
+        // Send completion data to backend
+        fetch('/miniapp/game/complete', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            'X-Security-Token': window.securityToken,
+            'X-User-ID': window.userId
+            },
+            body: JSON.stringify({
+            game_id: 'trex',
+            score: score,
+            session_id: window.gameSessionId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+            // Show reward notification
+            showRewardNotification(data.reward, data.new_balance);
+            
+            // Update balance display if exists
+            if(window.updateBalanceDisplay) {
+                window.updateBalanceDisplay(data.new_balance);
+            }
+            }
+        })
+        .catch(error => console.error('Reward error:', error));
+        }
     };
 
+    // Helper function to show reward notification
+    function showRewardNotification(reward, newBalance) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: #fff;
+        padding: 15px 25px;
+        border-radius: 10px;
+        z-index: 1000;
+        font-family: Arial;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    `;
+    
+    notification.innerHTML = `
+        <div>🎉 You earned: <strong>${reward.toFixed(6)} TON</strong></div>
+        <div>💰 New balance: ${newBalance.toFixed(6)} TON</div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => document.body.removeChild(notification), 1000);
+    }, 5000);
+    }
 
     /**
      * Dimensions used in the panel.

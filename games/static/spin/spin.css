@@ -61,6 +61,7 @@ body {
 .stats {
     display: flex;
     justify-content: space-around;
+    flex-wrap: wrap;
     margin-bottom: 25px;
     background: rgba(45, 51, 69, 0.6);
     padding: 15px;
@@ -70,6 +71,8 @@ body {
 
 .stat-box {
     text-align: center;
+    min-width: 120px;
+    margin: 5px 0;
 }
 
 .stat-label {
@@ -86,6 +89,10 @@ body {
 
 #balance {
     color: #f0b90b;
+}
+
+#total-winnings {
+    color: #27ae60;
 }
 
 .controls {
@@ -170,4 +177,23 @@ body {
 
 .wheel-slice:hover {
     filter: brightness(1.2);
+}
+
+/* Reward floating animation */
+.reward-floater {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 20px;
+    pointer-events: none;
+    z-index: 1000;
+    animation: float-up 1s ease-out forwards;
+}
+
+@keyframes float-up {
+    0% { transform: translate(-50%, -50%); opacity: 1; }
+    100% { transform: translate(-50%, -150%); opacity: 0; }
 }

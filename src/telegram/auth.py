@@ -4,7 +4,7 @@ from urllib.parse import parse_qsl
 from flask import current_app
 from config import config
 
-def validate_telegram_data(init_data: str) -> bool:
+def validate_telegram_data(init_data: str, bot_token: str) -> bool:
     """
     Validate Telegram WebApp init data using HMAC-SHA256 signature
     Reference: https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app

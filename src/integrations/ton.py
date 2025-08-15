@@ -451,6 +451,39 @@ class TONWallet:
                 'status': 'error',
                 'error': str(e)
             }
+    
+    async def distribute_game_reward(self, user_id: int, amount: float) -> Dict:
+        """Distribute game rewards to user's virtual wallet"""
+        try:
+            # Update database balance
+            new_balance = db.update_balance(user_id, amount)
+            
+            # Check if we need to fund hot wallet
+            if new_balance > config.MIN_HOT_BALANCE:
+                await self.fund_hot_wallet()
+                
+            return {
+                'status': 'success',
+                'new_balance': new_balance
+            }
+        except Exception as e:
+            logger.error(f"Reward distribution error: {str(e)}")
+            return {'status': 'error', 'error': str(e)}
+
+    async def fund_hot_wallet(self):
+        """Fund hot wallet from cold storage when needed"""
+        balance = await self.get_balance()
+        if balance < config.MIN_HOT_BALANCE:
+            logger.info(f"Funding hot wallet from cold storage")
+            await self.send_transaction(
+                destination=self.get_address(),
+                amount=config.HOT_WALLET_TOPUP_AMOUNT,
+                memo="Hot wallet topup"
+            )
+
+    # Add this function
+    async def distribute_game_reward(user_id: int, amount: float) -> Dict:
+        return await ton_wallet.distribute_game_reward(user_id, amount)
 
     def get_user_daily_withdrawal(self, user_id: int) -> float:
         """Get user's daily withdrawal amount from database"""

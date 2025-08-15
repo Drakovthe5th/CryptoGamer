@@ -1,3 +1,4 @@
+/* Existing styles from first file */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #1a1d28, #252a3a);
@@ -226,4 +227,23 @@ body {
     background: #27ae60;
     color: white;
     cursor: default;
+}
+
+/* New reward floating animation */
+.reward-floater {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 20px;
+    pointer-events: none;
+    z-index: 1000;
+    animation: float-up 1s ease-out forwards;
+}
+
+@keyframes float-up {
+    0% { transform: translate(-50%, -50%); opacity: 1; }
+    100% { transform: translate(-50%, -150%); opacity: 0; }
 }

@@ -13,6 +13,7 @@ from src.features.mining import token_distribution, proof_of_play
 from src.security import anti_cheat
 from src.features import quests
 from src.utils.validators import validate_json_input
+from src.database.firebase import save_game_session
 from config import config
 import logging
 
@@ -31,33 +32,9 @@ def miniapp_security():
     if not init_data:
         return jsonify({'error': 'Missing Telegram init data'}), 401
         
-    # Updated validation call
+    # Validate using Telegram's initData mechanism
     if not validate_init_data(init_data, config.TELEGRAM_TOKEN):
         return jsonify({'error': 'Invalid Telegram authentication'}), 401
-        
-    # Security token validators
-    security_token = security_token.replace('-', '+').replace('_', '/')
-    padding = len(security_token) % 4
-    if padding > 0:
-        security_token += '=' * (4 - padding)
-    decoded_token = base64.b64decode(security_token).decode('utf-8')
-        
-    try:
-        # Decode the base64 string
-        decoded_token = base64.b64decode(security_token).decode('utf-8')
-        token_data = decoded_token.split(':')
-        if len(token_data) != 2:
-            return jsonify({'error': 'Invalid security token'}), 401
-            
-        token_time = int(token_data[1])
-        current_time = int(datetime.utcnow().timestamp())
-        
-        if abs(current_time - token_time) > 300:  # 5 minutes
-            return jsonify({'error': 'Security token expired'}), 401
-    except Exception as e:
-        logger.error(f"Security token error: {str(e)}")
-        return jsonify({'error': 'Invalid security token'}), 401
-
 
 @miniapp_bp.route('/user/secure-data', methods=['GET'])
 def get_user_secure_data():
@@ -109,6 +86,39 @@ def claim_daily():
     except Exception as e:
         logger.error(f"Bonus claim error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+def validate_game_session(user_id, session_id):
+    """Validate game session exists and belongs to user"""
+    session = db.get_game_session(session_id)
+    
+    expected_duration = {
+    'trex': (30, 600),       # 30sec - 10min
+    'edge-surf': (60, 1800), # 1-30min
+    'clicker': (120, 86400), # 2min-24hr
+    'spin': (10, 300),       # 10sec-5min
+    'trivia': (60, 600)      # 1-10min
+    }
+
+    min_dur, max_dur = expected_duration.get(game_id, (10, 3600))
+    actual_duration = (datetime.now() - session['start_time']).total_seconds()
+
+    if not (min_dur <= actual_duration <= max_dur):
+        logger.warning(f"Suspicious session duration: {actual_duration}s for {game_id}")
+        return False
+
+    if not session:
+        return False
+    if session['user_id'] != user_id:
+        return False
+    if session['status'] != 'active':
+        return False
+        
+    # Check session isn't too old (max 1 hour)
+    if (datetime.now() - session['start_time']).total_seconds() > 3600:
+        return False
+        
+    return True
+
 
 @miniapp_bp.route('/quests/record_click', methods=['POST'])
 @validators.validate_json_input({'user_id': {'type': 'int', 'required': True}})
@@ -304,7 +314,6 @@ def get_otc_rates():
         logger.error(f"OTC rates error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
     
-# Add to miniapp.py
 def create_app():
     app = Flask(__name__)
 
@@ -364,82 +373,41 @@ def create_app():
     'user_id': {'type': 'int', 'required': True},
     'game_id': {'type': 'str', 'required': True},
     'score': {'type': 'int', 'required': True},
-    'session_data': {'type': 'dict', 'required': True}
+    'session_id': {'type': 'str', 'required': True}
 })
 def game_completed():
     data = request.get_json()
     user_id = data['user_id']
     game_id = data['game_id']
     score = data['score']
-    session_data = data['session_data']
+    session_id = data['session_id']
     
+    if not validate_game_session(user_id, session_id):
+        return jsonify({'success': False, 'error': 'Invalid game session'}), 400
+
     # Anti-cheat verification
-    if not proof_of_play.ProofOfPlay().verify_play(session_data):
-        return jsonify({'success': False, 'error': 'Game session validation failed'}), 400
-    
-    # Anti-farming detection
     if anti_cheat.AntiCheatSystem().detect_farming(user_id):
         return jsonify({'success': False, 'error': 'Suspicious activity detected'}), 403
     
     try:
         # Calculate reward based on game type and score
-        reward_config = {
-            'clicker': {
-                'base': 0.01,
-                'multiplier': 0.001
-            },
-            'spin': {
-                'base': 0.02,
-                'win_multiplier': 0.05
-            },
-            'trivia': {
-                'base': 0.005,
-                'per_question': 0.002
-            },
-            'trex': {
-                'base': 0.001,
-                'per_100m': 0.005
-            },
-            'edge-surf': {
-                'base': 0.003,
-                'per_minute': 0.007
-            }
-        }
-        
-        config = reward_config.get(game_id, reward_config['clicker'])
-        reward = config['base']
-        
-        if game_id == 'clicker':
-            reward += score * config['multiplier']
-        elif game_id == 'spin':
-            if score > 0:  # If player won
-                reward += score * config['win_multiplier']
-        elif game_id == 'trivia':
-            reward += score * config['per_question']
-        elif game_id == 'trex':
-            reward += (score // 100) * config['per_100m']
-        elif game_id == 'edge-surf':
-            # Score is in seconds
-            minutes = score / 60
-            reward += minutes * config['per_minute']
-        
-        # Ensure reward is reasonable
-        reward = min(reward, config.MAX_GAME_REWARD.get(game_id, 0.1))
+        reward = token_distribution.calculate_reward(
+            user_id=user_id,
+            game_id=game_id,
+            score=score,
+            session_id=session_id
+        )
         
         # Update balance
         new_balance = db.update_balance(user_id, reward)
         
-        # Update quest progress
-        quest_system = QuestSystem()
-        quest_system.update_quest_progress(user_id, f"play_{game_id}", 1)
-        
-        # Record game session
+        # Save game session
         db.save_game_session(
             user_id=user_id,
             game_id=game_id,
             score=score,
             reward=reward,
-            session_data=session_data
+            session_id=session_id
         )
         
         return jsonify({
@@ -451,6 +419,7 @@ def game_completed():
     except Exception as e:
         logger.error(f"Game completion error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
     
 # Add to miniapp.py
 def init_edge_surf():
