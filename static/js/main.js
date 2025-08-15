@@ -180,6 +180,43 @@ function hideSpinner() {
   document.getElementById('global-spinner').style.display = 'none';
 }
 
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle wallet actions
+    document.querySelectorAll('.btn-action').forEach(button => {
+        button.addEventListener('click', function() {
+            const action = this.dataset.action;
+            const amount = this.dataset.amount;
+            
+            fetch(`/api/blockchain/${action}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ amount })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    alert(`${action} successful!`);
+                    updateBalanceDisplay();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            });
+        });
+    });
+    
+    // Update balance display
+    function updateBalanceDisplay() {
+        fetch('/api/user/balance')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('balance-display').textContent = data.balance;
+            });
+    }
+    
+    // Initialize balance display
+    updateBalanceDisplay();
+});
+
 // Example usage in API calls
 async function loadUserData() {
   showSpinner();

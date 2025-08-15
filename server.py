@@ -4,7 +4,9 @@ import asyncio
 import logging
 import atexit
 from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from celery import Celery
 from src.integrations.ton import (
     is_valid_ton_address,
@@ -62,8 +64,16 @@ logger = logging.getLogger(__name__)
 
 # Create Flask app with template folder
 app = Flask(__name__, template_folder='templates')
+CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
+
+csrf = CSRFProtect(app)
+
+@app.after_request
+def set_csrf_token(response):
+    response.set_cookie('csrf_token', generate_csrf())
+    return response
 
 # Register miniapp blueprint
 app.register_blueprint(miniapp_bp, url_prefix='/api')
@@ -156,12 +166,14 @@ def health_status():
         })
 
 # Game endpoints
-@app.route('/games/<game_name>', endpoint='serve_game_main')
-def serve_game(game_name):
+@app.route('/games/<path:game_path>')
+def serve_game(game_path):
     """Serve game HTML based on game name"""
+    game_name = game_path.split('/')[0]
+    
     valid_games = {
-        'clicker': 'clicker/clicker.html',
-        'spin': 'spin/spin.html',
+        'clicker': 'clicker/index.html',
+        'spin': 'spin/index.html',
         'edge-surf': 'egde-surf/index.html',
         'trex': 'trex/index.html',
         'trivia': 'trivia/index.html'
@@ -170,15 +182,26 @@ def serve_game(game_name):
     if game_name not in valid_games:
         return "Game not found", 404
         
-    return send_from_directory('static', valid_games[game_name])
+    # Serve index.html for game root
+    if game_path == game_name:
+        return send_from_directory('static', valid_games[game_name])
+        
+    # Serve other assets
+    return send_from_directory('static', game_path)
 
-# Serve static files for games
 @app.route('/games/static/<path:path>')
 def game_static(path):
     return send_from_directory('static', path)
 
-# Configure all routes - moved after other route definitions
-configure_routes(app)
+@app.route('/api/user/balance', methods=['GET'])
+def get_balance():
+    try:
+        user_id = get_user_id(request)
+        balance = db.get_user_balance(user_id)
+        return jsonify({'balance': balance})
+    except Exception as e:
+        logger.error(f"Balance error: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 # Blockchain Endpoints
 @app.route('/api/blockchain/stake', methods=['POST'])
@@ -346,6 +369,16 @@ def debug_info():
         return jsonify(info)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/debug/routes')
+def debug_routes():
+    output = []
+    for rule in app.url_map.iter_rules():
+        methods = ','.join(rule.methods)
+        output.append(f"{rule.endpoint}: {methods} -> {rule}")
+    return jsonify({'routes': output})
+
+configure_routes(app)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
