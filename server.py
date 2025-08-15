@@ -84,6 +84,8 @@ def initialize_production_app():
     try:
         # Initialize TON wallet
         success = loop.run_until_complete(initialize_ton_wallet())
+        if success: break
+        
         if not success:
             logger.critical("❌ PRODUCTION TON WALLET INITIALIZATION FAILED")
             send_alert_to_admin("🚨 CRITICAL: TON wallet failed to initialize")

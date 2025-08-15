@@ -14,7 +14,8 @@ from src.utils.logger import logger, logging
 from config import config
 
 # Production TON libraries
-from pytoniq import LiteClient, WalletV4R2, LiteServerError
+from pytoniq import WalletV4R2, LiteClient
+from pytoniq_core import PrivateKey
 from pytoniq_core import Cell, begin_cell, Address
 
 # TonCenter HTTP client for fallback
@@ -30,11 +31,11 @@ class ProductionTONWallet:
     """Production-ready TON wallet with robust connection handling"""
     
     # Production Constants
-    BALANCE_CACHE_MINUTES = 2
-    TRANSACTION_TIMEOUT = 30  # Reduced timeout
+    BALANCE_CACHE_MINUTES = 5
+    TRANSACTION_TIMEOUT = 60  # Reduced timeout
     MAX_RETRY_ATTEMPTS = 3    # Reduced retries
     NANOTON_CONVERSION = 1e9
-    CONNECTION_TIMEOUT = 15   # Reduced connection timeout
+    CONNECTION_TIMEOUT = 30   # Reduced connection timeout
     DAILY_WITHDRAWAL_LIMIT = 10000
     USER_DAILY_WITHDRAWAL_LIMIT = 1000
     
@@ -46,7 +47,9 @@ class ProductionTONWallet:
     MAINNET_LITE_SERVERS = [
         "https://toncenter.com/api/v2/jsonRPC",
         "https://mainnet-v4.tonhubapi.com",
-        "https://mainnet.tonapi.io"
+        "https://mainnet.tonapi.io",
+        "https://gateway.tonapi.io",
+        "https://ton.rocket.dev"
     ]
     
     def __init__(self) -> None:
@@ -124,7 +127,7 @@ class ProductionTONWallet:
             private_key = PrivateKey(private_key_bytes)
             
             # Create wallet
-            self.wallet = CoreWallet(private_key)
+            self.wallet = WalletV4R2(public_key=private_key.public_key, private_key=private_key)
             self.use_http_mode = True
             
             # Test HTTP connection
@@ -201,7 +204,7 @@ class ProductionTONWallet:
                 
                 # Initialize wallet
                 private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = WalletV4R2(
+                self.wallet = await WalletV4R2.from_private_key(
                     provider=self.client,
                     private_key=private_key_bytes
                 )
@@ -238,8 +241,8 @@ class ProductionTONWallet:
                 raise ValueError("Cannot derive wallet address")
             
             # Normalize addresses for comparison
-            derived_addr = Address(derived_address)
-            config_addr = Address(config_address)
+            derived_addr = Address(derived_address).to_str()
+            config_addr = Address(config_address).to_str()
             
             if derived_addr.to_str(True, True, True) != config_addr.to_str(True, True, True):
                 logger.error("CRITICAL: Production wallet address mismatch!")
