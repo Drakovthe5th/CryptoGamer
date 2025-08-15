@@ -156,7 +156,7 @@ def health_status():
         })
 
 # Game endpoints
-@app.route('/games/<game_name>')
+@app.route('/games/<game_name>', endpoint='serve_game_main')
 def serve_game(game_name):
     """Serve game HTML based on game name"""
     valid_games = {

@@ -1,3 +1,4 @@
+import re
 import os
 import time
 import logging
@@ -33,7 +34,7 @@ class TONWallet:
     TRANSACTION_TIMEOUT = 120
     MAX_RETRY_ATTEMPTS = 3
     NANOTON_CONVERSION = 1e9
-    CONNECTION_TIMEOUT = 15  # seconds
+    CONNECTION_TIMEOUT = 30  # seconds
     DAILY_WITHDRAWAL_LIMIT = 1000  # TON per day
     USER_DAILY_WITHDRAWAL_LIMIT = 100  # TON per user per day
     
@@ -154,27 +155,25 @@ class TONWallet:
     async def _init_from_mnemonic(self) -> None:
         """Initialize wallet from mnemonic phrase"""
         logger.info("Initializing wallet from mnemonic phrase")
-        mnemo = Mnemonic("english")
         
-        # Validate mnemonic
-        if not mnemo.check(config.TON_MNEMONIC):
-            raise ValueError("Invalid mnemonic phrase")
+        # Clean and validate mnemonic
+        phrase = config.TON_MNEMONIC.strip()
+        words = re.split(r'\s+', phrase)
+        
+        # Validate word count
+        if len(words) not in [12, 15, 18, 21, 24]:
+            raise ValueError(f"Invalid mnemonic word count: {len(words)}")
+        
+        # Reconstruct phrase with single spaces
+        clean_phrase = " ".join(words)
+        
+        mnemo = Mnemonic("english")
+        if not mnemo.check(clean_phrase):
+            raise ValueError("Invalid mnemonic checksum")
         
         # Generate seed from mnemonic
-        seed = mnemo.to_seed(config.TON_MNEMONIC, passphrase="")
+        seed = mnemo.to_seed(clean_phrase, passphrase="")
         private_key = seed[:32]
-        
-        # Initialize wallet
-        if self.client:
-            self.wallet = WalletV4R2(
-                provider=self.client,
-                private_key=private_key
-            )
-        elif self.http_client:
-            self.wallet = WalletV4R2(
-                provider=self.http_client,
-                private_key=private_key
-            )
 
     async def _init_from_private_key(self) -> None:
         """Initialize wallet from private key"""
