@@ -54,6 +54,7 @@ class TONWallet:
         self.liteserver_indices = [0, 1, 2]  # Multiple liteservers to try
         self.pending_withdrawals: Dict[str, Dict] = {}
         self.halted: bool = False  # Emergency halt flag
+        self.degraded_mode: bool = False  # New flag for fallback operation
 
     async def initialize(self) -> bool:
         """Initialize TON wallet connection with multiple fallback options"""
@@ -244,6 +245,10 @@ class TONWallet:
         if self.halted:
             logger.warning("Health check failed: System is halted")
             return False
+        
+        if self.degraded_mode:
+            logger.warning("Health check: DEGRADED MODE")
+            return False  # Not healthy but not disconnected
             
         try:
             if not self.initialized or not self.wallet:
@@ -278,6 +283,10 @@ class TONWallet:
             logger.warning("System halted - balance check skipped")
             return 0.0
             
+        if self.degraded_mode:
+            logger.warning("DEGRADED MODE: Returning cached balance")
+            return self.balance_cache
+        
         try:
             # Use cache to avoid frequent requests
             if not force_update and (datetime.now() - self.last_balance_check < timedelta(minutes=self.BALANCE_CACHE_MINUTES)):
@@ -309,6 +318,10 @@ class TONWallet:
         """Send TON transaction with fallback mechanism"""
         if self.halted:
             return {'status': 'error', 'error': 'System temporarily suspended'}
+        
+        if self.degraded_mode:
+            logger.error("DEGRADED MODE: Cannot send transactions")
+            return {'status': 'error', 'error': 'System in degraded mode'}
             
         try:
             logger.info(f"Sending {amount} TON to {destination}")
@@ -396,6 +409,10 @@ class TONWallet:
         """Process TON withdrawal with rate limiting and security checks"""
         if self.halted:
             return {'status': 'error', 'error': 'System temporarily suspended'}
+        
+        if self.degraded_mode:
+            logger.error("DEGRADED MODE: Withdrawals disabled")
+            return {'status': 'error', 'error': 'System in degraded mode'}
             
         try:
             logger.info(f"Processing withdrawal for user {user_id}: {amount} TON to {address}")
@@ -643,6 +660,15 @@ async def process_ton_withdrawal(user_id: int, amount: float, address: str) -> D
 async def get_wallet_status() -> Dict[str, Union[str, float, bool]]:
     """Get comprehensive wallet status"""
     try:
+        if ton_wallet.degraded_mode:
+            return {
+                'status': 'degraded',
+                'message': 'TON wallet in degraded mode',
+                'healthy': False,
+                'initialized': True,
+                'halted': False
+            }
+
         balance = await ton_wallet.get_balance()
         health = await ton_wallet.health_check()
         
@@ -656,9 +682,11 @@ async def get_wallet_status() -> Dict[str, Union[str, float, bool]]:
             'connection_type': 'HTTP' if ton_wallet.use_http_fallback else 'LiteClient',
             'halted': ton_wallet.halted
         }
+            
     except Exception as e:
         logger.error(f"Failed to get wallet status: {e}")
         return {
+            'status': 'error',
             'error': str(e),
             'healthy': False,
             'initialized': False,
