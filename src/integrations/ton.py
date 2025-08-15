@@ -16,11 +16,10 @@ from config import config
 # Production TON libraries
 from pytoniq import LiteClient, WalletV4R2, LiteServerError
 try:
-    from pytoncenter.client import Client as TonCenterClient
-    TONCENTER_AVAILABLE = True
-except ImportError:
-    TONCENTER_AVAILABLE = False
-    logger.warning("pytoncenter package not available. HTTP fallback will not work")
+    import pytoncenter
+    logger.info(f"pytoncenter version: {pytoncenter.__version__}")
+except Exception as e:
+    logger.critical(f"pytoncenter import failed: {str(e)}")
 
 # Essential pytoniq_core imports
 from pytoniq_core import Cell, begin_cell, Address
@@ -37,6 +36,10 @@ class TONWallet:
     CONNECTION_TIMEOUT = 30  # seconds
     DAILY_WITHDRAWAL_LIMIT = 1000  # TON per day
     USER_DAILY_WITHDRAWAL_LIMIT = 100  # TON per user per day
+    MAINNET_LITE_SERVERS = [
+    "https://ton.org/public.config.json",
+    "https://ton-blockchain.github.io/global.config.json"
+    ]
     
     def __init__(self) -> None:
         # Initialize connection parameters
@@ -222,6 +225,13 @@ class TONWallet:
                 logger.info("Wallet address verified successfully")
         else:
             logger.warning("No TON_HOT_WALLET configured - skipping address verification")
+
+        # In ton.py - Add direct HTTP requests as last-resort fallback
+    async def _http_fallback_send_transaction(destination, amount, memo):
+        url = "https://toncenter.com/api/v2/sendTransaction"
+        payload = {"dest": destination, "amount": amount, "message": memo}
+        response = requests.post(url, json=payload, timeout=10)
+        return response.json()
 
     def get_address(self) -> str:
         """Get wallet address in user-friendly format"""

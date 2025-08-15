@@ -4,6 +4,8 @@ WORKDIR /app
 
 COPY . .
 
+RUN pip uninstall -y pytoncenter && pip install --no-cache-dir pytoncenter==0.0.14
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 CMD ["python", "bot.py"]  # For worker
