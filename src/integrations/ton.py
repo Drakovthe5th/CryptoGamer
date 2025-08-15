@@ -24,6 +24,16 @@ except Exception as e:
 # Essential pytoniq_core imports
 from pytoniq_core import Cell, begin_cell, Address
 
+TONCENTER_AVAILABLE = False
+try:
+    from pytoncenter.client import Client as TonCenterClient
+    TONCENTER_AVAILABLE = True
+    logger.info("pytoncenter package available for HTTP fallback")
+except ImportError:
+    logger.warning("pytoncenter package not available. HTTP fallback will not work")
+except Exception as e:
+    logger.error(f"Error loading pytoncenter: {str(e)}")
+
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -56,11 +66,24 @@ class TONWallet:
         self.halted: bool = False  # Emergency halt flag
         self.degraded_mode: bool = False  # New flag for fallback operation
 
+        if self.is_testnet:
+            config_url = "https://ton.org/testnet-global.config.json"
+        else:
+            config_url = "https://ton.org/global.config.json"
+            
+        self.client = LiteClient.from_config(config_url, ls_index=ls_index, 
+                                            timeout=self.CONNECTION_TIMEOUT)
+
     async def initialize(self) -> bool:
         """Initialize TON wallet connection with multiple fallback options"""
         if self.halted:
             logger.warning("Skipping initialization: System is halted")
             return False
+        if not self.initialized:
+            logger.error("All connection methods failed - entering degraded mode")
+            self.degraded_mode = True
+            self.initialized = True
+            return True
             
         logger.info(f"Initializing TON wallet on {'testnet' if self.is_testnet else 'mainnet'}")
         
