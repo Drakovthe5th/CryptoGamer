@@ -74,7 +74,16 @@ def initialize_production_app():
     """Initialize production application with more resilience"""
     logger.info("🚀 STARTING PRODUCTION APPLICATION")
     
-    # CRITICAL: TON wallet MUST work in production
+    # Initialize Firebase first
+    try:
+        firebase_creds = config.FIREBASE_CREDS
+        initialize_firebase(firebase_creds)
+        logger.info("✅ Firebase initialized successfully")
+    except Exception as e:
+        logger.error(f"❌ Firebase initialization failed: {e}")
+        send_alert_to_admin(f"Firebase init failed: {str(e)}")
+    
+    # TON wallet initialization
     logger.info("Initializing PRODUCTION TON wallet...")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -86,7 +95,7 @@ def initialize_production_app():
         if not success:
             logger.critical("❌ PRODUCTION TON WALLET INITIALIZATION FAILED")
             send_alert_to_admin("🚨 CRITICAL: TON wallet failed to initialize")
-            # Instead of failing completely, start in degraded mode
+            # Start in degraded mode instead of failing
             logger.warning("Starting in degraded mode with limited functionality")
 
         # Verify wallet status
@@ -95,7 +104,7 @@ def initialize_production_app():
         
         if not status.get('healthy', False):
             logger.critical("❌ PRODUCTION TON WALLET IS UNHEALTHY")
-            # Continue in degraded mode instead of failing
+            # Continue in degraded mode
             logger.warning("Continuing in degraded mode")
         
         # Log production wallet details
@@ -109,6 +118,8 @@ def initialize_production_app():
         logger.warning("Starting in degraded mode due to initialization failure")
     finally:
         loop.close()
+    
+    logger.info("✅ PRODUCTION APPLICATION INITIALIZATION COMPLETE")
 
     # Initialize Firebase
     try:
@@ -145,6 +156,12 @@ def api_status():
         "environment": "production",
         "maintenance_available": MAINTENANCE_AVAILABLE
     }), 200
+
+@app.route('/static/<path:path>')
+def serve_static(path):
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    static_dir = os.path.join(root_dir, 'static')
+    return send_from_directory(static_dir, path)
 
 @app.route('/health')
 def health_check():

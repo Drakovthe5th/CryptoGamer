@@ -104,7 +104,6 @@ class TONWallet:
         
         try:
             self.lite_client = LiteClient(
-                ls_index=0,
                 config={
                     '@type': 'config.global',
                     'liteservers': servers,
