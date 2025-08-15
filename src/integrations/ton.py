@@ -16,7 +16,13 @@ from config import config
 # Production TON libraries
 from pytoniq import LiteClient, WalletV4R2, LiteServerError
 from pytoniq_core import Cell, begin_cell, Address
-from pytoniq_core.crypto import PrivateKey
+try:
+    from pytoniq_core.boc import PrivateKey
+except ImportError:
+    try:
+        from pytoniq_core.crypto import PrivateKey
+    except ImportError:
+        from pytoniq.crypto import PrivateKey
 
 # TonCenter HTTP client for fallback
 try:
