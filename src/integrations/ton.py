@@ -151,6 +151,7 @@ class TONWallet:
         except Exception as e:
             logger.error(f"Wallet credential initialization failed: {e}")
             return False
+        
 
     async def _init_from_mnemonic(self) -> None:
         """Initialize wallet from mnemonic phrase"""
@@ -168,9 +169,16 @@ class TONWallet:
         clean_phrase = " ".join(words)
         
         mnemo = Mnemonic("english")
-        if not mnemo.check(clean_phrase):
-            raise ValueError("Invalid mnemonic checksum")
-        
+        try:
+            if not mnemo.check(clean_phrase):
+                logger.error(f"Mnemonic checksum failed. Word count: {len(words)}")
+                # Log first/last word without exposing full phrase
+                logger.error(f"First word: {words[0]}, Last word: {words[-1]}")
+                raise ValueError("Invalid mnemonic checksum")
+        except Exception as e:
+            logger.critical(f"Mnemonic validation crashed: {str(e)}")
+            raise
+
         # Generate seed from mnemonic
         seed = mnemo.to_seed(clean_phrase, passphrase="")
         private_key = seed[:32]
