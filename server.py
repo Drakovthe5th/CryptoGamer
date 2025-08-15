@@ -9,7 +9,7 @@ from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 
 # Production TON imports
-from src.ton import (
+from src.integrations.ton import (
     is_valid_ton_address,
     initialize_ton_wallet,
     close_ton_wallet,
