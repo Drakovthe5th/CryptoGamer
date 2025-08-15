@@ -24,13 +24,14 @@ google-cloud-storage==3.2.0
 
 # Telegram Bot
 python-telegram-bot==21.4
-
+gunicorn==21.2.0
 # PayPal (if needed)
 paypalrestsdk==1.13.1
 
 # WebSocket support
 gevent==24.2.1
 gevent-websocket==0.10.1
+redis==5.0.1
 
 # Security and crypto
 cryptography==42.0.8
@@ -52,3 +53,4 @@ grpcio-status==1.62.3
 setuptools==80.9.0
 ton-client-py
 requests>=2.32
+ed25519==1.5

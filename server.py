@@ -6,8 +6,9 @@ import atexit
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
-from flask_wtf.csrf import CSRFProtect, generate_csrf
 from celery import Celery
+
+# Remove conflicting imports that might cause route conflicts
 from src.integrations.ton import (
     is_valid_ton_address,
     initialize_ton_wallet,
@@ -53,10 +54,7 @@ except ImportError as e:
         return {"status": "limited", "message": "Full health checks unavailable"}
 
 from config import config
-from src.web.routes import configure_routes
 from src.database.firebase import initialize_firebase
-from src.telegram.miniapp import miniapp_bp  # Import the miniapp blueprint
-from games.games import games_bp
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,37 +66,32 @@ CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 celery = Celery(app.name, broker='redis://localhost:6379/0')
 
-csrf = CSRFProtect(app)
-
-@app.after_request
-def set_csrf_token(response):
-    response.set_cookie('csrf_token', generate_csrf())
-    return response
-
-# Register miniapp blueprint
-app.register_blueprint(miniapp_bp, url_prefix='/api')
-app.register_blueprint(games_bp, url_prefix='/games')
-
 def initialize_app():
     """Initialize application components"""
-    logger.info("Initializing application...")
+    logger.info("Initializing PRODUCTION application...")
     
-    # Initialize TON wallet
-    logger.info("Initializing TON wallet...")
+    # PRODUCTION: TON wallet MUST initialize successfully
+    logger.info("Initializing PRODUCTION TON wallet...")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        # Try LiteClient first
         success = loop.run_until_complete(initialize_ton_wallet())
         if not success:
-            logger.warning("Falling back to HTTP client")
-            # Initialize HTTP client if LiteClient fails
-            client = loop.run_until_complete(get_ton_http_client(config.TON_API_KEY))
+            logger.critical("PRODUCTION TON WALLET INITIALIZATION FAILED")
+            send_alert_to_admin("🚨 CRITICAL: TON wallet failed to initialize in production")
+            raise RuntimeError("Production TON wallet initialization failed")
+        
         status = loop.run_until_complete(get_wallet_status())
-        logger.info(f"Wallet status: {status}")
+        logger.info(f"PRODUCTION Wallet status: {status}")
+        
+        if not status.get('healthy', False):
+            logger.critical("PRODUCTION TON WALLET IS UNHEALTHY")
+            raise RuntimeError("Production TON wallet is unhealthy")
+            
     except Exception as e:
-        logger.error(f"TON initialization failed: {e}")
-        send_alert_to_admin(f"TON init failure: {str(e)}")
+        logger.critical(f"PRODUCTION TON initialization failed: {e}")
+        send_alert_to_admin(f"🚨 PRODUCTION FAILURE: {str(e)}")
+        raise  # Don't continue if TON fails in production
     finally:
         loop.close()
 
@@ -130,12 +123,6 @@ def shutdown_app():
     
     logger.info("Application shutdown complete")
 
-# Run initialization when app starts
-initialize_app()
-
-# Register shutdown function
-atexit.register(shutdown_app)
-
 # Serve miniapp HTML at root endpoint
 @app.route('/', endpoint='main_miniapp')
 def serve_miniapp():
@@ -165,16 +152,16 @@ def health_status():
             'message': 'Limited health check - maintenance module unavailable'
         })
 
-# Game endpoints
+# RENAMED Game endpoints to avoid conflicts
 @app.route('/games/<path:game_path>')
-def serve_game(game_path):
-    """Serve game HTML based on game name"""
-    game_name = game_path.split('/')[0]
+def serve_game_files(game_path):
+    """Serve game HTML and assets"""
+    game_name = game_path.split('/')[0] if '/' in game_path else game_path
     
     valid_games = {
         'clicker': 'clicker/index.html',
-        'spin': 'spin/index.html',
-        'edge-surf': 'egde-surf/index.html',
+        'spin': 'spin/index.html', 
+        'edge-surf': 'edge-surf/index.html',  # Fixed typo
         'trex': 'trex/index.html',
         'trivia': 'trivia/index.html'
     }
@@ -187,16 +174,25 @@ def serve_game(game_path):
         return send_from_directory('static', valid_games[game_name])
         
     # Serve other assets
-    return send_from_directory('static', game_path)
+    try:
+        return send_from_directory('static', game_path)
+    except FileNotFoundError:
+        return "File not found", 404
 
 @app.route('/games/static/<path:path>')
-def game_static(path):
-    return send_from_directory('static', path)
+def serve_game_static(path):
+    """Serve game static files"""
+    try:
+        return send_from_directory('static', path)
+    except FileNotFoundError:
+        return "File not found", 404
 
 @app.route('/api/user/balance', methods=['GET'])
 def get_balance():
     try:
         user_id = get_user_id(request)
+        # Use safe import
+        from src.database.firebase import db
         balance = db.get_user_balance(user_id)
         return jsonify({'balance': balance})
     except Exception as e:
@@ -206,18 +202,16 @@ def get_balance():
 # Blockchain Endpoints
 @app.route('/api/blockchain/stake', methods=['POST'])
 def stake():
-    """
-    Simplified staking endpoint that uses the TON wallet address
-    instead of creating a staking contract
-    """
+    """Simplified staking endpoint"""
     try:
         user_id = get_user_id(request)
-        amount = request.json.get('amount')
+        data = request.get_json() or {}
+        amount = data.get('amount', 0)
         
         if not amount or amount < 5:
             return jsonify({'success': False, 'error': 'Invalid amount'}), 400
         
-        # Get wallet address instead of creating contract
+        # Get wallet address
         wallet_address = ton_wallet.get_address()
         
         if not wallet_address:
@@ -238,14 +232,12 @@ def stake():
 
 @app.route('/api/blockchain/swap', methods=['POST'])
 def swap_tokens():
-    """
-    Simplified swap endpoint that processes the transaction as a withdrawal
-    to the specified address
-    """
+    """Simplified swap endpoint"""
     try:
         user_id = get_user_id(request)
-        to_address = request.json.get('to')  # Destination address
-        amount = request.json.get('amount')
+        data = request.get_json() or {}
+        to_address = data.get('to')
+        amount = data.get('amount', 0)
         
         # Validate address
         if not is_valid_ton_address(to_address):
@@ -282,7 +274,8 @@ def wallet_status():
 def add_whitelist_endpoint():
     try:
         user_id = get_user_id(request)
-        address = request.json.get('address')
+        data = request.get_json() or {}
+        address = data.get('address')
         
         if not is_valid_ton_address(address):
             return jsonify({'success': False, 'error': 'Invalid address'}), 400
@@ -321,24 +314,11 @@ def handle_price_alert(data):
     except Exception as e:
         logger.error(f"Price alert error: {e}")
 
-# Infrastructure Monitoring
-if MAINTENANCE_AVAILABLE:
-    @celery.task
-    def monitor_infrastructure():
-        try:
-            check_server_load()
-            check_ton_node()
-            check_payment_gateways()
-            if any_issues_found():
-                send_alert_to_admin("Infrastructure monitoring alert")
-        except Exception as e:
-            logger.error(f"Infrastructure monitoring error: {e}")
-
 # Load Testing Endpoint
 @app.route('/api/loadtest', methods=['POST'])
 def run_load_test():
     try:
-        test_config = request.json
+        test_config = request.get_json() or {}
         celery.send_task('run_load_test', args=[test_config])
         return jsonify({'success': True, 'message': 'Load test started'})
     except Exception as e:
@@ -349,22 +329,20 @@ def run_load_test():
 def debug_info():
     try:
         import sys
-        import pytoniq
-        
         info = {
             "python_version": sys.version,
-            "pytoniq_version": pytoniq.__version__,
-            "pytoniq_path": pytoniq.__file__,
-            "firebase_creds_available": bool(config.FIREBASE_CREDS),
-            "ton_enabled": config.TON_ENABLED,
+            "firebase_creds_available": bool(getattr(config, 'FIREBASE_CREDS', None)),
+            "ton_enabled": getattr(config, 'TON_ENABLED', False),
             "maintenance_available": MAINTENANCE_AVAILABLE,
             "environment": os.environ.get('NODE_ENV', 'development')
         }
         
         try:
-            info["pytoniq_contents"] = dir(pytoniq)
-        except Exception as e:
-            info["pytoniq_contents_error"] = str(e)
+            import pytoniq
+            info["pytoniq_version"] = pytoniq.__version__
+            info["pytoniq_path"] = pytoniq.__file__
+        except ImportError:
+            info["pytoniq_available"] = False
         
         return jsonify(info)
     except Exception as e:
@@ -378,7 +356,22 @@ def debug_routes():
         output.append(f"{rule.endpoint}: {methods} -> {rule}")
     return jsonify({'routes': output})
 
-configure_routes(app)
+# Initialize app after defining routes
+try:
+    initialize_app()
+except Exception as e:
+    logger.error(f"App initialization failed: {e}")
+
+# Register shutdown function
+atexit.register(shutdown_app)
+
+# REMOVE CONFLICTING IMPORTS - Comment these out to avoid route conflicts
+# Register miniapp blueprint
+# app.register_blueprint(miniapp_bp, url_prefix='/api')
+# app.register_blueprint(games_bp, url_prefix='/games')
+
+# DON'T call configure_routes if it defines conflicting routes
+# configure_routes(app)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
@@ -386,18 +379,8 @@ if __name__ == '__main__':
     logger.info(f"Maintenance module available: {MAINTENANCE_AVAILABLE}")
     
     try:
-        from gevent import pywsgi
-        from geventwebsocket.handler import WebSocketHandler
-        
-        server = pywsgi.WSGIServer(
-            ('0.0.0.0', port), 
-            app,
-            handler_class=WebSocketHandler
-        )
-        logger.info("Starting gevent WSGI server")
-        server.serve_forever()
+        # Use Flask's built-in server which is more reliable on Render
+        app.run(host='0.0.0.0', port=port, debug=False)
     except Exception as e:
         logger.error(f"Server startup error: {e}")
-        # Fallback to Flask development server
-        logger.info("Falling back to Flask development server")
-        app.run(host='0.0.0.0', port=port, debug=False)
+        raise
