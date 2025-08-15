@@ -14,9 +14,9 @@ from src.utils.logger import logger, logging
 from config import config
 
 # Production TON libraries
-from pytoniq import WalletV4R2, LiteClient
-from pytoniq_core import PrivateKey
+from pytoniq import LiteClient, WalletV4R2, LiteServerError
 from pytoniq_core import Cell, begin_cell, Address
+from pytoniq_core.crypto import PrivateKey
 
 # TonCenter HTTP client for fallback
 try:
@@ -113,29 +113,15 @@ class ProductionTONWallet:
         return False
 
     async def _connect_http_toncenter(self) -> bool:
-        """Primary HTTP connection using TonCenter API"""
         try:
             logger.info("Initializing TonCenter HTTP connection")
-            
-            # Initialize wallet with private key only
             private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
-            
-            # Create wallet without provider for HTTP mode
-            from pytoniq_core import WalletV4R2 as CoreWallet, PrivateKey
-            
-            # Create private key object
             private_key = PrivateKey(private_key_bytes)
-            
-            # Create wallet
-            self.wallet = WalletV4R2(public_key=private_key.public_key, private_key=private_key)
+            self.wallet = CoreWalletV4R2(public_key=private_key.public_key,
+                                        private_key=private_key)
             self.use_http_mode = True
-            
-            # Test HTTP connection
             await self._test_http_connection()
-            
-            logger.info("HTTP TonCenter connection established successfully")
             return True
-            
         except Exception as e:
             logger.error(f"HTTP TonCenter connection failed: {e}")
             return False
