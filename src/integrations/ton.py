@@ -109,12 +109,10 @@ class ProductionTONWallet:
                 
                 if self.is_testnet:
                     self.client = LiteClient.from_testnet_config(
-                        ls_index=attempt % 3,  # Cycle through available servers
                         timeout=self.CONNECTION_TIMEOUT
                     )
                 else:
                     self.client = LiteClient.from_mainnet_config(
-                        ls_index=attempt % 3,
                         timeout=self.CONNECTION_TIMEOUT
                     )
                 
@@ -159,23 +157,20 @@ class ProductionTONWallet:
         try:
             logger.info("Initializing HTTP fallback connection")
             
-            # Create a simple HTTP-based provider
-            class HTTPProvider:
-                def __init__(self, network: str):
-                    self.network = network
-                    if network == "mainnet":
-                        self.base_url = "https://toncenter.com/api/v2"
-                    else:
-                        self.base_url = "https://testnet.toncenter.com/api/v2"
-                    
-                async def get_account_state(self, address: str):
-                    # Implement basic account state fetching
-                    response = requests.get(f"{self.base_url}/getAddressInformation", 
-                                          params={"address": address})
-                    return response.json()
+            # For HTTP mode, we'll work without LiteClient
+            # Just initialize the wallet with private key
+            private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
             
-            # Initialize wallet with HTTP provider
-            await self._init_wallet_from_config()
+            # Create wallet without provider for HTTP mode
+            # Note: This limits functionality but allows basic operations
+            try:
+                from pytoniq_core import WalletV4R2 as CoreWalletV4R2
+                self.wallet = CoreWalletV4R2(private_key=private_key_bytes)
+            except ImportError:
+                # Fallback to creating wallet without provider
+                # This will require manual transaction construction
+                logger.warning("Using limited wallet functionality for HTTP mode")
+                return False
             
             # Test basic functionality
             address = self.get_address()
