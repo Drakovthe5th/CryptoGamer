@@ -13,10 +13,9 @@ pytoniq-core==0.1.44
 PyNaCl==1.5.0
 mnemonic==0.20
 pytoncenter==0.0.14
-tontools
 
 # Alternative TON SDK (backup)
-tonsdk==1.0.1
+tonsdk==1.0.13
 
 # Firebase
 firebase-admin==6.5.0
