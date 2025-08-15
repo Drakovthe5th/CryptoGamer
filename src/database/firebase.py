@@ -82,6 +82,17 @@ def update_balance(user_id: int, amount: float) -> float:
         logger.error(f"Error updating balance: {str(e)}")
         return 0.0
 
+def get_games_list() -> list:
+    """Get list of enabled games from Firestore"""
+    try:
+        games_ref = db.collection('games')
+        query = games_ref.where('enabled', '==', True)
+        games = [doc.to_dict() for doc in query.stream()]
+        return games
+    except Exception as e:
+        logger.error(f"Error getting games list: {str(e)}")
+        return []
+
 # Activity operations
 def get_user_activity(user_id: int, limit=100) -> list:
     """Get recent user activity records"""
@@ -133,6 +144,22 @@ def process_ton_withdrawal(user_id: int, amount: float, address: str) -> dict:
             'status': 'error',
             'error': str(e)
         }
+
+def record_game_start(user_id: int, game_id: str) -> str:
+    """Record game start and return session ID"""
+    try:
+        session_data = {
+            'user_id': str(user_id),
+            'game_id': game_id,
+            'start_time': SERVER_TIMESTAMP,
+            'status': 'started'
+        }
+        doc_ref = db.collection('game_sessions').document()
+        doc_ref.set(session_data)
+        return doc_ref.id
+    except Exception as e:
+        logger.error(f"Error recording game start: {str(e)}")
+        return ""
 
 # Quest operations
 def save_quest_progress(user_id: int, user_data: dict) -> bool:

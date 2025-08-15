@@ -13,7 +13,7 @@ from src.features.mining import token_distribution, proof_of_play
 from src.security import anti_cheat
 from src.features import quests
 from src.utils.validators import validate_json_input
-from src.database.firebase import save_game_session
+from src.database.firebase import save_game_session, get_game_session
 from config import config
 import logging
 
@@ -89,23 +89,8 @@ def claim_daily():
     
 def validate_game_session(user_id, session_id):
     """Validate game session exists and belongs to user"""
-    session = db.get_game_session(session_id)
+    session = db.get_game_session(session_id)  # Ensure this function exists
     
-    expected_duration = {
-    'trex': (30, 600),       # 30sec - 10min
-    'edge-surf': (60, 1800), # 1-30min
-    'clicker': (120, 86400), # 2min-24hr
-    'spin': (10, 300),       # 10sec-5min
-    'trivia': (60, 600)      # 1-10min
-    }
-
-    min_dur, max_dur = expected_duration.get(game_id, (10, 3600))
-    actual_duration = (datetime.now() - session['start_time']).total_seconds()
-
-    if not (min_dur <= actual_duration <= max_dur):
-        logger.warning(f"Suspicious session duration: {actual_duration}s for {game_id}")
-        return False
-
     if not session:
         return False
     if session['user_id'] != user_id:
@@ -113,11 +98,19 @@ def validate_game_session(user_id, session_id):
     if session['status'] != 'active':
         return False
         
-    # Check session isn't too old (max 1 hour)
-    if (datetime.now() - session['start_time']).total_seconds() > 3600:
-        return False
-        
-    return True
+    # Duration validation
+    game_id = session['game_id']
+    expected_duration = {
+        'trex': (30, 600),
+        'edge-surf': (60, 1800),
+        'clicker': (120, 86400),
+        'spin': (10, 300),
+        'trivia': (60, 600)
+    }
+    min_dur, max_dur = expected_duration.get(game_id, (10, 3600))
+    actual_duration = (datetime.now() - session['start_time']).total_seconds()
+
+    return min_dur <= actual_duration <= max_dur
 
 
 @miniapp_bp.route('/quests/record_click', methods=['POST'])

@@ -343,6 +343,18 @@
           <div class="game-name">${game.name}</div>
           <div class="game-reward">Earn up to ${game.reward || 5} $TON/hr</div>
         `;
+
+        gameCard.addEventListener('click', () => {
+        // Record game start
+            fetch('/api/game/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Security-Token': window.securityToken,
+                'X-User-ID': window.userId
+            },
+            body: JSON.stringify({ game_id: game.id })
+        });
         
         gameCard.addEventListener('click', () => {
           Telegram.WebApp.showPopup({
