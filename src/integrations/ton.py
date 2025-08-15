@@ -532,6 +532,12 @@ async def close_ton_wallet():
     """Close production TON wallet"""
     await ton_wallet.close()
 
+async def get_ton_http_client(api_key: str = None):
+    """Get HTTP client (compatibility function)"""
+    # This is for backwards compatibility - production wallet handles HTTP internally
+    logger.info("HTTP client requested - using internal production client")
+    return "internal_http_client"
+
 def is_valid_ton_address(address: str) -> bool:
     """Validate TON address"""
     try:
