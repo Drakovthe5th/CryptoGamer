@@ -193,17 +193,17 @@ class TONWallet:
             )
 
     async def ensure_connection(self) -> None:
-    if self.halted:
-        return
-        
-    if not await self.health_check():
-        logger.warning("TON connection lost, reinitializing...")
-        # Try HTTP fallback first
-        if not self.use_http_fallback and TONCENTER_AVAILABLE:
-            logger.info("Switching to HTTP fallback")
-            await self._try_http_connection()
-        else:
-            await self.initialize()
+        if self.halted:
+            return
+            
+        if not await self.health_check():
+            logger.warning("TON connection lost, reinitializing...")
+            # Try HTTP fallback first
+            if not self.use_http_fallback and TONCENTER_AVAILABLE:
+                logger.info("Switching to HTTP fallback")
+                await self._try_http_connection()
+            else:
+                await self.initialize()
 
     async def _verify_wallet_address(self) -> None:
         """Verify wallet address matches configuration"""
