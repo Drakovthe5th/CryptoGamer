@@ -17,23 +17,6 @@ from config import config
 from pytoniq import LiteClient, LiteServerError
 from pytoniq_core import Cell, begin_cell, Address
 
-# Optional libraries (for fallbacks)
-try:
-    from tonclient.client import TonClient
-    from tonclient.types import ParamsOfSendMessage, ParamsOfProcessMessage
-    TONCLIENT_AVAILABLE = True
-except ImportError:
-    TONCLIENT_AVAILABLE = False
-
-try:
-    from tonsdk.contract.wallet import WalletV4R2 as TonsdkWalletV4R2
-    from tonsdk.crypto import mnemonic_to_private_key, private_key_to_public_key
-    from tonsdk.provider import ToncenterClient as TonsdkToncenterClient
-    from tonsdk.utils import to_nano, bytes_to_b64str
-    TONSDK_AVAILABLE = True
-except ImportError:
-    TONSDK_AVAILABLE = False
-
 # Configure logger
 logger = logging.getLogger(__name__)
 
@@ -64,9 +47,6 @@ class TONWallet:
         
         # Connection providers
         self.lite_client: Optional[LiteClient] = None
-        self.ton_client: Optional[TonClient] = None
-        self.sdk_wallet: Optional[TonsdkWalletV4R2] = None
-        self.sdk_provider: Optional[TonsdkToncenterClient] = None
 
     async def initialize(self) -> bool:
         """Initialize with multiple fallback strategies"""
@@ -80,8 +60,6 @@ class TONWallet:
         strategies = [
             ("LiteClient", self._init_liteclient),
             ("DirectHTTP", self._init_direct_http),
-            ("TonClient", self._init_tonclient),
-            ("TonsSDK", self._init_tonsdk)
         ]
         
         for name, strategy in strategies:
@@ -134,49 +112,6 @@ class TONWallet:
             return True
         except Exception as e:
             logger.error(f"Direct HTTP init failed: {e}")
-            return False
-
-    async def _init_tonclient(self) -> bool:
-        """Initialize using ton-client-py"""
-        if not TONCLIENT_AVAILABLE:
-            logger.warning("ton-client-py not available")
-            return False
-            
-        try:
-            self.ton_client = TonClient(
-                config={
-                    'network': {
-                        'server_address': 'https://mainnet.toncenter.com/api/v2/jsonRPC' 
-                        if not self.is_testnet else 
-                        'https://testnet.toncenter.com/api/v2/jsonRPC'
-                    }
-                },
-                is_async=True
-            )
-            await self._init_wallet_credentials()
-            return True
-        except Exception as e:
-            logger.error(f"TonClient init failed: {e}")
-            return False
-
-    async def _init_tonsdk(self) -> bool:
-        """Initialize using tonsdk"""
-        if not TONSDK_AVAILABLE:
-            logger.warning("tonsdk not available")
-            return False
-            
-        try:
-            # Initialize provider
-            self.sdk_provider = TonsdkToncenterClient(
-                base_url='https://toncenter.com/api/v2/jsonRPC' if not self.is_testnet else 'https://testnet.toncenter.com/api/v2/jsonRPC',
-                api_key=getattr(config, 'TONCENTER_API_KEY', '')
-            )
-            
-            # Initialize wallet
-            await self._init_wallet_credentials()
-            return True
-        except Exception as e:
-            logger.error(f"TonsSDK init failed: {e}")
             return False
 
     async def _init_wallet_credentials(self) -> None:
@@ -261,10 +196,6 @@ class TONWallet:
                 balance = await self.get_balance_via_liteclient()
             elif self.connection_type == "DirectHTTP":
                 balance = await self.get_balance_via_http()
-            elif self.connection_type == "TonClient":
-                balance = await self.get_balance_via_tonclient()
-            elif self.connection_type == "TonsSDK":
-                balance = await self.get_balance_via_tonsdk()
             else:
                 balance = 0.0
                 
@@ -303,35 +234,6 @@ class TONWallet:
             logger.error(f"HTTP balance check failed: {e}")
             return -1
 
-    async def get_balance_via_tonclient(self) -> float:
-        """Get balance via TonClient"""
-        if not self.ton_client:
-            return -1
-            
-        query = {"address": self.wallet_address}
-        result = await self.ton_client.net.query_collection(
-            collection="accounts",
-            filter=query,
-            result="balance"
-        )
-        balance = int(result.result[0]["balance"]) / self.NANOTON_CONVERSION
-        logger.info(f"TonClient balance: {balance:.6f} TON")
-        return balance
-
-    async def get_balance_via_tonsdk(self) -> float:
-        """Get balance via TonsSDK"""
-        if not self.sdk_provider:
-            return -1
-            
-        try:
-            balance = await self.sdk_provider.get_address_balance(self.wallet_address)
-            ton_balance = int(balance) / self.NANOTON_CONVERSION
-            logger.info(f"TonsSDK balance: {ton_balance:.6f} TON")
-            return ton_balance
-        except Exception as e:
-            logger.error(f"TonsSDK balance check failed: {e}")
-            return -1
-
     # ========== TRANSACTION METHODS ========== #
     async def send_transaction(self, destination: str, amount: float, memo: str = "") -> Dict[str, Any]:
         """Send transaction with automatic method selection"""
@@ -348,10 +250,6 @@ class TONWallet:
                 return await self.send_via_liteclient(destination, amount, memo)
             elif self.connection_type == "DirectHTTP":
                 return await self.send_via_http(destination, amount, memo)
-            elif self.connection_type == "TonClient":
-                return await self.send_via_tonclient(destination, amount, memo)
-            elif self.connection_type == "TonsSDK":
-                return await self.send_via_tonsdk(destination, amount, memo)
             else:
                 return {'status': 'error', 'error': 'No connection method'}
         except Exception as e:
@@ -409,26 +307,6 @@ class TONWallet:
                 'error': str(e),
                 'method': 'DirectHTTP'
             }
-
-    async def send_via_tonclient(self, destination: str, amount: float, memo: str) -> Dict[str, Any]:
-        """Send via TonClient (simplified)"""
-        # This would be implemented using TonClient's actual methods
-        logger.info(f"[TonClient] Sent {amount} TON to {destination}")
-        return {
-            'status': 'success',
-            'tx_hash': 'simulated_tx_hash',
-            'method': 'TonClient'
-        }
-
-    async def send_via_tonsdk(self, destination: str, amount: float, memo: str) -> Dict[str, Any]:
-        """Send via TonsSDK (simplified)"""
-        # This would be implemented using TonsSDK's actual methods
-        logger.info(f"[TonsSDK] Sent {amount} TON to {destination}")
-        return {
-            'status': 'success',
-            'tx_hash': 'simulated_tx_hash',
-            'method': 'TonsSDK'
-        }
 
     # ========== CORE FUNCTIONALITY ========== #
     def is_valid_ton_address(self, address: str) -> bool:
