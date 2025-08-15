@@ -10,9 +10,7 @@ from celery import Celery
 
 # Production TON imports
 from src.integrations.ton import (
-    is_valid_ton_address,
     initialize_ton_wallet,
-    close_ton_wallet,
     process_ton_withdrawal,
     ton_wallet,
     get_wallet_status
@@ -125,19 +123,7 @@ def initialize_production_app():
 def shutdown_production_app():
     """Graceful shutdown of production application"""
     logger.info("🛑 SHUTTING DOWN PRODUCTION APPLICATION")
-    
-    # Close TON wallet
-    logger.info("Closing TON wallet connection...")
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(close_ton_wallet())
-        logger.info("✅ TON wallet closed successfully")
-    except Exception as e:
-        logger.error(f"❌ Error closing TON wallet: {e}")
-    finally:
-        loop.close()
-    
+    # TON wallet shutdown handled internally
     logger.info("✅ PRODUCTION SHUTDOWN COMPLETE")
 
 # Core Routes
@@ -260,7 +246,7 @@ def blockchain_stake():
         if not amount or amount < 5:
             return jsonify({'success': False, 'error': 'Minimum stake is 5 TON'}), 400
         
-        wallet_address = ton_wallet.get_address()
+        wallet_address = ton_wallet.wallet_address
         if not wallet_address:
             return jsonify({'success': False, 'error': 'Wallet unavailable'}), 500
         
@@ -289,7 +275,7 @@ def blockchain_withdraw():
         amount = float(data.get('amount', 0))
         
         # Validate inputs
-        if not to_address or not is_valid_ton_address(to_address):
+        if not to_address or not ton_wallet.is_valid_ton_address(to_address):
             return jsonify({'success': False, 'error': 'Invalid TON address'}), 400
             
         if amount <= 0:
