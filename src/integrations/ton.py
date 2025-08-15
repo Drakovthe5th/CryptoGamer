@@ -14,15 +14,8 @@ from src.utils.logger import logger, logging
 from config import config
 
 # Production TON libraries
-from pytoniq import LiteClient, WalletV4R2, LiteServerError
-from pytoniq_core import Cell, begin_cell, Address
-try:
-    from pytoniq_core.boc import PrivateKey
-except ImportError:
-    try:
-        from pytoniq_core.crypto import PrivateKey
-    except ImportError:
-        from pytoniq.crypto import PrivateKey
+from tontools import Wallet, TonCenterClient, LsClient, Address
+from tontools.utils import from_nano
 
 # TonCenter HTTP client for fallback
 try:
@@ -38,18 +31,18 @@ class ProductionTONWallet:
     
     # Production Constants
     BALANCE_CACHE_MINUTES = 5
-    TRANSACTION_TIMEOUT = 60  # Reduced timeout
-    MAX_RETRY_ATTEMPTS = 3    # Reduced retries
+    TRANSACTION_TIMEOUT = 60
+    MAX_RETRY_ATTEMPTS = 3
     NANOTON_CONVERSION = 1e9
-    CONNECTION_TIMEOUT = 30   # Reduced connection timeout
+    CONNECTION_TIMEOUT = 30
     DAILY_WITHDRAWAL_LIMIT = 10000
     USER_DAILY_WITHDRAWAL_LIMIT = 1000
     
-    # More aggressive retry configuration
+    # Retry configuration
     RETRY_DELAYS = [2, 5, 10]
-    MAX_LITESERVER_ATTEMPTS = 3  # Try fewer servers, fail faster
+    MAX_LITESERVER_ATTEMPTS = 3
     
-    # Mainnet lite servers (working as of 2024)
+    # Mainnet lite servers
     MAINNET_LITE_SERVERS = [
         "https://toncenter.com/api/v2/jsonRPC",
         "https://mainnet-v4.tonhubapi.com",
@@ -59,8 +52,8 @@ class ProductionTONWallet:
     ]
     
     def __init__(self) -> None:
-        self.client: Optional[LiteClient] = None
-        self.wallet: Optional[WalletV4R2] = None
+        self.provider = None
+        self.wallet = None
         self.balance_cache: float = 0.0
         self.last_balance_check: datetime = datetime.min
         self.initialized: bool = False
@@ -68,7 +61,7 @@ class ProductionTONWallet:
         self.connection_healthy: bool = False
         self.last_health_check: datetime = datetime.min
         self.pending_withdrawals: Dict[str, Dict] = {}
-        self.use_http_mode: bool = False  # Flag to force HTTP mode
+        self.use_http_mode: bool = False
         
         # Production credentials validation
         self._validate_production_config()
@@ -86,7 +79,6 @@ class ProductionTONWallet:
         if missing_configs:
             raise ValueError(f"Missing required production configs: {missing_configs}")
             
-        # Validate network
         if config.TON_NETWORK.lower() not in ['mainnet', 'testnet']:
             raise ValueError(f"Invalid TON_NETWORK: {config.TON_NETWORK}")
             
@@ -96,7 +88,6 @@ class ProductionTONWallet:
         """Production initialization with HTTP-first approach"""
         logger.info(f"Initializing production TON wallet on {config.TON_NETWORK}")
         
-        # For production stability, try HTTP first
         connection_strategies = [
             ("HTTP", self._connect_http_toncenter),
             ("LiteClient", self._connect_liteclient_robust)
@@ -119,14 +110,27 @@ class ProductionTONWallet:
         return False
 
     async def _connect_http_toncenter(self) -> bool:
+        """Connect using TonCenter HTTP API"""
         try:
             logger.info("Initializing TonCenter HTTP connection")
+            
             private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
-            private_key = PrivateKey(private_key_bytes)
-            self.wallet = CoreWalletV4R2(public_key=private_key.public_key,
-                                        private_key=private_key)
+            
+            # Create provider and wallet
+            self.provider = TonCenterClient(
+                base_url="https://testnet.toncenter.com" if self.is_testnet else "https://toncenter.com",
+                orbs_access=True
+            )
+            
+            self.wallet = Wallet(
+                provider=self.provider,
+                private_key=private_key_bytes.hex(),
+                version='v4r2'
+            )
+            
             self.use_http_mode = True
             await self._test_http_connection()
+            logger.info("HTTP TonCenter connection established successfully")
             return True
         except Exception as e:
             logger.error(f"HTTP TonCenter connection failed: {e}")
@@ -139,22 +143,9 @@ class ProductionTONWallet:
             if not address:
                 raise ValueError("Cannot get wallet address")
             
-            # Test with TonCenter API
-            base_url = "https://testnet.toncenter.com" if self.is_testnet else "https://toncenter.com"
-            
-            response = requests.get(
-                f"{base_url}/api/v2/getAddressInformation",
-                params={"address": address},
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("ok"):
-                    logger.info(f"HTTP connection test successful for {address}")
-                    return True
-            
-            raise ValueError(f"HTTP test failed: {response.status_code}")
+            balance = await self.wallet.get_balance()
+            logger.info(f"HTTP connection test successful. Balance: {from_nano(balance)} TON")
+            return True
             
         except Exception as e:
             logger.error(f"HTTP connection test failed: {e}")
@@ -166,43 +157,25 @@ class ProductionTONWallet:
             try:
                 logger.info(f"LiteClient attempt {attempt + 1}/{self.MAX_LITESERVER_ATTEMPTS}")
                 
-                # Clean up any existing client
-                if self.client:
-                    try:
-                        await self.client.close()
-                    except:
-                        pass
-                    self.client = None
-                
-                # Create new client with shorter timeout
-                if self.is_testnet:
-                    self.client = LiteClient.from_testnet_config(
-                        timeout=self.CONNECTION_TIMEOUT,
-                        trust_level=1  # Trust the config more
-                    )
-                else:
-                    self.client = LiteClient.from_mainnet_config(
-                        timeout=self.CONNECTION_TIMEOUT,
-                        trust_level=1
-                    )
-                
-                # Connect with aggressive timeout
-                await asyncio.wait_for(self.client.connect(), timeout=10)
-                
-                # Quick verification
-                info = await asyncio.wait_for(self.client.get_masterchain_info(), timeout=8)
-                if not info:
-                    raise ValueError("Invalid masterchain info")
+                # Create provider
+                self.provider = LsClient(
+                    ls_index=0,
+                    default_timeout=self.CONNECTION_TIMEOUT,
+                    addresses_form='user_friendly',
+                    testnet=self.is_testnet
+                )
+                await self.provider.init_tonlib()
                 
                 # Initialize wallet
                 private_key_bytes = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = await WalletV4R2.from_private_key(
-                    provider=self.client,
-                    private_key=private_key_bytes
+                self.wallet = Wallet(
+                    provider=self.provider,
+                    private_key=private_key_bytes.hex(),
+                    version='v4r2'
                 )
                 
-                # Quick wallet test
-                seqno = await asyncio.wait_for(self.wallet.get_seqno(), timeout=8)
+                # Quick test
+                await self.wallet.get_balance()
                 
                 logger.info(f"LiteClient connected successfully (attempt {attempt + 1})")
                 self.use_http_mode = False
@@ -210,14 +183,13 @@ class ProductionTONWallet:
                 
             except Exception as e:
                 logger.warning(f"LiteClient attempt {attempt + 1} failed: {e}")
-                if self.client:
+                if self.provider:
                     try:
-                        await self.client.close()
+                        await self.provider.close()
                     except:
                         pass
-                    self.client = None
+                    self.provider = None
                 
-                # Short delay between attempts
                 if attempt < self.MAX_LITESERVER_ATTEMPTS - 1:
                     await asyncio.sleep(2)
         
@@ -232,14 +204,14 @@ class ProductionTONWallet:
             if not derived_address:
                 raise ValueError("Cannot derive wallet address")
             
-            # Normalize addresses for comparison
-            derived_addr = Address(derived_address).to_str()
-            config_addr = Address(config_address).to_str()
+            # Normalize addresses
+            derived_addr = Address(derived_address).to_string(True, True, True)
+            config_addr = Address(config_address).to_string(True, True, True)
             
-            if derived_addr.to_str(True, True, True) != config_addr.to_str(True, True, True):
+            if derived_addr != config_addr:
                 logger.error("CRITICAL: Production wallet address mismatch!")
-                logger.error(f"Derived:   {derived_addr.to_str(True, True, True)}")
-                logger.error(f"Config:    {config_addr.to_str(True, True, True)}")
+                logger.error(f"Derived:   {derived_addr}")
+                logger.error(f"Config:    {config_addr}")
                 raise ValueError("Production wallet verification failed")
             
             logger.info(f"Production wallet verified: {derived_address}")
@@ -252,13 +224,7 @@ class ProductionTONWallet:
         """Get production wallet address"""
         if not self.wallet:
             return ""
-        try:
-            return self.wallet.address.to_str(True, True, True)
-        except:
-            try:
-                return str(self.wallet.address)
-            except:
-                return ""
+        return self.wallet.address.to_string(True, True, True)
 
     async def health_check(self) -> bool:
         """Production health check with mode awareness"""
@@ -273,17 +239,10 @@ class ProductionTONWallet:
                 self.connection_healthy = False
                 return False
             
-            if self.use_http_mode:
-                # Test HTTP connection
-                balance = await self.get_balance_http()
-                if balance < 0:
-                    raise ValueError("Invalid HTTP balance")
-            else:
-                # Test LiteClient connection
-                if not self.client:
-                    raise ValueError("No LiteClient available")
-                await asyncio.wait_for(self.client.get_masterchain_info(), timeout=8)
-                await asyncio.wait_for(self.wallet.get_seqno(), timeout=8)
+            # Test connection by getting balance
+            balance = await self.get_balance()
+            if balance < 0:
+                raise ValueError("Invalid balance")
             
             self.connection_healthy = True
             self.last_health_check = now
@@ -305,70 +264,17 @@ class ProductionTONWallet:
             self.connection_healthy = False
             
             # Close existing connections
-            if self.client:
+            if self.provider:
                 try:
-                    await self.client.close()
+                    await self.provider.close()
                 except:
                     pass
-                self.client = None
+                self.provider = None
             
             # Reinitialize
             success = await self.initialize()
             if not success:
                 raise ConnectionError("Failed to reestablish TON connection")
-
-    async def get_balance_http(self) -> float:
-        """Get balance via HTTP API"""
-        try:
-            address = self.get_address()
-            if not address:
-                raise ValueError("No wallet address available")
-            
-            base_url = "https://testnet.toncenter.com" if self.is_testnet else "https://toncenter.com"
-            
-            response = requests.get(
-                f"{base_url}/api/v2/getAddressInformation",
-                params={"address": address},
-                timeout=10
-            )
-            
-            if response.status_code != 200:
-                raise ValueError(f"HTTP request failed: {response.status_code}")
-            
-            data = response.json()
-            if not data.get("ok"):
-                raise ValueError(f"API error: {data}")
-            
-            balance_nano = int(data["result"]["balance"])
-            return balance_nano / self.NANOTON_CONVERSION
-            
-        except Exception as e:
-            logger.error(f"HTTP balance check failed: {e}")
-            return -1.0
-
-    async def get_balance_liteclient(self) -> float:
-        """Get balance via LiteClient"""
-        try:
-            if not self.client or not self.wallet:
-                raise ValueError("LiteClient not available")
-            
-            balance_nano = await asyncio.wait_for(self.wallet.get_balance(), timeout=10)
-            return balance_nano / self.NANOTON_CONVERSION
-            
-        except Exception as e:
-            logger.error(f"LiteClient balance check failed: {e}")
-            return -1.0
-
-    async def get_balance_direct(self) -> float:
-        """Direct balance check using current connection mode"""
-        try:
-            if self.use_http_mode:
-                return await self.get_balance_http()
-            else:
-                return await self.get_balance_liteclient()
-        except Exception as e:
-            logger.error(f"Direct balance check failed: {e}")
-            return -1.0
 
     async def get_balance(self, force_update: bool = False) -> float:
         """Get wallet balance with production caching"""
@@ -382,78 +288,25 @@ class ProductionTONWallet:
             await self.ensure_connection()
             
             # Get fresh balance
-            balance = await self.get_balance_direct()
+            balance_nano = await self.wallet.get_balance()
+            balance = from_nano(balance_nano)
             
-            if balance >= 0:
-                # Update cache only on success
-                self.balance_cache = balance
-                self.last_balance_check = datetime.now()
+            # Update cache only on success
+            self.balance_cache = balance
+            self.last_balance_check = datetime.now()
                 
-                # Production monitoring
-                min_balance = getattr(config, 'MIN_HOT_BALANCE', 10)
-                if balance < min_balance:
-                    alert_msg = f"🔥 PRODUCTION ALERT: Hot wallet balance low: {balance:.6f} TON"
-                    logger.critical(alert_msg)
-                    self._send_production_alert(alert_msg)
-            else:
-                # Return cached value on error
-                balance = self.balance_cache
+            # Production monitoring
+            min_balance = getattr(config, 'MIN_HOT_BALANCE', 10)
+            if balance < min_balance:
+                alert_msg = f"🔥 PRODUCTION ALERT: Hot wallet balance low: {balance:.6f} TON"
+                logger.critical(alert_msg)
+                self._send_production_alert(alert_msg)
             
             return balance
             
         except Exception as e:
             logger.error(f"Balance check failed: {e}")
             return self.balance_cache if self.balance_cache >= 0 else 0.0
-
-    async def send_transaction_http(self, destination: str, amount: float, memo: str = "") -> Dict[str, Union[str, float]]:
-        """Send transaction via HTTP (limited functionality)"""
-        # HTTP mode typically requires external transaction construction
-        # This is a placeholder for HTTP-based transactions
-        logger.error("HTTP transaction sending not fully implemented - requires external service")
-        return {
-            'status': 'error',
-            'error': 'HTTP transactions require external service integration'
-        }
-
-    async def send_transaction_liteclient(self, destination: str, amount: float, memo: str = "") -> Dict[str, Union[str, float]]:
-        """Send transaction via LiteClient"""
-        try:
-            if not self.client or not self.wallet:
-                raise ValueError("LiteClient not available")
-            
-            # Convert to nanoton
-            amount_nano = int(amount * self.NANOTON_CONVERSION)
-            
-            # Prepare transaction body
-            body = begin_cell()
-            if memo:
-                body.store_uint(0, 32)  # Comment opcode
-                body.store_string(memo)
-            body_cell = body.end_cell()
-            
-            # Send transaction
-            result = await asyncio.wait_for(
-                self.wallet.transfer(
-                    destination=Address(destination),
-                    amount=amount_nano,
-                    body=body_cell
-                ),
-                timeout=self.TRANSACTION_TIMEOUT
-            )
-            
-            tx_hash = result.hash.hex()
-            logger.info(f"LiteClient transaction success: {tx_hash}")
-            
-            return {
-                'status': 'success',
-                'tx_hash': tx_hash,
-                'amount': amount,
-                'destination': destination
-            }
-            
-        except Exception as e:
-            logger.error(f"LiteClient transaction failed: {e}")
-            raise
 
     async def send_transaction(self, destination: str, amount: float, memo: str = "") -> Dict[str, Union[str, float]]:
         """Production transaction sending with mode awareness"""
@@ -468,21 +321,31 @@ class ProductionTONWallet:
                 raise ValueError(f"Invalid destination address: {destination}")
             
             # Check balance
-            balance = await self.get_balance(force_update=True)
+            balance = await self.get_balance()
             if balance < amount:
                 raise ValueError(f"Insufficient balance: {balance} < {amount}")
             
-            # Send based on connection mode
-            if self.use_http_mode:
-                result = await self.send_transaction_http(destination, amount, memo)
-            else:
-                result = await self.send_transaction_liteclient(destination, amount, memo)
+            # Send transaction
+            result = await self.wallet.transfer_ton(
+                destination_address=destination,
+                amount=amount,
+                message=memo
+            )
             
-            if result['status'] == 'success':
+            if result.get('@type') == 'ok':
                 # Clear balance cache on success
                 self.last_balance_check = datetime.min
-            
-            return result
+                logger.info(f"Transaction success: {result}")
+                return {
+                    'status': 'success',
+                    'tx_hash': result.get('hash'),
+                    'amount': amount,
+                    'destination': destination
+                }
+            else:
+                error = result.get('error', 'Transaction failed')
+                logger.error(f"Transaction failed: {error}")
+                return {'status': 'error', 'error': error}
             
         except Exception as e:
             error_msg = f"Production transaction failed: {str(e)}"
@@ -511,18 +374,7 @@ class ProductionTONWallet:
             if not self._check_withdrawal_limits(user_id, amount):
                 return {'status': 'error', 'error': 'Withdrawal limits exceeded'}
             
-            # For HTTP mode, queue withdrawal for manual processing
-            if self.use_http_mode:
-                logger.warning("HTTP mode - withdrawal queued for manual processing")
-                # In production, you'd queue this for batch processing
-                return {
-                    'status': 'queued',
-                    'message': 'Withdrawal queued for processing',
-                    'amount': amount,
-                    'destination': address
-                }
-            
-            # Process blockchain transaction
+            # Process transaction
             memo = f"Withdrawal for user {user_id}"
             result = await self.send_transaction(address, amount, memo)
             
@@ -530,8 +382,7 @@ class ProductionTONWallet:
                 # Update database
                 db.update_user_balance(user_id, -amount)
                 self._update_withdrawal_limits(user_id, amount)
-                
-                logger.info(f"PRODUCTION WITHDRAWAL SUCCESS: {result.get('tx_hash', 'queued')}")
+                logger.info(f"PRODUCTION WITHDRAWAL SUCCESS: {result.get('tx_hash', 'unknown')}")
             
             return result
             
@@ -607,14 +458,14 @@ class ProductionTONWallet:
         self.initialized = False
         self.connection_healthy = False
         
-        if self.client:
+        if self.provider:
             try:
-                await self.client.close()
+                await self.provider.close()
                 logger.info("Production TON connection closed")
             except Exception as e:
                 logger.error(f"Error closing production connection: {e}")
         
-        self.client = None
+        self.provider = None
 
 # Production wallet instance
 ton_wallet = ProductionTONWallet()
@@ -647,11 +498,7 @@ def is_valid_ton_address(address: str) -> bool:
     try:
         if not address or not isinstance(address, str):
             return False
-        if len(address) < 48:
-            return False
-        if not address.startswith(('EQ', 'UQ', 'kQ', '0:')):
-            return False
-        
+            
         # Try to parse as Address
         Address(address)
         return True
