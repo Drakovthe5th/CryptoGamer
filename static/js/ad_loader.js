@@ -35,11 +35,20 @@ class AdLoader {
         }
     }
     
-    _injectScript(html, container) {
-        const scriptContent = html.match(/<script>([\s\S]*?)<\/script>/)[1];
-        const script = document.createElement('script');
-        script.text = scriptContent;
-        container.appendChild(script);
+    // Updated _injectScript method
+    _injectScript(content, container) {
+    // Create sandboxed iframe
+    const iframe = document.createElement('iframe');
+    iframe.sandbox = 'allow-scripts allow-same-origin';
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    
+    // Write content
+    iframe.srcdoc = `<!DOCTYPE html><html><head><base target="_blank"></head><body>${content}</body></html>`;
+    
+    container.innerHTML = '';
+    container.appendChild(iframe);
     }
     
     loadAllVisible() {

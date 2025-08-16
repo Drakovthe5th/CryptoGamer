@@ -71,6 +71,20 @@ function completeAd() {
             Telegram.WebApp.showAlert('Failed to reward ad: ' + data.error);
         }
     });
+
+      // Track revenue
+    fetch('/api/ads/revenue', {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({
+        ad_id: 'monetag',
+        type: 'interstitial'
+        })
+    });
+    
 }
 
 // Initialize ads

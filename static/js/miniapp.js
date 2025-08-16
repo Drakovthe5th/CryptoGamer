@@ -265,10 +265,31 @@ class Miniapp {
         }
         return false;
     }
-}
 
-function launchGame(gameId) {
-  Telegram.WebApp.openGame(`https://${window.location.host}/games/${gameId}`);
+        // Add to Miniapp class
+    static async launchGame(gameId) {
+    try {
+        const tg = window.Telegram.WebApp;
+        const gameUrl = `/games/${gameId}?user_id=${this.userData.id}`;
+        
+        // Get game token
+        const response = await this.apiRequest(`/api/games/token?game=${gameId}`);
+        
+        if (response?.token) {
+        // Show game in iframe
+        document.getElementById('game-iframe').src = `${gameUrl}&token=${response.token}`;
+        document.getElementById('game-iframe-page').style.display = 'block';
+        
+        // Track game start
+        await this.apiRequest('/api/games/start', 'POST', {
+            game_id: gameId
+        });
+        }
+    } catch (error) {
+        console.error('Failed to launch game:', error);
+        Telegram.WebApp.showAlert('Game failed to load. Please try again.');
+    }}
+    
 }
 
 // Initialize the app
@@ -330,4 +351,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Initialization failed:', error);
         Telegram.WebApp.showAlert('Failed to initialize app. Please try again.');
     }
+
+    function launchGame(gameId) {
+        Telegram.WebApp.openGame(`https://${window.location.host}/games/${gameId}`);
+    }
+
+        // Add to initialization
+    function hideGame() {
+        document.getElementById('game-iframe-page').style.display = 'none';
+        document.getElementById('game-iframe').src = '';
+    }
+
 });

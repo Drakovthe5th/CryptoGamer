@@ -55,6 +55,9 @@ class BaseGame:
         """Start a new game session for a user"""
         try:
             current_time = time.time()
+
+            # Generate secure session token
+            session_token = self._generate_session_token(user_id)
             
             # Check if user already has an active game
             if user_id in self.players and self.players[user_id].get("active"):
@@ -86,6 +89,36 @@ class BaseGame:
         except Exception as e:
             logger.error(f"Error starting game {self.name} for user {user_id}: {e}")
             return {"error": "Failed to start game"}
+        
+    def _generate_session_token(self, user_id: str) -> str:
+        timestamp = str(int(time.time()))
+        signature = hmac.new(
+            config.SECRET_KEY.encode(),
+            f"{user_id}{timestamp}".encode(),
+            'sha256'
+        ).hexdigest()
+        return f"{user_id}.{timestamp}.{signature}"
+
+    def validate_session(self, user_id: str, token: str) -> bool:
+        try:
+            user_id_part, timestamp, signature = token.split('.')
+            if user_id_part != user_id:
+                return False
+                
+            # Validate timestamp (10 minute window)
+            if time.time() - int(timestamp) > 600:
+                return False
+                
+            # Validate signature
+            expected = hmac.new(
+                config.SECRET_KEY.encode(),
+                f"{user_id}{timestamp}".encode(),
+                'sha256'
+            ).hexdigest()
+            
+            return hmac.compare_digest(signature, expected)
+        except:
+            return False
     
     def handle_action(self, user_id: str, action: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Handle game actions - to be overridden by specific games"""

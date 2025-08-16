@@ -167,6 +167,18 @@ class AdManager:
         """Update slot usage timestamp"""
         if slot_name in self.ad_slots:
             self.ad_slots[slot_name]['last_used'] = time.time()
+
+        # Add to AdManager class
+    def get_ad_slot(self, slot_name):
+        return self.get_available_ad(slot_name)
+
+    # Add new route handler
+    def ad_slot_route(slot_name):
+        ad = ad_manager.get_ad_slot(slot_name)
+        if ad:
+            ad_manager.record_ad_view(slot_name)
+            return jsonify(ad)
+        return jsonify({"error": "Ad not available"}), 404
     
     # Monetag implementations
     def _monetag_interstitial(self, slot_name):
