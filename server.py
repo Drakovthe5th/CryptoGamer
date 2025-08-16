@@ -121,18 +121,6 @@ def initialize_production_app():
     
     logger.info("✅ PRODUCTION APPLICATION INITIALIZATION COMPLETE")
 
-    # Initialize Firebase
-    try:
-        firebase_creds = config.FIREBASE_CREDS
-        initialize_firebase(firebase_creds)
-        logger.info("✅ Firebase initialized successfully")
-    except Exception as e:
-        logger.error(f"❌ Firebase initialization failed: {e}")
-        send_alert_to_admin(f"Firebase init failed: {str(e)}")
-        # Don't fail the app for Firebase issues in production
-    
-    logger.info("✅ PRODUCTION APPLICATION INITIALIZATION COMPLETE")
-
 def shutdown_production_app():
     """Graceful shutdown of production application"""
     logger.info("🛑 SHUTTING DOWN PRODUCTION APPLICATION")
@@ -246,8 +234,9 @@ def get_user_balance():
     """Get user balance"""
     try:
         user_id = get_user_id(request)
-        from src.database.firebase import db
-        balance = db.get_user_balance(user_id)
+        # Import the function directly instead of using db
+        from src.database.firebase import get_user_balance as firebase_get_balance
+        balance = firebase_get_balance(user_id)
         return jsonify({'balance': balance, 'user_id': user_id})
     except Exception as e:
         logger.error(f"Balance error: {e}")
@@ -397,6 +386,69 @@ def debug_info():
         
     except Exception as e:
         return jsonify({"error": "Debug info unavailable"}), 500
+    
+    # Add these endpoints to server.py
+
+# Dummy ad endpoint
+@app.route('/api/ads/slot/<slot_name>', methods=['GET'])
+def get_ad_slot(slot_name):
+    """Return dummy ad data"""
+    return jsonify({
+        'url': 'https://example.com',
+        'image': 'https://via.placeholder.com/300x250?text=Ad+Placeholder',
+        'reward': 0.001
+    })
+
+# Staking data endpoint
+@app.route('/api/staking/data', methods=['GET'])
+def get_staking_data():
+    """Return staking information"""
+    return jsonify({
+        'apy': 8.5,
+        'min_stake': 5,
+        'current_stake': 0,
+        'rewards_earned': 0
+    })
+
+# User security data
+@app.route('/api/user/secure-data', methods=['GET'])
+def get_user_secure_data():
+    """Return security information"""
+    return jsonify({
+        'withdrawals_enabled': True,
+        'daily_limit': 100,
+        'used_today': 0
+    })
+
+# Referral endpoints
+@app.route('/api/referral/generate', methods=['GET'])
+def generate_referral():
+    """Generate referral link"""
+    user_id = request.args.get('user_id', 'default')
+    return jsonify({
+        'link': f'https://t.me/CryptoGameMinerBot?start=ref-{user_id}'
+    })
+
+@app.route('/api/referral/stats', methods=['GET'])
+def referral_stats():
+    """Return referral statistics"""
+    return jsonify({
+        'count': 0,
+        'earnings': 0,
+        'active': 0,
+        'level': 1
+    })
+
+# OTC rates endpoint
+@app.route('/api/otc/rates', methods=['GET'])
+def get_otc_rates():
+    """Return exchange rates"""
+    return jsonify({
+        'TON_USD': 6.80,
+        'TON_KES': 950,
+        'TON_EUR': 6.20,
+        'TON_USDT': 6.75
+    })
 
 # Error Handlers
 @app.errorhandler(404)

@@ -97,3 +97,19 @@ function showRewardedAd(slotName) {
             }
         });
 }
+
+// Simple ad loader that doesn't make API calls
+document.addEventListener('DOMContentLoaded', () => {
+    const adSlots = document.querySelectorAll('.ad-slot');
+    adSlots.forEach(slot => {
+        slot.innerHTML = `
+            <div style="width:100%;height:100%;background:#333;border-radius:8px;
+                        display:flex;align-items:center;justify-content:center;">
+                <div style="text-align:center;color:#666;">
+                    <div style="font-size:2rem;margin-bottom:8px;">📺</div>
+                    <div>Ad Banner Placeholder</div>
+                </div>
+            </div>
+        `;
+    });
+});
