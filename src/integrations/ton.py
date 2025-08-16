@@ -237,7 +237,7 @@ class TONWallet:
             total_amount = amount_nano + fees
             
             # Check balance
-            balance_nano = int((await self.get_balance(True)) * self.NANOTON_CONVERSION
+            balance_nano = int((await self.get_balance(True)) * self.NANOTON_CONVERSION)
             if balance_nano < total_amount:
                 return {'status': 'error', 'error': 'Insufficient balance'}
             
