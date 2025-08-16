@@ -267,6 +267,10 @@ class Miniapp {
     }
 }
 
+function launchGame(gameId) {
+  Telegram.WebApp.openGame(`https://${window.location.host}/games/${gameId}`);
+}
+
 // Initialize the app
 document.addEventListener('DOMContentLoaded', async () => {
     try {

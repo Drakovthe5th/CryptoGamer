@@ -135,7 +135,10 @@ def configure_routes(app):
             logger.error(f"User data error: {str(e)}")
             return jsonify({'error': str(e)}), 500
         
-        # Add these to your existing routes.py for game completion handling
+    @app.route('/api/ads/slot/<slot_id>')
+    def get_ad_slot(slot_id):
+        ad = ad_manager.get_available_ad(slot_id)
+        return jsonify(ad) if ad else ('', 404)
 
     @app.route('/api/game/<game_name>/complete', methods=['POST'])
     def complete_game(game_name):

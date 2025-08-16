@@ -247,6 +247,12 @@ class BaseGame:
         except Exception as e:
             logger.error(f"Session validation error: {e}")
             return False
+        
+    def validate_session_token(user_id, token):
+        return hmac.compare_digest(
+            generate_session_token(user_id),
+            token
+    )
     
     def _is_rate_limited(self, user_id: str) -> bool:
         """Check if user is rate limited"""
