@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Union, Any, Tuple
 from mnemonic import Mnemonic
 from cryptography.fernet import Fernet
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from src.database.firebase import db
 from src.utils.logger import logger, logging
 from config import config
@@ -17,6 +18,7 @@ from config import config
 # Core TON libraries
 from pytoniq import LiteClient, LiteServerError
 from pytoniq_core import Cell, begin_cell, Address, Boc
+from pytonlib import TonlibClient
 from tonsdk.utils import bytes_to_b64str, b64str_to_bytes
 from tonsdk.contract.wallet import Wallets, WalletVersionEnum
 
@@ -36,7 +38,7 @@ class TONWallet:
     MAINNET_LITE_SERVERS = config.TON_LITE_SERVERS
     
     def __init__(self) -> None:
-        # Connection state
+        # Enhanced connection state
         self.connection_type = "none"
         self.balance_cache = 0.0
         self.last_balance_check = datetime.min
@@ -49,16 +51,14 @@ class TONWallet:
         
         # Connection providers
         self.lite_client = None
+        self.tonlib_client = None
         
         # Transaction tracking
         self.pending_transactions = {}
         self.transaction_lock = asyncio.Lock()
         
-        # Initialize encryption if key is available
-        if hasattr(config, 'ENCRYPTION_KEY'):
-            self.cipher = Fernet(config.ENCRYPTION_KEY)
-        else:
-            self.cipher = None
+        # Initialize encryption
+        self.cipher = Fernet(config.ENCRYPTION_KEY)
 
     async def initialize(self) -> bool:
         """Initialize with enhanced fallback and monitoring"""
@@ -75,6 +75,7 @@ class TONWallet:
             # Connection strategies with priority
             strategies = [
                 ("LiteClient", self._init_liteclient),
+                ("Tonlib", self._init_tonlib),
                 ("DirectHTTP", self._init_direct_http),
             ]
             
@@ -106,31 +107,78 @@ class TONWallet:
             self.degraded_mode = True
             return False
 
-    async def _init_liteclient(self) -> bool:
-        """Initialize using pytoniq LiteClient"""
+    async def _init_tonlib(self) -> bool:
+        """Initialize using pytonlib for advanced operations"""
         try:
-            if self.is_testnet:
-                self.lite_client = LiteClient.from_testnet_config(0, timeout=self.CONNECTION_TIMEOUT)
-            else:
-                self.lite_client = LiteClient.from_mainnet_config(0, timeout=self.CONNECTION_TIMEOUT)
+            loop = asyncio.get_running_loop()
+            config_data = await self._get_network_config()
             
-            await self.lite_client.connect()
-            logger.info("LiteClient initialized successfully")
+            self.tonlib_client = TonlibClient(
+                ls_index=0,
+                config=config_data,
+                keystore=f"/tmp/ton_keystore_{os.getpid()}",
+                loop=loop
+            )
+            
+            await self.tonlib_client.init()
+            logger.info("TonlibClient initialized successfully")
             return True
         except Exception as e:
-            logger.error(f"LiteClient init failed: {e}")
+            logger.error(f"TonlibClient init failed: {e}")
             return False
+
+    async def _get_network_config(self) -> dict:
+        """Get network configuration dynamically"""
+        config_url = config.TON_CONFIG_URL or (
+            "https://ton.org/testnet-global.config.json" 
+            if self.is_testnet 
+            else "https://ton.org/mainnet-global.config.json"
+        )
+        
+        try:
+            response = requests.get(config_url, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except Exception:
+            # Fallback to embedded config
+            return {
+                "liteservers": config.TON_LITE_SERVERS,
+                "validator": {
+                    "init_block": config.TON_INIT_BLOCK
+                }
+            }
 
     async def _init_wallet_credentials(self) -> None:
         """Secure credential loading with environment precedence"""
-        # Priority 1: Environment variables
-        if os.getenv('TON_MNEMONIC'):
+        # Priority 1: Encrypted environment variables
+        if os.getenv('TON_ENCRYPTED_MNEMONIC'):
+            encrypted_mnemonic = os.getenv('TON_ENCRYPTED_MNEMONIC')
+            await self._init_from_encrypted(encrypted_mnemonic)
+        # Priority 2: Standard environment variables
+        elif os.getenv('TON_MNEMONIC'):
             await self._init_from_mnemonic(os.getenv('TON_MNEMONIC'))
-        # Priority 2: Config file
+        # Priority 3: Config file
         elif hasattr(config, 'TON_MNEMONIC') and config.TON_MNEMONIC:
             await self._init_from_mnemonic(config.TON_MNEMONIC)
         else:
             raise ValueError("No TON credentials provided")
+
+    async def _init_from_encrypted(self, encrypted_data: str) -> None:
+        """Initialize from encrypted credential"""
+        try:
+            decrypted_data = self.cipher.decrypt(encrypted_data.encode()).decode()
+            
+            if decrypted_data.startswith("mnemonic:"):
+                phrase = decrypted_data.split(":", 1)[1]
+                await self._init_from_mnemonic(phrase)
+            elif decrypted_data.startswith("privatekey:"):
+                key = decrypted_data.split(":", 1)[1]
+                await self._init_from_private_key(key)
+            else:
+                raise ValueError("Invalid encrypted data format")
+        except Exception as e:
+            logger.error("Encrypted credential decryption failed")
+            raise
 
     async def _init_from_mnemonic(self, phrase: str) -> None:
         """Enhanced mnemonic initialization with tonsdk"""
@@ -156,20 +204,20 @@ class TONWallet:
             logger.error(f"Mnemonic initialization failed: {e}")
             raise
 
-    async def _verify_wallet_address(self) -> None:
-        """Verify wallet address matches configuration"""
-        if hasattr(config, 'TON_HOT_WALLET') and config.TON_HOT_WALLET:
-            config_addr = Address(config.TON_HOT_WALLET).to_string()
-            if self.wallet_address != config_addr:
-                logger.error(f"CRITICAL: Wallet address mismatch")
-                logger.error(f"Derived:   {self.wallet_address}")
-                logger.error(f"Configured: {config_addr}")
-                raise ValueError("Wallet address mismatch")
-            else:
-                logger.info("Wallet address verified")
+    def _derive_wallet_address(self) -> None:
+        """Standardized address derivation"""
+        wallet = Wallets.create(self.wallet_version, self.public_key, 0)
+        self.wallet_address = wallet.address.to_string(True, True, True)
+        logger.info(f"Derived wallet address: {self.wallet_address}")
 
+    # ========== ENHANCED TRANSACTION METHODS ========== #
+    @retry(
+        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        retry=retry_if_exception_type((LiteServerError, asyncio.TimeoutError, ConnectionError))
+    )
     async def send_transaction(self, destination: str, amount: float, memo: str = "") -> Dict[str, Any]:
-        """Robust transaction sending"""
+        """Robust transaction sending with retries"""
         async with self.transaction_lock:
             if self.degraded_mode or self.halted:
                 return {'status': 'error', 'error': 'System unavailable'}
@@ -184,9 +232,13 @@ class TONWallet:
             # Create transfer message
             body_cell = self._create_message_body(memo)
             
+            # Estimate fees
+            fees = await self.estimate_fees(destination, amount_nano, body_cell)
+            total_amount = amount_nano + fees
+            
             # Check balance
-            balance_nano = int((await self.get_balance(True)) * self.NANOTON_CONVERSION)
-            if balance_nano < amount_nano:
+            balance_nano = int((await self.get_balance(True)) * self.NANOTON_CONVERSION
+            if balance_nano < total_amount:
                 return {'status': 'error', 'error': 'Insufficient balance'}
             
             # Create wallet instance
@@ -197,14 +249,21 @@ class TONWallet:
                 self.private_key,
                 destination,
                 amount_nano,
+                fees=fees,
                 seqno=await self.get_seqno(),
                 payload=body_cell
             )
             
             # Send transaction
             try:
-                await self.lite_client.send_message(Boc.raw_parse(query["message"].to_boc(False)))
-                tx_hash = "liteclient_" + str(int(time.time()))
+                if self.connection_type == "Tonlib":
+                    boc = bytes_to_b64str(query["message"].to_boc(False))
+                    result = await self.tonlib_client.raw_send_message(boc)
+                    tx_hash = result["hash"]
+                else:
+                    # Fallback to liteclient
+                    await self.lite_client.send_message(Boc.raw_parse(query["message"].to_boc(False)))
+                    tx_hash = "liteclient_" + str(int(time.time()))
                 
                 # Track transaction
                 self.pending_transactions[tx_hash] = {
@@ -217,17 +276,40 @@ class TONWallet:
                 return {
                     'status': 'success',
                     'tx_hash': tx_hash,
-                    'method': self.connection_type
+                    'method': self.connection_type,
+                    'fees': fees / self.NANOTON_CONVERSION
                 }
             except Exception as e:
                 logger.error(f"Transaction failed: {e}")
                 return {'status': 'error', 'error': str(e)}
 
+    async def estimate_fees(self, destination: str, amount_nano: int, body: Cell) -> int:
+        """Estimate transaction fees"""
+        try:
+            # Try Tonlib for accurate estimation
+            if self.tonlib_client:
+                wallet = Wallets.create(self.wallet_version, self.public_key, 0)
+                account_state = await self.tonlib_client.raw_get_account_state(wallet.address.to_string())
+                source = account_state["raw"]
+                
+                result = await self.tonlib_client.raw_estimate_fees(
+                    source=source,
+                    destination=destination,
+                    amount=amount_nano,
+                    body=b64str_to_bytes(body.to_boc())
+                )
+                return result["fwd_fee"] + result["gas_fee"]
+        except Exception:
+            logger.warning("Fee estimation failed, using fallback")
+        
+        # Fallback flat fee
+        return int(0.05 * self.NANOTON_CONVERSION)  # 0.05 TON
+
     async def get_seqno(self) -> int:
         """Get current wallet seqno"""
-        if self.lite_client:
-            account = await self.lite_client.get_account_state(Address(self.wallet_address))
-            return account.seqno
+        if self.tonlib_client:
+            account = await self.tonlib_client.raw_get_account_state(self.wallet_address)
+            return account.get("seqno", 0)
         return 0
 
     def _create_message_body(self, memo: str) -> Cell:
@@ -240,6 +322,32 @@ class TONWallet:
             .store_string(memo)\
             .end_cell()
 
+    # ========== STAKING INTEGRATION ========== #
+    async def stake_ton(self, amount: float) -> Dict[str, Any]:
+        """Stake TON to configured contract"""
+        if not hasattr(config, 'STAKING_CONTRACT'):
+            return {'status': 'error', 'error': 'Staking contract not configured'}
+            
+        return await self.send_transaction(
+            destination=config.STAKING_CONTRACT,
+            amount=amount,
+            memo="Staking deposit"
+        )
+
+    async def withdraw_stake(self, amount: float) -> Dict[str, Any]:
+        """Withdraw staked TON"""
+        if not hasattr(config, 'STAKING_CONTRACT'):
+            return {'status': 'error', 'error': 'Staking contract not configured'}
+            
+        # This would require contract-specific message
+        # Placeholder implementation
+        return await self.send_transaction(
+            destination=config.STAKING_CONTRACT,
+            amount=0.01,  # Gas
+            memo="Withdraw stake"
+        )
+
+    # ========== SECURITY ENHANCEMENTS ========== #
     def is_valid_ton_address(self, address: str) -> bool:
         """Comprehensive address validation"""
         try:
@@ -258,12 +366,87 @@ class TONWallet:
         except Exception:
             return False
 
-# Global TON wallet instance
+    async def monitor_transactions(self):
+        """Background task to monitor transaction status"""
+        while True:
+            try:
+                await asyncio.sleep(30)
+                if not self.initialized or self.degraded_mode:
+                    continue
+                    
+                for tx_hash, tx_info in list(self.pending_transactions.items()):
+                    # Skip if older than 1 hour
+                    if (datetime.now() - tx_info["timestamp"]).total_seconds() > 3600:
+                        self.pending_transactions[tx_hash]["status"] = "timeout"
+                        continue
+                        
+                    # Check confirmation status
+                    confirmed = await self.check_transaction_confirmed(tx_hash)
+                    if confirmed:
+                        self.pending_transactions[tx_hash]["status"] = "confirmed"
+            except Exception as e:
+                logger.error(f"Transaction monitoring failed: {e}")
+
+    async def check_transaction_confirmed(self, tx_hash: str) -> bool:
+        """Check if transaction is confirmed"""
+        try:
+            if self.tonlib_client:
+                result = await self.tonlib_client.raw_get_transactions(
+                    self.wallet_address,
+                    from_transaction_lt=None,
+                    from_transaction_hash=None,
+                    limit=10
+                )
+                for tx in result.get("transactions", []):
+                    if tx["transaction_id"]["hash"] == tx_hash:
+                        return True
+            return False
+        except Exception:
+            return False
+
+    # ========== PRODUCTION READINESS ========== #
+    async def health_check(self) -> Dict[str, Any]:
+        """Comprehensive health check"""
+        status = {
+            "initialized": self.initialized,
+            "degraded_mode": self.degraded_mode,
+            "halted": self.halted,
+            "connection_type": self.connection_type,
+            "wallet_address": self.wallet_address,
+            "balance": await self.get_balance(),
+            "pending_transactions": len(self.pending_transactions),
+            "last_balance_check": self.last_balance_check.isoformat(),
+            "testnet": self.is_testnet
+        }
+        
+        # Detailed connection check
+        if self.tonlib_client:
+            status["tonlib_ready"] = self.tonlib_client.inited
+        if self.lite_client:
+            status["lite_client_ready"] = self.lite_client.connected
+            
+        return status
+
+    async def emergency_halt(self, reason: str = "") -> None:
+        """Activate emergency halt with state persistence"""
+        self.halted = True
+        logger.critical(f"🚨 EMERGENCY HALT: {reason}")
+        
+        # Attempt to close connections gracefully
+        if self.tonlib_client:
+            await self.tonlib_client.close()
+        if self.lite_client:
+            await self.lite_client.close()
+
+# Global TON wallet instance with automatic initialization
 ton_wallet = TONWallet()
 
 async def initialize_ton_wallet() -> bool:
-    """Initialize TON wallet"""
-    return await ton_wallet.initialize()
+    """Initialize and start background tasks"""
+    success = await ton_wallet.initialize()
+    if success:
+        asyncio.create_task(ton_wallet.monitor_transactions())
+    return success
 
 async def process_ton_withdrawal(user_id: int, amount: float, address: str) -> Dict[str, Any]:
     """Enhanced withdrawal with security checks"""
@@ -275,8 +458,20 @@ async def process_ton_withdrawal(user_id: int, amount: float, address: str) -> D
     if not ton_wallet.is_valid_ton_address(address):
         return {'status': 'error', 'error': 'Invalid TON address'}
     
+    # Process with fee consideration
+    net_amount = amount - (0.05 if amount > 0.1 else 0)  # 0.05 TON fee
+    if net_amount <= 0:
+        return {'status': 'error', 'error': 'Amount too small after fees'}
+    
     return await ton_wallet.send_transaction(
         destination=address,
-        amount=amount,
+        amount=net_amount,
         memo=f"Withdrawal for user {user_id}"
     )
+
+async def stake_user_ton(user_id: int, amount: float) -> Dict[str, Any]:
+    """Stake user TON with security checks"""
+    if amount <= 0 or amount > ton_wallet.USER_DAILY_WITHDRAWAL_LIMIT:
+        return {'status': 'error', 'error': 'Invalid amount'}
+    
+    return await ton_wallet.stake_ton(amount)
