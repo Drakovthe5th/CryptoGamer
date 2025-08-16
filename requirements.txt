@@ -37,6 +37,7 @@ base58==2.1.1  # Required for address handling
 # TON Fallback Libraries
 ton-client-py==1.44.3.0  # For TonClient implementation
 tonsdk==1.0.13            # For TonsSDK implementation
+tenacity>=8.2.3
 
 # Optional (but recommended) TON Libraries
 ton==0.26                 # Additional TON utilities
