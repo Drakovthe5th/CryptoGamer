@@ -589,3 +589,46 @@ input:focus, select:focus {
     color: white;
     cursor: pointer;
 }
+
+/* ADDED to miniapp.css */
+.click-reward {
+    position: absolute;
+    animation: floatUp 1s ease-out forwards;
+    color: var(--accent-green);
+    font-weight: bold;
+    font-size: 14px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+}
+
+.ad-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    border-radius: 12px;
+}
+
+#security-alert {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #ff5555;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    z-index: 1000;
+    font-weight: bold;
+}

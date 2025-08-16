@@ -19,11 +19,8 @@ class AdLoader {
             if (adData.html) {
                 const container = document.getElementById(slotId);
                 if (container) {
-                    if (adData.type === 'script') {
-                        this._injectScript(adData.html, container);
-                    } else {
-                        container.innerHTML = adData.html;
-                    }
+                    // REMOVED: Sandboxed iframe approach
+                    container.innerHTML = adData.html;
                     this.slots[slotId].loaded = true;
                     
                     // Track ad view
@@ -32,6 +29,19 @@ class AdLoader {
             }
         } catch (error) {
             console.error(`Failed to load ad for ${slotId}:`, error);
+            // Fallback placeholder
+            const container = document.getElementById(slotId);
+            if (container) {
+                container.innerHTML = `
+                    <div style="width:100%;height:100%;background:#333;border-radius:8px;
+                                display:flex;align-items:center;justify-content:center;">
+                        <div style="text-align:center;color:#666;">
+                            <div style="font-size:2rem;margin-bottom:8px;">📺</div>
+                            <div>Ad Loading Failed</div>
+                        </div>
+                    </div>
+                `;
+            }
         }
     }
     

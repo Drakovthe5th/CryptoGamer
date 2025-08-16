@@ -142,6 +142,11 @@ class Miniapp {
             }
         } catch (error) {
             console.error('Failed to claim bonus:', error);
+            Telegram.WebApp.showPopup({
+                title: 'Error', 
+                message: 'Failed to claim bonus. Please try again.',
+                buttons: [{id: 'ok', type: 'ok'}]
+            });
         }
     }
 
@@ -170,10 +175,22 @@ class Miniapp {
                 if (clickArea) {
                     clickArea.style.transform = 'scale(0.95)';
                     setTimeout(() => clickArea.style.transform = 'scale(1)', 120);
+                    
+                    // Show reward animation
+                    const reward = document.createElement('div');
+                    reward.className = 'click-reward';
+                    reward.textContent = '+0.0001 TON';
+                    clickArea.appendChild(reward);
+                    setTimeout(() => reward.remove(), 1000);
                 }
             }
         } catch (error) {
             console.error('Failed to record click:', error);
+            Telegram.WebApp.showPopup({
+                title: 'Error', 
+                message: 'Failed to record click. Please try again.',
+                buttons: [{id: 'ok', type: 'ok'}]
+            });
         }
     }
 
@@ -289,7 +306,35 @@ class Miniapp {
         console.error('Failed to launch game:', error);
         Telegram.WebApp.showAlert('Game failed to load. Please try again.');
     }}
-    
+
+        // ADDED: Initialize event handlers properly
+    static initEventHandlers() {
+        document.getElementById('bonus-btn')?.addEventListener('click', 
+            Miniapp.claimDailyBonus.bind(Miniapp));
+            
+        document.querySelector('.click-area')?.addEventListener('click', 
+            Miniapp.earnFromClick.bind(Miniapp));
+            
+        document.querySelector('#watch-page .btn')?.addEventListener('click', 
+            Miniapp.rewardedInterstitial.bind(Miniapp));
+            
+        document.querySelector('#referrals-page button.btn')?.addEventListener('click', () => {
+            navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
+            Telegram.WebApp.showPopup({
+                title: 'Copied', 
+                message: 'Referral link copied',
+                buttons: [{id: 'ok', type: 'ok'}]
+            });
+        });
+        
+        // Game launch handlers
+        document.querySelectorAll('.game-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const gameId = this.dataset.gameId;
+                Miniapp.launchGame(gameId);
+            });
+        });
+    }
 }
 
 // Initialize the app
@@ -303,8 +348,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         Miniapp.init(tg.initData);
         
         // Get user ID from Telegram
+        Miniapp.init(tg.initData);
         Miniapp.userData.id = tg.initDataUnsafe.user?.id;
-        if (!Miniapp.userData.id) throw new Error('User ID missing');
+
+        if (!Miniapp.userData.id) {
+            throw new Error('User ID missing');
+        }
         
         // Load user data
         await Miniapp.loadUserData();
@@ -314,6 +363,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Get referral stats
         await Miniapp.getReferralStats();
+
+        Miniapp.initEventHandlers();
         
         // Get OTC rates
         const rates = await Miniapp.getOTCRates();
@@ -351,15 +402,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Initialization failed:', error);
         Telegram.WebApp.showAlert('Failed to initialize app. Please try again.');
     }
-
-    function launchGame(gameId) {
-        Telegram.WebApp.openGame(`https://${window.location.host}/games/${gameId}`);
-    }
-
-        // Add to initialization
-    function hideGame() {
-        document.getElementById('game-iframe-page').style.display = 'none';
-        document.getElementById('game-iframe').src = '';
-    }
-
 });
+
+function launchGame(gameId) {
+    Miniapp.launchGame(gameId);
+}
+
+    // Add to initialization
+function hideGame() {
+    document.getElementById('game-iframe-page').style.display = 'none';
+    document.getElementById('game-iframe').src = '';
+}

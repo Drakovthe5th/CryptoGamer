@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import hmac
 import logging
 import asyncio
 from flask import Flask
@@ -6,7 +8,6 @@ from src.web.flask_app import create_app
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
-# Updated auth import
 from src.telegram.auth import validate_init_data
 from src.utils import security, validators
 from src.features.mining import token_distribution, proof_of_play
@@ -111,6 +112,7 @@ def validate_game_session(user_id, session_id):
     actual_duration = (datetime.now() - session['start_time']).total_seconds()
 
     return min_dur <= actual_duration <= max_dur
+
 
 
 @miniapp_bp.route('/quests/record_click', methods=['POST'])
@@ -429,3 +431,39 @@ def init_edge_surf():
             'reward_rate': config.REWARD_RATES['edge-surf']
         }
     })
+
+def validate_init_data(init_data, bot_token):
+    """Validate Telegram WebApp initData"""
+    try:
+        # Parse input data
+        data_pairs = init_data.split('&')
+        data_dict = {}
+        for pair in data_pairs:
+            key, value = pair.split('=')
+            data_dict[key] = value
+        
+        # Check hash
+        check_hash = data_dict.pop('hash', '')
+        data_str = '\n'.join(f"{k}={v}" for k, v in sorted(data_dict.items()))
+        
+        secret_key = hmac.new(
+            b"WebAppData", 
+            bot_token.encode(), 
+            hashlib.sha256
+        ).digest()
+        
+        computed_hash = hmac.new(
+            secret_key, 
+            data_str.encode(), 
+            hashlib.sha256
+        ).hexdigest()
+        
+        return computed_hash == check_hash
+        
+    except Exception:
+        return False
+    
+def miniapp_security_middleware(request):
+    init_data = request.headers.get('X-Telegram-InitData')
+    if not validate_init_data(init_data, config.TELEGRAM_TOKEN):
+        return jsonify({'error': 'Invalid Telegram authentication'}), 401

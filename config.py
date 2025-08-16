@@ -161,6 +161,18 @@ class Config:
             'spin': 0.2
         }
 
+        # Reward Multipliers
+        PREMIUM_AD_BONUS = 1.5
+        AD_STREAK_BONUS_HIGH = 1.8  # 7+ day streak
+        AD_STREAK_BONUS_MEDIUM = 1.3  # 3-6 day streak
+        PEAK_HOUR_BONUS = 1.2  # 7-9 PM local time
+        WEEKEND_BONUS = 1.5
+        REGIONAL_BONUS = 1.4  # High-value regions
+        MOBILE_BONUS = 1.1
+
+        # Peak hours (7 PM - 9 PM)
+        PEAK_HOURS = [19, 20, 21]
+
         # Anti-Cheating Thresholds
         self.MIN_CLICK_INTERVAL = 0.1  # seconds
         self.SESSION_DURATION_VARIANCE = 0.3  # Allowed deviation

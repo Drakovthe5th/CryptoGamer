@@ -47,14 +47,14 @@
           Grab your daily reward and keep the momentum going!
         </p>
         <div class="ad-slot" id="home_top_banner" style="height:90px; margin:10px 0;"></div>
-        <button class="btn" id="bonus-btn" onclick="claimDailyBonus()">
+        <button class="btn" id="bonus-btn" onclick="Miniapp.claimDailyBonus()">
           🎁 Claim Daily Bonus
         </button>
       </div>
 
       <div class="section slide-in">
         <h2 class="section-title">⚡ Click & Earn</h2>
-        <div class="click-area" onclick="earnFromClick()">
+        <div class="click-area" onclick="Miniapp.earnFromClick()">
           <div class="click-text">TAP TO EARN</div>
         </div>
         <p style="text-align: center; margin-top: 12px; color: #ccc;">
@@ -66,18 +66,22 @@
         <h2 class="section-title">🎮 Featured Games</h2>
         <div class="game-grid">
           <div class="game-card" onclick="launchGame('trivia')">
+            <div class="game-card" data-game-id="trivia"></div>
             <div class="game-icon">❓</div>
             <div class="game-name">Crypto Trivia</div>
           </div>
           <div class="game-card" onclick="launchGame('spin')">
+            <div class="game-card" data-game-id="spin"></div>
             <div class="game-icon">🎡</div>
             <div class="game-name">Lucky Spin</div>
           </div>
           <div class="game-card" onclick="launchGame('clicker')">
+            <div class="game-card" data-game-id="clicker"></div>
             <div class="game-icon">🖱️</div>
             <div class="game-name">TON Clicker</div>
           </div>
           <div class="game-card" onclick="launchGame('trex')">
+            <div class="game-card" data-game-id="trex"></div>
             <div class="game-icon">🦖</div>
             <div class="game-name">T-Rex Runner</div>
           </div>
@@ -209,7 +213,7 @@
 
     <div id="game-iframe-page" class="page" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000; background:#000;">
       <iframe id="game-iframe" style="width:100%; height:100%; border:none;"></iframe>
-      <button style="position:absolute; top:20px; right:20px; z-index:1001;" onclick="hideGame()">❌ Close</button>
+      <button style="position:absolute;top:20px;right:20px;z-index:1001;background:red;color:white;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;" onclick="hideGame()">✕</button>
     </div>
 
     <!-- GAMES -->
@@ -222,30 +226,35 @@
         
         <div class="game-grid">
           <div class="game-card" onclick="launchGame('trivia')">
+            <div class="game-card" data-game-id="trivia"></div>
             <div class="game-icon">❓</div>
             <div class="game-name">Crypto Trivia</div>
             <small style="color: #888;">Test your knowledge</small>
           </div>
           
           <div class="game-card" onclick="launchGame('spin')">
+            <div class="game-card" data-game-id="spin"></div>
             <div class="game-icon">🎡</div>
             <div class="game-name">Lucky Spin</div>
             <small style="color: #888;">Spin to win big</small>
           </div>
           
           <div class="game-card" onclick="launchGame('clicker')">
+            <div class="game-card" data-game-id="clicker"></div>
             <div class="game-icon">🖱️</div>
             <div class="game-name">TON Clicker</div>
             <small style="color: #888;">Click for rewards</small>
           </div>
           
           <div class="game-card" onclick="launchGame('trex')">
+            <div class="game-card" data-game-id="trex"></div>
             <div class="game-icon">🦖</div>
             <div class="game-name">T-Rex Runner</div>
             <small style="color: #888;">Endless runner</small>
           </div>
           
           <div class="game-card" onclick="launchGame('edge-surf')">
+            <div class="game-card" data-game-id="edge-surf"></div>
             <div class="game-icon">🏄</div>
             <div class="game-name">Edge Surf</div>
             <small style="color: #888;">Surf the web</small>

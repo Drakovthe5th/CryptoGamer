@@ -1,19 +1,19 @@
 import time
+import logging
+import random
 from datetime import datetime
 from config import config
 from src.database.firebase import db, update_balance, record_ad_engagement
-from src.features.mining.reward_pool import RewardPool
 from src.utils.user_helpers import is_premium_user, get_ad_streak, get_user_country, get_device_type
-import logging
 
 logger = logging.getLogger(__name__)
 
 class AdMonetization:
     def __init__(self):
         self.ad_networks = config.AD_NETWORKS
-        self.reward_pool = RewardPool()
         self.last_ad_times = {}
         self.ad_cooldown = config.AD_COOLDOWN  # seconds between ads
+        self.ad_durations = config.AD_DURATIONS
 
     def record_ad_view(self, user_id, ad_network, user_agent=None, ip_address=None):
         """Record ad view and distribute rewards with anti-cheat checks"""
@@ -38,9 +38,6 @@ class AdMonetization:
         
         # Update last ad time
         self.last_ad_times[user_id] = current_time
-        
-        # Add revenue to reward pool
-        self.reward_pool.replenish_pool(self.ad_networks[ad_network])
         
         return reward, new_balance
 
@@ -100,7 +97,7 @@ class AdMonetization:
                 'estimated_reward': self.get_dynamic_reward(
                     user_id, network, user_agent, ip_address
                 ),
-                'duration': config.AD_DURATIONS.get(network, 30),
+                'duration': self.ad_durations.get(network, 30),
                 'cooldown': self.get_remaining_cooldown(user_id)
             })
         return sorted(offers, key=lambda x: x['estimated_reward'], reverse=True)
@@ -122,7 +119,7 @@ class AdManager:
             'monetag': {
                 'rewarded_interstitial': self._monetag_interstitial,
                 'rewarded_popup': self._monetag_popup,
-                'in_app': self._monetag_in_app
+                'banner': self._monetag_banner
             },
             'a-ads': {
                 'banner': self._aads_banner
@@ -133,6 +130,15 @@ class AdManager:
         }
         self.ad_slots = {}
         
+        # Register all required ad slots
+        self.register_ad_slot('home_top_banner', 'banner', 'monetag', 'home_top')
+        self.register_ad_slot('home_bottom_banner', 'banner', 'monetag', 'home_bottom')
+        self.register_ad_slot('wallet_mid_banner', 'banner', 'a-ads', 'wallet_mid')
+        self.register_ad_slot('game_bottom_banner', 'banner', 'coinzilla', 'game_bottom')
+        self.register_ad_slot('quest_bottom_banner', 'banner', 'a-ads', 'quest_bottom')
+        self.register_ad_slot('rewarded_interstitial', 'rewarded_interstitial', 'monetag', 'any')
+        self.register_ad_slot('quest_reward_popup', 'rewarded_popup', 'monetag', 'quest_completion')
+    
     def register_ad_slot(self, slot_name, slot_type, network, position):
         """Register a new ad slot in the app"""
         self.ad_slots[slot_name] = {
@@ -168,26 +174,14 @@ class AdManager:
         if slot_name in self.ad_slots:
             self.ad_slots[slot_name]['last_used'] = time.time()
 
-        # Add to AdManager class
-    def get_ad_slot(self, slot_name):
-        return self.get_available_ad(slot_name)
-
-    # Add new route handler
-    def ad_slot_route(slot_name):
-        ad = ad_manager.get_ad_slot(slot_name)
-        if ad:
-            ad_manager.record_ad_view(slot_name)
-            return jsonify(ad)
-        return jsonify({"error": "Ad not available"}), 404
-    
     # Monetag implementations
     def _monetag_interstitial(self, slot_name):
         return {
-            'html': """
+            'html': f"""
             <script>
-            show_9644715().then(() => {
-                fetch('/api/ads/reward?slot=${slot_name}&type=interstitial');
-            })
+            show_9644715().then(() => {{
+                fetch('/api/ads/reward?slot={slot_name}&type=interstitial');
+            }})
             </script>
             """,
             'type': 'script'
@@ -195,33 +189,41 @@ class AdManager:
     
     def _monetag_popup(self, slot_name):
         return {
-            'html': """
+            'html': f"""
             <script>
-            show_9644715('pop').then(() => {
-                fetch('/api/ads/reward?slot=${slot_name}&type=popup');
-            })
+            show_9644715('pop').then(() => {{
+                fetch('/api/ads/reward?slot={slot_name}&type=popup');
+            }})
             </script>
             """,
             'type': 'script'
         }
     
-    def _monetag_in_app(self, slot_name):
+    def _monetag_banner(self, slot_name):
         return {
-            'html': """
+            'html': f"""
+            <div id="monetag-{slot_name}"></div>
             <script>
-            show_9644715({
-                type: 'inApp',
-                inAppSettings: {frequency: 2, capping: 0.1, interval: 30}
-            })
+                window.monetag = window.monetag || {{
+                    mode: "banner",
+                    publisher: "{config.MONETAG_PUBLISHER_ID}",
+                    slot: "{slot_name}",
+                    format: "display"
+                }};
+                (function() {{
+                    var script = document.createElement('script');
+                    script.src = 'https://monetag.com/loader.js';
+                    document.body.appendChild(script);
+                }})();
             </script>
             """,
-            'type': 'script'
+            'type': 'html'
         }
     
     # A-ADS implementation
     def _aads_banner(self, slot_name):
         return {
-            'html': """
+            'html': f"""
             <div style="width:100%;height:100%;">
                 <iframe data-aa='2405512' src='//acceptable.a-ads.com/2405512' 
                     style='border:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;'>
@@ -234,7 +236,7 @@ class AdManager:
     # Coinzilla implementation
     def _coinzilla_banner(self, slot_name):
         return {
-            'html': """
+            'html': f"""
             <script src="https://coinzilla.com/static/js/coinzilla.js"></script>
             <div class="coinzilla" data-zone="C-123456"></div>
             """,
@@ -243,9 +245,3 @@ class AdManager:
 
 # Initialize ad manager
 ad_manager = AdManager()
-
-# Register ad slots
-ad_manager.register_ad_slot('home_top_banner', 'banner', 'a-ads', 'home_top')
-ad_manager.register_ad_slot('game_bottom_banner', 'banner', 'coinzilla', 'game_bottom')
-ad_manager.register_ad_slot('rewarded_interstitial', 'rewarded_interstitial', 'monetag', 'any')
-ad_manager.register_ad_slot('quest_reward_popup', 'rewarded_popup', 'monetag', 'quest_completion')

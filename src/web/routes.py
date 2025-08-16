@@ -226,6 +226,165 @@ def configure_routes(app):
         except Exception as e:
             logger.error(f"Ad reward error: {str(e)}")
             return jsonify({'error': str(e)}), 500
+        
+    @app.route('/api/quests/claim_bonus', methods=['POST'])
+    def claim_daily_bonus():
+        try:
+            data = request.get_json()
+            user_id = int(data['user_id'])
+            user_data = get_user_data(user_id)
+            
+            # Check if bonus already claimed today
+            last_claimed = user_data.get('last_bonus_claimed')
+            today = datetime.utcnow().date()
+            
+            if last_claimed and last_claimed.date() == today:
+                return jsonify({
+                    'success': False,
+                    'error': 'Bonus already claimed today'
+                }), 400
+            
+            # Award bonus
+            bonus_amount = 0.05
+            new_balance = update_balance(user_id, bonus_amount)
+            
+            # Update last claimed time
+            users_ref.document(str(user_id)).update({
+                'last_bonus_claimed': datetime.utcnow(),
+                'balance': new_balance
+            })
+            
+            return jsonify({
+                'success': True,
+                'new_balance': new_balance
+            })
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+    @app.route('/api/quests/record_click', methods=['POST'])
+    def record_click():
+        try:
+            data = request.get_json()
+            user_id = int(data['user_id'])
+            user_data = get_user_data(user_id)
+            
+            # Reset clicks if new day
+            today = datetime.utcnow().date()
+            last_click_date = user_data.get('last_click_date')
+            clicks_today = user_data.get('clicks_today', 0)
+            
+            if not last_click_date or last_click_date.date() != today:
+                clicks_today = 0
+            
+            # Check daily limit
+            if clicks_today >= 100:
+                return jsonify({
+                    'success': False,
+                    'error': 'Daily click limit reached'
+                }), 400
+            
+            # Award click
+            click_reward = 0.0001
+            new_balance = update_balance(user_id, click_reward)
+            clicks_today += 1
+            
+            # Update user data
+            users_ref.document(str(user_id)).update({
+                'clicks_today': clicks_today,
+                'last_click_date': datetime.utcnow(),
+                'balance': new_balance
+            })
+            
+            return jsonify({
+                'clicks': clicks_today,
+                'balance': new_balance
+            })
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+    @app.route('/api/ads/slot/<slot_id>', methods=['GET'])
+    def serve_ad(slot_id):
+        try:
+            # Get ad from ad manager
+            ad = ad_manager.get_available_ad(slot_id)
+            
+            if not ad:
+                return jsonify({
+                    'html': f'''
+                        <div style="width:100%;height:100%;background:#333;border-radius:8px;
+                                    display:flex;align-items:center;justify-content:center;">
+                            <div style="text-align:center;color:#666;">
+                                <div style="font-size:2rem;margin-bottom:8px;">📺</div>
+                                <div>No ad available</div>
+                            </div>
+                        </div>
+                    ''',
+                    'type': 'html'
+                })
+            
+            return jsonify(ad)
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+    @app.route('/api/ads/view/<slot_id>', methods=['POST'])
+    def track_ad_view(slot_id):
+        """Track an ad view for a specific slot and reward the user"""
+        try:
+            # Get user ID from request
+            user_id = request.headers.get('X-Telegram-User-ID')
+            if not user_id:
+                return jsonify({'error': 'User ID required'}), 400
+            
+            # Get ad slot info
+            slot_info = ad_manager.ad_slots.get(slot_id)
+            if not slot_info:
+                return jsonify({'error': 'Invalid ad slot'}), 400
+
+            # Get user IP and user agent for reward calculation
+            user_ip = request.remote_addr
+            user_agent = request.headers.get('User-Agent')
+            
+            # Create AdMonetization instance
+            ad_monetization = AdMonetization()
+            
+            # Record the ad view and award reward
+            reward, new_balance = ad_monetization.record_ad_view(
+                int(user_id),
+                slot_info['network'],
+                user_agent,
+                user_ip
+            )
+            
+            # Update slot usage
+            ad_manager.record_ad_view(slot_id)
+            
+            # Record in database
+            record_ad_engagement(
+                user_id=int(user_id),
+                ad_network=slot_info['network'],
+                reward=reward,
+                user_agent=user_agent,
+                ip_address=user_ip
+            )
+            
+            return jsonify({
+                'status': 'success',
+                'reward': reward,
+                'new_balance': new_balance,
+                'slot': slot_id,
+                'network': slot_info['network']
+            })
+            
+        except PermissionError as e:
+            return jsonify({'error': str(e)}), 429  # Too Many Requests
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        except Exception as e:
+            logger.error(f"Ad tracking error: {str(e)}")
+            return jsonify({'error': 'Internal server error'}), 500
 
     @app.route('/api/withdraw', methods=['POST'])
     def miniapp_withdraw():
@@ -306,13 +465,42 @@ def configure_routes(app):
             logger.error(f"Error processing M-Pesa callback: {str(e)}")
             return jsonify({"ResultCode": 1, "ResultDesc": "Server error"}), 500
         
-    @app.route('/api/ads/slot/<slot_name>')
-    def get_ad_slot(slot_name):
-        ad = ad_manager.get_available_ad(slot_name)
-        if ad:
-            return jsonify(ad)
-        return jsonify({'error': 'No ad available'}), 404
-
+    @app.route('/api/ads/slot/<slot_id>', methods=['GET'])
+    def get_ad_slot(slot_id):
+        try:
+            ad = ad_manager.get_available_ad(slot_id)
+            if ad:
+                return jsonify(ad)
+            
+            # Fallback if no ad available
+            return jsonify({
+                'html': f"""
+                <div style="width:100%;height:100%;background:#333;border-radius:8px;
+                            display:flex;align-items:center;justify-content:center;">
+                    <div style="text-align:center;color:#666;">
+                        <div style="font-size:2rem;margin-bottom:8px;">📺</div>
+                        <div>Ad Loading...</div>
+                    </div>
+                </div>
+                """,
+                'type': 'html'
+            })
+            
+        except Exception as e:
+            logger.error(f"Ad slot error: {str(e)}")
+            return jsonify({
+                'html': """
+                <div style="width:100%;height:100%;background:#333;border-radius:8px;
+                            display:flex;align-items:center;justify-content:center;">
+                    <div style="text-align:center;color:#666;">
+                        <div style="font-size:2rem;margin-bottom:8px;">❌</div>
+                        <div>Ad Failed to Load</div>
+                    </div>
+                </div>
+                """,
+                'type': 'html'
+            })
+        
     @app.route('/api/ads/show/<slot_name>')
     def show_rewarded_ad(slot_name):
         ad = ad_manager.get_available_ad(slot_name)
