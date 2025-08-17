@@ -9,12 +9,19 @@ from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 
 # Production TON imports
-from src.integrations.ton import (
-    initialize_ton_wallet,
-    process_ton_withdrawal,
-    ton_wallet,
-    get_wallet_status
-)
+try:
+    from src.integrations.ton import (
+        initialize_ton_wallet,
+        process_ton_withdrawal,
+        ton_wallet,
+        get_wallet_status
+    )
+except ImportError as e:
+    logger.error(f"Import error: {e}")
+    # Notify admin or take corrective action
+except Exception as e:
+    logger.error(f"Initialization error: {e}")
+    
 from src.utils.security import get_user_id, is_abnormal_activity
 
 # Graceful import of maintenance functions

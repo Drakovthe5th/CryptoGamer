@@ -4,6 +4,7 @@ import time
 import logging
 import requests
 import base64
+import binascii
 import asyncio
 import json
 from datetime import datetime, timedelta
@@ -25,6 +26,25 @@ from tonsdk.contract.wallet import Wallets, WalletVersionEnum
 
 # Configure logger
 logger = logging.getLogger(__name__)
+
+def get_valid_fernet_key(key: str) -> bytes:
+    """Ensure we have a valid Fernet key by handling padding issues"""
+    try:
+        # Add proper padding if needed
+        if len(key) % 4 != 0:
+            key += '=' * (4 - len(key) % 4)
+        
+        # Try to decode to validate
+        decoded = base64.urlsafe_b64decode(key)
+        if len(decoded) != 32:
+            raise ValueError("Key must be 32 bytes when decoded")
+        return key.encode()
+    except (binascii.Error, ValueError) as e:
+        # Generate a new key if existing one is invalid
+        from cryptography.fernet import Fernet
+        new_key = Fernet.generate_key()
+        logger.critical(f"Invalid encryption key: {e}. Generated new key: {new_key.decode()}")
+        return new_key
 
 class TONWallet:
     # Enhanced constants
@@ -61,7 +81,6 @@ class TONWallet:
         # Initialize encryption
         key = get_valid_fernet_key(config.ENCRYPTION_KEY)
         self.cipher = Fernet(key)
-        self.cipher = Fernet(config.ENCRYPTION_KEY)
 
     async def initialize(self) -> bool:
         """Initialize with enhanced fallback and monitoring"""
@@ -150,24 +169,6 @@ class TONWallet:
                     "init_block": config.TON_INIT_BLOCK
                 }
             }
-        
-    def get_valid_fernet_key(key: str) -> bytes:
-        """Ensure we have a valid Fernet key by handling padding issues"""
-        # Add proper padding if needed
-        if len(key) % 4 != 0:
-            key += '=' * (4 - len(key) % 4)
-        
-        # Try to decode to validate
-        try:
-            decoded = base64.urlsafe_b64decode(key)
-            if len(decoded) != 32:
-                raise ValueError("Key must be 32 bytes when decoded")
-            return key.encode()
-        except Exception as e:
-            # Generate a new key if existing one is invalid
-            new_key = Fernet.generate_key()
-            logger.critical(f"Invalid encryption key: {e}. Generated new key: {new_key.decode()}")
-            return new_key
 
     async def _init_wallet_credentials(self) -> None:
         """Secure credential loading with environment precedence"""
