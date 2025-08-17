@@ -3,7 +3,7 @@ from flask import request, jsonify, render_template, send_from_directory
 from src.database.firebase import update_game_coins, record_reset, connect_wallet
 from src.database.firebase import get_games_list, record_game_start, get_user_data
 from src.utils.security import validate_telegram_hash
-from src.features.monetization.ads import ad_manager
+from src.features.ads import ad_manager
 from src.features.monetization.purchases import process_purchase
 from src.utils.conversions import check_daily_limit, calculate_reward
 from src.utils.upgrade_manager import upgrade_manager
