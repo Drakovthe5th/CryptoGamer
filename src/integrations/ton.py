@@ -17,7 +17,8 @@ from config import config
 
 # Core TON libraries
 from pytoniq import LiteClient, LiteServerError
-from pytoniq_core import Cell, begin_cell, Address, Boc
+from pytoniq_core import Cell, begin_cell, Address
+from pytoniq_core.boc import Boc
 from pytonlib import TonlibClient
 from tonsdk.utils import bytes_to_b64str, b64str_to_bytes
 from tonsdk.contract.wallet import Wallets, WalletVersionEnum
