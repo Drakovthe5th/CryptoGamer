@@ -29,15 +29,6 @@ def configure_routes(app):
     def miniapp_route():
         return render_template('miniapp.html')
     
-    # Serve static files
-    @app.route('/static/<path:filename>')
-    def serve_static(filename):
-        return send_from_directory(os.path.join(app.root_path, 'static'), filename)
-    
-    @app.route('/games/static/<path:filename>')
-    def serve_game_static(filename):
-        return send_from_directory(os.path.join(app.root_path, 'games', 'static'), filename)
-    
     @app.route('/api/games/list', methods=['GET'])
     def get_games_list_route():
         """Get list of available games"""

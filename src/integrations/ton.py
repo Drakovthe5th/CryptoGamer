@@ -25,9 +25,9 @@ async def initialize_ton_wallet():
     try:
         # Initialize LiteClient
         if config.TON_NETWORK == 'testnet':
-            client = LiteClient.from_testnet_config(trusted_index=0)
+            client = LiteClient.from_mainnet_config()
         else:
-            client = LiteClient.from_mainnet_config(trusted_index=0)
+            client = LiteClient.from_mainnet_config()
         
         await client.connect()
         
