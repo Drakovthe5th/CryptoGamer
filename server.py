@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 import asyncio
 import logging
@@ -7,6 +8,14 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Production TON imports
 try:
@@ -19,9 +28,11 @@ try:
 except ImportError as e:
     logger.error(f"Import error: {e}")
     # Notify admin or take corrective action
+    raise
 except Exception as e:
     logger.error(f"Initialization error: {e}")
-    
+    raise
+
 from src.utils.security import get_user_id, is_abnormal_activity
 
 # Graceful import of maintenance functions
@@ -58,13 +69,6 @@ except ImportError as e:
 
 from config import config
 from src.database.firebase import initialize_firebase
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 # Create Flask app
 app = Flask(__name__, template_folder='templates')

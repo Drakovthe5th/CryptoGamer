@@ -27,23 +27,26 @@ from tonsdk.contract.wallet import Wallets, WalletVersionEnum
 # Configure logger
 logger = logging.getLogger(__name__)
 
-def get_valid_fernet_key(key: str) -> bytes:
+def get_valid_fernet_key(key: Union[str, bytes]) -> bytes:
     """Ensure we have a valid Fernet key by handling padding issues"""
+    # Handle both string and bytes input
+    key_str = key.decode() if isinstance(key, bytes) else key
+    
     try:
         # Add proper padding if needed
-        if len(key) % 4 != 0:
-            key += '=' * (4 - len(key) % 4)
+        if len(key_str) % 4 != 0:
+            key_str += '=' * (4 - len(key_str) % 4)
         
         # Try to decode to validate
-        decoded = base64.urlsafe_b64decode(key)
+        decoded = base64.urlsafe_b64decode(key_str)
         if len(decoded) != 32:
             raise ValueError("Key must be 32 bytes when decoded")
-        return key.encode()
+        return key_str.encode()
     except (binascii.Error, ValueError) as e:
         # Generate a new key if existing one is invalid
         from cryptography.fernet import Fernet
         new_key = Fernet.generate_key()
-        logger.critical(f"Invalid encryption key: {e}. Generated new key: {new_key.decode()}")
+        logging.critical(f"Invalid encryption key: {e}. Generated new key: {new_key.decode()}")
         return new_key
 
 class TONWallet:
