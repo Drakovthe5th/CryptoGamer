@@ -7,7 +7,7 @@ from src.integrations.tonclient import ton_client
 from src.integrations.mpesa import send_mpesa_payment
 from src.integrations.paypal import create_payout
 from src.utils import maintenance
-from src.utils.maintenance import is_maintenance_mode
+from src.utils.maintenance import any_issues_found as is_maintenance_mode
 from config import config
 
 logger = logging.getLogger(__name__)
