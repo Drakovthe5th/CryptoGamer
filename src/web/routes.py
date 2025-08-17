@@ -1,3 +1,4 @@
+import asyncio
 from flask import request, jsonify, render_template, send_from_directory
 from src.database.firebase import update_game_coins, record_reset, connect_wallet
 from src.database.firebase import get_games_list, record_game_start, get_user_data
@@ -541,22 +542,32 @@ def configure_routes(app):
         if not user_id or not item_id or not item_price:
             return jsonify({"error": "Missing parameters"}), 400
             
-        # Initialize wallet if needed
-        if not await initialize_on_demand():
-            return jsonify({"error": "Payment system unavailable"}), 500
+        # Create event loop for async operations
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Initialize wallet if needed
+            if not loop.run_until_complete(initialize_on_demand()):
+                return jsonify({"error": "Payment system unavailable"}), 500
+                
+            # Process purchase
+            result = loop.run_until_complete(
+                ton_wallet.process_in_game_purchase(user_id, item_id, item_price)
+            )
             
-        # Process purchase
-        result = await ton_wallet.process_in_game_purchase(user_id, item_id, item_price)
-        
-        if result['status'] == 'success':
-            # Grant item to user
-            db.grant_item(user_id, item_id)
-            return jsonify({
-                "success": True,
-                "tx_hash": result['tx_hash'],
-                "item": item_id
-            })
-        return jsonify({"error": result.get('error', 'Purchase failed')}), 400
+            if result['status'] == 'success':
+                # Grant item to user
+                db.grant_item(user_id, item_id)
+                return jsonify({
+                    "success": True,
+                    "tx_hash": result['tx_hash'],
+                    "item": item_id
+                })
+            return jsonify({"error": result.get('error', 'Purchase failed')}), 400
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            loop.close()
     
     @app.route('/api/shop/purchase/<item_id>', methods=['POST'])
     def purchase_item_route(item_id):
@@ -590,26 +601,33 @@ def configure_routes(app):
         if not user_id or not amount_gc:
             return jsonify({"error": "Missing parameters"}), 400
             
-        # Minimum withdrawal check
         if amount_gc < 200000:
             return jsonify({"error": "Minimum withdrawal is 200,000 GC (100 TON)"}), 400
             
-        # Initialize wallet if needed
-        if not await initialize_on_demand():
-            return jsonify({"error": "Withdrawal system unavailable"}), 500
+        # Initialize wallet if needed using event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Check initialization synchronously
+            if not loop.run_until_complete(initialize_on_demand()):
+                return jsonify({"error": "Withdrawal system unavailable"}), 500
+                
+            # Process withdrawal synchronously
+            result = loop.run_until_complete(ton_wallet.process_withdrawal(user_id, amount_gc))
             
-        # Process withdrawal
-        result = await ton_wallet.process_withdrawal(user_id, amount_gc)
-        
-        if result['status'] == 'success':
-            # Deduct game coins
-            db.update_game_coins(user_id, -amount_gc)
-            return jsonify({
-                "success": True,
-                "tx_hash": result['tx_hash'],
-                "amount_ton": ton_wallet.game_coins_to_ton(amount_gc)
-            })
-        return jsonify({"error": result.get('error', 'Withdrawal failed')}), 400
+            if result['status'] == 'success':
+                # Deduct game coins
+                db.update_game_coins(user_id, -amount_gc)
+                return jsonify({
+                    "success": True,
+                    "tx_hash": result['tx_hash'],
+                    "amount_ton": ton_wallet.game_coins_to_ton(amount_gc)
+                })
+            return jsonify({"error": result.get('error', 'Withdrawal failed')}), 400
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            loop.close()
         
 # HELPER FUNCTION
 def get_user_id(request):
