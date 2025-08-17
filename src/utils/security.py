@@ -132,6 +132,14 @@ def get_user_id(request) -> int:
     except Exception as e:
         logger.error(f"Error getting user ID: {str(e)}")
         return 0  # Default user ID for testing
+    
+# Add to security.py
+def validate_ton_address(address: str) -> bool:
+    """Basic TON address validator"""
+    # Simplified validation - real implementation would use TON libraries
+    if not address:
+        return False
+    return address.startswith(('EQ', 'UQ')) and len(address) == 48
 
 def validate_game_request(request):
     init_data = request.headers.get('X-Telegram-InitData')
