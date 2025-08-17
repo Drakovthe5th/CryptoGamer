@@ -58,15 +58,15 @@ class Config:
         
         # Rewards Configuration (in Game Coins)
         self.REWARDS = {
-            "faucet": int(os.getenv("FAUCET_REWARD", 1000)),
-            "trivia_correct": int(os.getenv("TRIVIA_CORRECT_REWARD", 50)),
-            "trivia_incorrect": int(os.getenv("TRIVIA_INCORRECT_REWARD", 10)),
-            "spin_win": int(os.getenv("SPIN_WIN_REWARD", 200)),
-            "spin_loss": int(os.getenv("SPIN_LOSS_REWARD", 10)),
-            "ad_view": int(os.getenv("AD_VIEW_REWARD", 30)),
-            "referral": int(os.getenv("REFERRAL_REWARD", 500)),
-            "quest": int(os.getenv("QUEST_REWARD", 300)),
-            "daily_bonus": int(os.getenv("DAILY_BONUS", 500))
+            "faucet": float(os.getenv("FAUCET_REWARD", 1000)),
+            "trivia_correct": float(os.getenv("TRIVIA_CORRECT_REWARD", 50)),
+            "trivia_incorrect": float(os.getenv("TRIVIA_INCORRECT_REWARD", 10)),
+            "spin_win": float(os.getenv("SPIN_WIN_REWARD", 200)),
+            "spin_loss": float(os.getenv("SPIN_LOSS_REWARD", 10)),
+            "ad_view": float(os.getenv("AD_VIEW_REWARD", 30)),
+            "referral": float(os.getenv("REFERRAL_REWARD", 500)),
+            "quest": float(os.getenv("QUEST_REWARD", 300)),
+            "daily_bonus": float(os.getenv("DAILY_BONUS", 500))
         }
         
         # Membership Tiers and Benefits
