@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 def validate_ton_address(address: str) -> bool:
     """Validate TON wallet address format"""
-    pattern = r'^EQ[0-9a-zA-Z]{48}$'
+    pattern = r'^UQ[0-9a-zA-Z]{48}$'
     return re.match(pattern, address) is not None
 
 def validate_mpesa_number(number: str) -> bool:

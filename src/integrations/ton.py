@@ -8,9 +8,9 @@ import logging
 from typing import Dict, Optional
 from pytoniq import LiteClient, WalletV4R2, Wallet
 from pytoniq_core import Address, Cell, begin_cell
-from src.utils.security import validate_ton_address
+from src.utils.validators import validate_ton_address
 from config import config
-from src.database.firebase import get_user_data, update_user
+from src.database.firebase import get_user_data, update_game_coins, connect_wallet  # Updated import
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ async def get_wallet_status() -> Dict[str, any]:
     except Exception as e:
         return {'healthy': False, 'error': str(e)}
 
-async def process_withdrawal(user_id: int, amount_gc: int) -> Dict[str, any]:
+async def process_ton_withdrawal(user_id: int, amount_gc: int) -> Dict[str, any]:
     """Process withdrawal of game coins to TON"""
     try:
         # Validate withdrawal amount
@@ -94,10 +94,12 @@ async def process_withdrawal(user_id: int, amount_gc: int) -> Dict[str, any]:
         if not tx_result['success']:
             return tx_result
         
-        # Deduct GC from user balance
-        new_gc_balance = user_data['game_coins'] - amount_gc
-        update_user(user_id, {'game_coins': new_gc_balance})
-        
+        # Deduct GC from user balance using update_game_coins
+        _, actual_deducted = update_game_coins(user_id, -amount_gc)
+        if actual_deducted != -amount_gc:
+            logger.error(f"Failed to deduct full amount: expected {-amount_gc}, got {actual_deducted}")
+            return {'status': 'error', 'error': 'Failed to deduct game coins'}
+
         return {
             'status': 'success',
             'tx_hash': tx_result['tx_hash'],
@@ -187,6 +189,11 @@ async def create_payment_request(user_id: int, item_id: str, amount_ton: float) 
     except Exception as e:
         logger.error(f"Payment request creation failed: {str(e)}")
         return ""
+    
+def save_wallet_address(user_id: int, address: str) -> bool:
+    """Save user's wallet address to database"""
+    # Simplified to use connect_wallet which handles validation
+    return connect_wallet(user_id, address)
 
 def game_coins_to_ton(coins: int) -> float:
     """Convert game coins to TON equivalent"""
