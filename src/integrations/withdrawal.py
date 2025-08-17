@@ -187,4 +187,10 @@ class WithdrawalProcessor:
             return False, str(e)
 
 # Global processor instance
-withdrawal_processor = WithdrawalProcessor()
+withdrawal_processor = None
+
+def get_withdrawal_processor():
+    global withdrawal_processor
+    if withdrawal_processor is None:
+        withdrawal_processor = WithdrawalProcessor()
+    return withdrawal_processor

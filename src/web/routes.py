@@ -7,7 +7,7 @@ from src.features.ads import ad_manager
 from src.features.monetization.purchases import process_purchase
 from src.utils.conversions import check_daily_limit, calculate_reward
 from src.utils.upgrade_manager import upgrade_manager
-from src.integrations.withdrawal import withdrawal_processor
+from src.integrations.withdrawal import get_withdrawal_processor
 from src.integrations.ton import ton_wallet, initialize_on_demand
 from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
 from src.utils.validators import validate_ton_address
@@ -516,9 +516,10 @@ def configure_routes(app):
         user_id = get_user_id(request)
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
-            
+        
         try:
-            success, result = withdrawal_processor.process_gc_withdrawal(user_id)
+            processor = get_withdrawal_processor()
+            success, result = processor.process_gc_withdrawal(user_id)
             if not success:
                 return jsonify({"error": result}), 400
                 
