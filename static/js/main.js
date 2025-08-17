@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Example usage in API calls
-async function loadUserData() {
+async function loadUserDataExample() {
   showSpinner();
   try {
     // API call here

@@ -35,6 +35,9 @@ def run_web_server():
         logger.critical(f"Web server failed: {e}")
 
 async def set_webhook():
+    if not telegram_application:
+        return
+        
     try:
         webhook_url = f"https://{config.RENDER_EXTERNAL_URL}/webhook"
         await telegram_application.bot.set_webhook(
@@ -76,9 +79,9 @@ def shutdown_app():
     # Close TON wallet connection
     if config.TON_ENABLED:
         logger.info("Closing TON wallet...")
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             loop.run_until_complete(close_ton_wallet())
         except Exception as e:
             logger.error(f"Error closing TON wallet: {e}")

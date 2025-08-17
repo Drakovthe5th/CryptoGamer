@@ -8,7 +8,6 @@
   <script src='//libtl.com/sdk.js' data-zone='9644715' data-sdk='show_9644715'></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/miniapp.css') }}">
-
 </head>
 <body>
   <div class="container">
@@ -34,9 +33,10 @@
     </header>
 
     <!-- Wallet Status -->
-    <div class="wallet-status" id="wallet-status">
-      <div class="status-indicator" id="status-indicator"></div>
-      <span id="wallet-status-text">Connecting to TON network...</span>
+    <div class="wallet-status">
+      <span id="wallet-indicator">🔴</span>
+      <span id="wallet-address">Not connected</span>
+      <button onclick="Miniapp.connectWallet()">Connect Wallet</button>
     </div>
 
     <!-- HOME -->
@@ -65,23 +65,19 @@
       <div class="section slide-in">
         <h2 class="section-title">🎮 Featured Games</h2>
         <div class="game-grid">
-          <div class="game-card" onclick="launchGame('trivia')">
-            <div class="game-card" data-game-id="trivia"></div>
+          <div class="game-card" data-game-id="trivia">
             <div class="game-icon">❓</div>
             <div class="game-name">Crypto Trivia</div>
           </div>
-          <div class="game-card" onclick="launchGame('spin')">
-            <div class="game-card" data-game-id="spin"></div>
+          <div class="game-card" data-game-id="spin">
             <div class="game-icon">🎡</div>
             <div class="game-name">Lucky Spin</div>
           </div>
-          <div class="game-card" onclick="launchGame('clicker')">
-            <div class="game-card" data-game-id="clicker"></div>
+          <div class="game-card" data-game-id="clicker">
             <div class="game-icon">🖱️</div>
             <div class="game-name">TON Clicker</div>
           </div>
-          <div class="game-card" onclick="launchGame('trex')">
-            <div class="game-card" data-game-id="trex"></div>
+          <div class="game-card" data-game-id="trex">
             <div class="game-icon">🦖</div>
             <div class="game-name">T-Rex Runner</div>
           </div>
@@ -96,7 +92,7 @@
         <p style="margin-bottom: 16px; color: #ccc;">
           Watch video ads and boost your TON balance instantly!
         </p>
-        <button class="btn" onclick="rewardedInterstitial()">
+        <button class="btn" id="watch-ad-btn">
           ▶️ Watch Ad & Earn TON
         </button>
         <div style="margin-top: 16px; padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
@@ -110,11 +106,11 @@
           <div style="text-align: center; color: #666;">
             <div style="font-size: 2rem; margin-bottom: 8px;">📺</div>
             <div>Ad Banner Placeholder</div>
-            <div class="section slide-in">
-            <div class="ad-slot" id="home_bottom_banner" style="height:250px;"></div>
-            </div>
           </div>
         </div>
+      </div>
+      <div class="section slide-in">
+        <div class="ad-slot" id="home_bottom_banner" style="height:250px;"></div>
       </div>
     </div>
 
@@ -123,15 +119,14 @@
       <div class="section">
         <h2 class="section-title">💰 Your Wallet</h2>
         <div style="text-align: center; margin: 20px 0;">
-          <div style="font-size: 3rem; font-weight: 700; color: var(--accent-green);">
-            <span id="wallet-balance">0.000000</span> TON
+          <div style="font-size: 1.5rem; color: var(--accent-green);">
+            <span id="gc-balance">0</span> GC
           </div>
-          <div style="color: #888; margin-top: 8px;">Total Balance</div>
-          <div style="font-size: 0.8rem; color: #666; margin-top: 4px;" id="wallet-address">
-            Wallet: Loading...
+          <div style="color: #888; margin-top: 8px;">
+            ≈ <span id="ton-equivalent">0.00</span> TON
           </div>
-          <div class="section">
-          <div class="ad-slot" id="wallet_mid_banner" style="height:100px;"></div>
+          <div style="color: #666; margin-top: 4px; font-size: 0.8rem;">
+            200,000 GC = 100 TON
           </div>
         </div>
         
@@ -144,6 +139,15 @@
           </button>
           <button class="btn btn-secondary" onclick="showPage('otc')">
             💱<br/>Trade
+          </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px;">
+          <button class="btn btn-secondary" onclick="showWithdrawalForm()">
+            📤 Withdraw TON
+          </button>
+          <button class="btn btn-secondary" onclick="Miniapp.connectWallet()">
+            🔗 Connect Wallet
           </button>
         </div>
 
@@ -175,7 +179,7 @@
           <p>Earn <span style="color: var(--accent-green); font-weight: bold;">8.5% APY</span> on deposits of 5+ TON</p>
           <small style="color: #888;">Rewards are distributed daily</small>
         </div>
-        <button class="btn" onclick="startStaking()">
+        <button class="btn" id="staking-btn">
           💰 Start Staking (5 TON min)
         </button>
       </div>
@@ -225,36 +229,31 @@
         </p>
         
         <div class="game-grid">
-          <div class="game-card" onclick="launchGame('trivia')">
-            <div class="game-card" data-game-id="trivia"></div>
+          <div class="game-card" data-game-id="trivia">
             <div class="game-icon">❓</div>
             <div class="game-name">Crypto Trivia</div>
             <small style="color: #888;">Test your knowledge</small>
           </div>
           
-          <div class="game-card" onclick="launchGame('spin')">
-            <div class="game-card" data-game-id="spin"></div>
+          <div class="game-card" data-game-id="spin">
             <div class="game-icon">🎡</div>
             <div class="game-name">Lucky Spin</div>
             <small style="color: #888;">Spin to win big</small>
           </div>
           
-          <div class="game-card" onclick="launchGame('clicker')">
-            <div class="game-card" data-game-id="clicker"></div>
+          <div class="game-card" data-game-id="clicker">
             <div class="game-icon">🖱️</div>
             <div class="game-name">TON Clicker</div>
             <small style="color: #888;">Click for rewards</small>
           </div>
           
-          <div class="game-card" onclick="launchGame('trex')">
-            <div class="game-card" data-game-id="trex"></div>
+          <div class="game-card" data-game-id="trex">
             <div class="game-icon">🦖</div>
             <div class="game-name">T-Rex Runner</div>
             <small style="color: #888;">Endless runner</small>
           </div>
           
-          <div class="game-card" onclick="launchGame('edge-surf')">
-            <div class="game-card" data-game-id="edge-surf"></div>
+          <div class="game-card" data-game-id="edge-surf">
             <div class="game-icon">🏄</div>
             <div class="game-name">Edge Surf</div>
             <small style="color: #888;">Surf the web</small>
@@ -265,9 +264,9 @@
             <div class="game-name">More Games</div>
             <small style="color: #888;">Coming soon</small>
           </div>
-          <div class="section">
+        </div>
+        <div class="section">
           <div class="ad-slot" id="game_bottom_banner" style="height:120px;"></div>
-          </div>
         </div>
       </div>
     </div>
@@ -285,11 +284,7 @@
             <div style="font-weight: 600;">✅ Claim Daily Bonus</div>
             <small style="color: #888;">Reward: <span id="quest-bonus-reward">0.01</span> TON</small>
           </div>
-          <button class="btn btn-small" id="quest-bonus" onclick="claimDailyBonus()">Claim</button>
-        </div>
-
-        <div class="section">
-        <div class="ad-slot" id="quest_bottom_banner" style="height:80px;"></div>
+          <button class="btn btn-small" id="quest-bonus-btn">Claim</button>
         </div>
         
         <div class="quest-item">
@@ -316,6 +311,9 @@
           <button class="btn btn-small btn-secondary" onclick="showPage('referrals')">Invite</button>
         </div>
       </div>
+      <div class="section">
+        <div class="ad-slot" id="quest_bottom_banner" style="height:80px;"></div>
+      </div>
 
       <div class="section">
         <h2 class="section-title">🏆 Weekly Challenges</h2>
@@ -341,7 +339,7 @@
             <div style="font-weight: 600;">📱 Share App</div>
             <small style="color: #888;">Share with 5 friends | Reward: 0.25 TON</small>
           </div>
-          <button class="btn btn-small btn-secondary" onclick="shareMission()">Share</button>
+          <button class="btn btn-small btn-secondary" id="share-app-btn">Share</button>
         </div>
       </div>
     </div>
@@ -375,7 +373,7 @@
           <small style="color: #888;" id="fee-text">Fee: 3% (min $1.00)</small>
         </div>
         
-        <button class="btn" onclick="swapTon()">
+        <button class="btn" id="swap-ton-btn">
           💱 Start Exchange
         </button>
       </div>
@@ -404,6 +402,25 @@
           ⏰ Rates updated every 5 minutes
         </small>
       </div>
+
+      <div class="section">
+        <h2 class="section-title">🪙 Game Coin Calculator</h2>
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Game Coins (GC)</label>
+          <input type="number" id="gc-amount" placeholder="Enter GC" 
+                style="width:100%; padding:12px; border-radius:8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
+        </div>
+        
+        <div id="conversion-result" style="background: rgba(255,204,0,0.1); padding: 12px; 
+              border-radius: 8px; margin-bottom: 16px; display: none;">
+          <div style="color: var(--primary-yellow); font-weight: 600;">Conversion Result:</div>
+          <div id="conversion-result-text"></div>
+        </div>
+        
+        <button class="btn" id="convert-gc-btn">
+          💱 Convert to TON
+        </button>
+      </div>
     </div>
 
     <!-- REFERRALS -->
@@ -414,7 +431,7 @@
         <div class="referral-link" id="ref-link">
           https://t.me/CryptoGameMinerBot?start=ref-xyz123
         </div>
-        <button class="btn" onclick="copyReferralLink()" style="background: rgba(255,255,255,0.2); color: white;">
+        <button class="btn" id="copy-ref-btn" style="background: rgba(255,255,255,0.2); color: white;">
           📋 Copy Invite Link
         </button>
       </div>
@@ -460,6 +477,24 @@
             <span>💎 100 referrals → Bonus 1.0 TON</span>
             <span style="color: #888;" id="milestone-100">0/100</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP -->
+    <div id="shop-page" class="page">
+      <div class="section">
+        <h2 class="section-title">🛒 Game Shop</h2>
+        <p style="margin-bottom: 20px; color: #ccc;">
+          Buy boosters to enhance your gaming experience!
+        </p>
+        
+        <div class="shop-items" id="shop-items-container">
+          <!-- Items will be loaded here dynamically -->
+        </div>
+        
+        <div class="section">
+          <div class="ad-slot" id="shop_bottom_banner" style="height:100px;"></div>
         </div>
       </div>
     </div>
@@ -520,46 +555,46 @@
         </button>
       </div>
     </div>
-
   </div>
 
   <!-- NAVIGATION -->
   <nav class="nav-bar">
-    <button class="nav-btn active" onclick="showPage('home')">
+    <button class="nav-btn active" data-page="home">
       <span class="nav-icon">🏠</span>
       <span>Home</span>
     </button>
-    <button class="nav-btn" onclick="showPage('watch')">
+    <button class="nav-btn" data-page="watch">
       <span class="nav-icon">📺</span>
       <span>Watch</span>
     </button>
-    <button class="nav-btn" onclick="showPage('wallet')">
+    <button class="nav-btn" data-page="wallet">
       <span class="nav-icon">💰</span>
       <span>Wallet</span>
     </button>
-    <button class="nav-btn" onclick="showPage('games')">
+    <button class="nav-btn" data-page="games">
       <span class="nav-icon">🎮</span>
       <span>Games</span>
     </button>
-    <button class="nav-btn" onclick="showPage('quests')">
+    <button class="nav-btn" data-page="quests">
       <span class="nav-icon">📝</span>
       <span>Quests</span>
     </button>
-    <button class="nav-btn" onclick="showPage('otc')">
+    <button class="nav-btn" data-page="otc">
       <span class="nav-icon">💱</span>
       <span>Trade</span>
     </button>
-    <button class="nav-btn" onclick="showPage('referrals')">
+    <button class="nav-btn" data-page="referrals">
       <span class="nav-icon">👥</span>
       <span>Invite</span>
+    </button>
+    <button class="nav-btn" data-page="shop">
+      <span class="nav-icon">🛒</span>
+      <span>Shop</span>
     </button>
   </nav>
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   <script src="{{ url_for('static', filename='js/miniapp.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/ads.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/staking.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/ad_loader.js') }}"></script>
-
+  <script src="{{ url_for('static', filename='js/event_handlers.js') }}"></script>
 </body>
 </html>

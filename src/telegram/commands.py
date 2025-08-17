@@ -6,6 +6,7 @@ from src.database.firebase import (
     users_ref, update_leaderboard_points, get_leaderboard, get_user_rank
 )
 from src.features.quests import get_active_quests
+from src.utils.conversions import game_coins_to_ton
 from src.utils.conversions import to_ton
 from config import Config
 import datetime
@@ -76,11 +77,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
-    balance = get_user_balance(user_id)
+    user_data = get_user_data(user_id)
+    game_coins = user_data.get('game_coins', 0)
+    ton_equivalent = game_coins_to_ton(game_coins)
     
     text = (
-        f"💎 Your Balance: {to_ton(balance):.6f} TON\n\n"
-        f"💸 Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON\n"
+        f"🎮 Game Coins: {game_coins:,} GC\n"
+        f"💎 TON Equivalent: {ton_equivalent:.6f} TON\n\n"
+        f"💸 Minimum Withdrawal: 200,000 GC (100 TON)\n"
         "💳 Set up withdrawal methods with /set_withdrawal"
     )
     

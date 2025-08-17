@@ -11,6 +11,7 @@ from src.utils.maintenance import is_maintenance_mode
 from config import config
 
 logger = logging.getLogger(__name__)
+MIN_WITHDRAWAL = 200000  # GC
 
 class WithdrawalProcessor:
     def __init__(self):
@@ -45,55 +46,27 @@ class WithdrawalProcessor:
             })
         self.today_withdrawn = amount
 
-    def process_withdrawal(self, user_id: str, method: str, amount: float, details: dict) -> dict:
-        """Process a withdrawal request"""
-        # Check maintenance mode
-        if is_maintenance_mode():
-            return {"success": False, "error": "Withdrawals temporarily disabled for maintenance"}
+    
+    def process_withdrawal(user_id):
+        user = get_user(user_id)
         
-        # Check system limits
-        if self.today_withdrawn + amount > self.daily_withdrawal_limit:
-            return {"success": False, "error": "Daily withdrawal limit reached"}
+        if not user.wallet_address:
+            raise Exception("Wallet not connected")
         
-        # Check user limits
-        user_ref = db.collection("users").document(str(user_id))
-        user_data = user_ref.get().to_dict()
+        if user.game_coins < MIN_WITHDRAWAL:
+            raise Exception("Insufficient balance")
         
-        # Reset daily limit if new day
-        user_today = datetime.now().strftime("%Y-%m-%d")
-        if user_data.get("last_withdrawal_date") != user_today:
-            user_ref.update({
-                "last_withdrawal_date": user_today,
-                "today_withdrawn": 0.0
-            })
-            user_data["today_withdrawn"] = 0.0
+        # Convert to TON
+        ton_amount = user.game_coins / TON_TO_GC_RATE
         
-        # Check user limit
-        if user_data.get("today_withdrawn", 0.0) + amount > self.user_daily_limit:
-            return {"success": False, "error": "You've reached your daily withdrawal limit"}
+        # Send transaction
+        tx_hash = ton_client.send_ton(user.wallet_address, ton_amount)
         
-        # Process based on method
-        result = None
-        if method == "ton":
-            result = self.process_ton_withdrawal(user_id, amount, details)
-        elif method == "mpesa":
-            result = self.process_mpesa_withdrawal(user_id, amount, details)
-        elif method == "paypal":
-            result = self.process_paypal_withdrawal(user_id, amount, details)
+        # Update user balance
+        user.game_coins -= MIN_WITHDRAWAL
+        user.save()
         
-        # Update limits if successful
-        if result and result.get("success"):
-            # Update system total
-            self.today_withdrawn += amount
-            self.update_daily_total(self.today_withdrawn)
-            
-            # Update user total
-            user_ref.update({
-                "today_withdrawn": user_data.get("today_withdrawn", 0.0) + amount,
-                "total_withdrawn": user_data.get("total_withdrawn", 0.0) + amount
-            })
-        
-        return result
+        return tx_hash
 
     def process_ton_withdrawal(self, user_id: str, amount: float, details: dict) -> dict:
         """Process TON blockchain withdrawal"""
@@ -191,6 +164,27 @@ class WithdrawalProcessor:
             
             return {"success": True, "amount_usd": amount_usd}
         return {"success": False, "error": result.get("error", "PayPal payout failed")}
+
+    def process_gc_withdrawal(self, user_id):
+        """Process GC withdrawal to TON"""
+        user = get_user(user_id)
+        if not user or not user.wallet_address:
+            return False, "Wallet not connected"
+        
+        if user.game_coins < MIN_WITHDRAWAL:
+            return False, "Insufficient balance"
+        
+        try:
+            # Send 100 TON (equivalent to 200,000 GC)
+            tx_hash = ton_client.send_ton(user.wallet_address, 100)
+            
+            # Deduct GC balance
+            user.game_coins -= MIN_WITHDRAWAL
+            save_user(user)
+            
+            return True, tx_hash
+        except Exception as e:
+            return False, str(e)
 
 # Global processor instance
 withdrawal_processor = WithdrawalProcessor()

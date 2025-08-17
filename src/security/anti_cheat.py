@@ -153,6 +153,26 @@ class AntiCheatSystem:
             return False
             
         return True
+    
+    def validate_game_score(user_id, game_type, reported_score):
+        from src.database.game_db import get_session_data
+        session = get_session_data(user_id, game_type)
+        
+        # Calculate max possible score based on session duration
+        max_scores = {
+            'clicker': 5000,  # 5000 clicks/hr
+            'trex': 10000,    # 10000 points/hr
+            'trivia': 500,     # 500 correct answers/hr
+            'spin': 300,       # 300 spins/hr
+            'edge_surf': 2000  # 2000 points/hr
+        }
+        
+        duration = (session['end_time'] - session['start_time']).total_seconds()
+        max_possible = max_scores[game_type] * (duration / 3600)
+        
+        if reported_score > max_possible * 1.2:  # Allow 20% tolerance
+            return False
+        return True
 class AdValidator:
     def __init__(self):
         self.ad_events = {}

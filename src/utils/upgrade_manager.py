@@ -1,42 +1,63 @@
 from src.database.firebase import db
-from datetime import datetime  # Add this
+from datetime import datetime
 import time
 
 class UpgradeManager:
-    TIERS = {
-        "free": {"daily_limit": 0.5, "ads_per_day": 5},
-        "basic": {"daily_limit": 5.0, "ads_per_day": 20, "price": 1.0},
-        "premium": {"daily_limit": float('inf'), "ads_per_day": float('inf'), "price": 5.0}
+    MEMBERSHIP_TIERS = {
+        "BASIC": {
+            "multiplier": 1.0,
+            "price": 0,
+            "perks": []
+        },
+        "PREMIUM": {
+            "multiplier": 1.5,
+            "price": 5000,  # in game coins
+            "perks": ["extra_questions", "double_earnings"]
+        },
+        "ULTIMATE": {
+            "multiplier": 2.0,
+            "price": 15000,  # in game coins
+            "perks": ["triple_earnings", "unlimited_resets"]
+        }
     }
     
     def upgrade_user(self, user_id: str, tier: str):
-        """Upgrade user account"""
-        if tier not in self.TIERS:
+        """Upgrade user membership"""
+        if tier not in self.MEMBERSHIP_TIERS:
             return False
         
         user_ref = db.collection("users").document(str(user_id))
         user_ref.update({
-            "account_tier": tier,
+            "membership_tier": tier,
             "upgraded_at": datetime.now()
         })
         return True
     
     def get_user_tier(self, user_id: str) -> str:
-        """Get user account tier"""
+        """Get user membership tier"""
         user_ref = db.collection("users").document(str(user_id))
         user_data = user_ref.get().to_dict()
-        return user_data.get("account_tier", "free")
+        return user_data.get("membership_tier", "BASIC")
     
-    def get_upgrade_options(self):
-        """Get available upgrade options"""
+    def get_tier_multiplier(self, user_id: str) -> float:
+        """Get earning multiplier for user's tier"""
+        tier = self.get_user_tier(user_id)
+        return self.MEMBERSHIP_TIERS[tier]["multiplier"]
+    
+    def get_upgrade_options(self, user_id: str):
+        """Get available upgrade options for user"""
+        current_tier = self.get_user_tier(user_id)
+        tiers = list(self.MEMBERSHIP_TIERS.keys())
+        current_index = tiers.index(current_tier)
+        
         return [
             {
                 "tier": tier,
-                "daily_limit": self.TIERS[tier]["daily_limit"],
-                "ads_per_day": self.TIERS[tier]["ads_per_day"],
-                "price": self.TIERS[tier].get("price", 0)
+                "multiplier": self.MEMBERSHIP_TIERS[tier]["multiplier"],
+                "price": self.MEMBERSHIP_TIERS[tier]["price"],
+                "perks": self.MEMBERSHIP_TIERS[tier]["perks"]
             }
-            for tier in self.TIERS if tier != "free"
+            for i, tier in enumerate(tiers) if i > current_index
         ]
 
 # Global upgrade manager

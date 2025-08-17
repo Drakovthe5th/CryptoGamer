@@ -3,20 +3,16 @@ import hashlib
 import hmac
 import logging
 import asyncio
-from flask import Flask
-from src.web.flask_app import create_app
-from datetime import datetime
 from flask import Blueprint, request, jsonify
 from src.database import firebase as db
 from src.telegram.auth import validate_init_data
 from src.utils import security, validators
-from src.features.mining import token_distribution, proof_of_play
 from src.security import anti_cheat
 from src.features import quests
 from src.utils.validators import validate_json_input
-from src.database.firebase import save_game_session, get_game_session
 from config import config
 import logging
+from datetime import datetime
 
 miniapp_bp = Blueprint('miniapp', __name__)
 logger = logging.getLogger(__name__)
@@ -90,11 +86,11 @@ def claim_daily():
     
 def validate_game_session(user_id, session_id):
     """Validate game session exists and belongs to user"""
-    session = db.get_game_session(session_id)  # Ensure this function exists
+    session = db.get_game_session(session_id)
     
     if not session:
         return False
-    if session['user_id'] != user_id:
+    if str(session['user_id']) != str(user_id):
         return False
     if session['status'] != 'active':
         return False
@@ -112,8 +108,6 @@ def validate_game_session(user_id, session_id):
     actual_duration = (datetime.now() - session['start_time']).total_seconds()
 
     return min_dur <= actual_duration <= max_dur
-
-
 
 @miniapp_bp.route('/quests/record_click', methods=['POST'])
 @validators.validate_json_input({'user_id': {'type': 'int', 'required': True}})
@@ -172,50 +166,19 @@ def ad_reward():
     except Exception as e:
         logger.error(f"Ad reward error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-    
-@miniapp_bp.route('/activity/reward', methods=['POST'])
-@validate_json_input({  # Fixed decorator name
-    'user_id': {'type': 'int', 'required': True},
-    'activity_type': {'type': 'str', 'required': True},
-    'game_data': {'type': 'dict', 'required': False}
-})  # Fixed closing parenthesis
-def reward_activity():
-    data = request.get_json()
-    user_id = data['user_id']
-    activity_type = data['activity_type']
-    game_data = data.get('game_data', {})
-    
-    # Anti-cheat verification
-    validator = proof_of_play.ProofOfPlay()
-    if not validator.verify_play(game_data):
-        return jsonify({'error': 'Activity verification failed'}), 400
-    
-    # Anti-farming detection
-    if anti_cheat.AntiCheatSystem().detect_farming(user_id):
-        return jsonify({'error': 'Suspicious activity detected'}), 403
-    
-    # Distribute rewards
-    try:
-        new_balance = token_distribution.distribute_rewards(
-            user_id, 
-            activity_type,
-            game_data.get('score')
-        )
-        return jsonify({
-            'success': True,
-            'new_balance': new_balance
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
+
 @miniapp_bp.route('/security/check', methods=['GET'])
 def security_check():
     user_id = request.args.get('user_id')
     if not user_id:
         return jsonify({'error': 'User ID required'}), 400
         
-    restricted = security.is_abnormal_activity(int(user_id))
-    return jsonify({'restricted': restricted})
+    try:
+        restricted = security.is_abnormal_activity(int(user_id))
+        return jsonify({'restricted': restricted})
+    except Exception as e:
+        logger.error(f"Security check error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @miniapp_bp.route('/staking/create', methods=['POST'])
 @validators.validate_json_input({
@@ -242,8 +205,7 @@ def create_staking():
             return jsonify({'success': False, 'error': 'Failed to create staking contract'}), 500
         
         # Save to database
-        from src.database.firebase import save_staking
-        save_staking(user_id, contract_address, amount)
+        db.save_staking(user_id, contract_address, amount)
         
         return jsonify({
             'success': True,
@@ -308,61 +270,7 @@ def get_otc_rates():
     except Exception as e:
         logger.error(f"OTC rates error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-    
-def create_app():
-    app = Flask(__name__)
 
-    @app.route('/api/game/complete', methods=['POST'])
-    def handle_game_completion():
-        data = request.json
-        game_id = data['game_id']
-
-        if not validate_init_data(data.get('init_data', '')):
-            return jsonify({'success': False, 'error': 'Invalid init data'}), 401
-        
-        # Validate security token
-        try:
-            payload = jwt.decode(data['token'], config.SECRET_KEY, algorithms=['HS256'])
-            if payload['user_id'] != data['user_id']:
-                return jsonify({'success': False, 'error': 'Invalid token'}), 401
-        except:
-            return jsonify({'success': False, 'error': 'Token verification failed'}), 401
-        
-            # Route to game-specific handler
-        if game_id == 'edge-surf':
-            return handle_edge_surf_completion(data)
-        
-        elif game_id == 'trex-runner':
-            return handle_trex_completion(data)
-        
-        elif game_id == 'clicker':
-            return handle_clicker_completion(data)
-
-        elif game_id == 'spin':
-            return handle_spin_completion(data)
-
-        elif game_id == 'trivia':
-            return handle_trivia_completion(data)
-        
-        # Anti-cheat validation
-        if not anti_cheat.validate_edge_surf(data['session_data']):
-            return jsonify({'success': False, 'error': 'Cheat detected'}), 403
-        
-        # Calculate reward
-        reward = token_distribution.calculate_edge_surf_reward(
-            data['score'],
-            data['session_data']
-        )
-        
-        # Update user balance
-        new_balance = update_user_balance(data['user_id'], reward)
-        
-        return jsonify({
-            'success': True,
-            'reward': reward,
-            'new_balance': new_balance
-        })
-    
 @miniapp_bp.route('/game/complete', methods=['POST'])
 @validate_json_input({
     'user_id': {'type': 'int', 'required': True},
@@ -386,6 +294,7 @@ def game_completed():
     
     try:
         # Calculate reward based on game type and score
+        from src.features.mining import token_distribution
         reward = token_distribution.calculate_reward(
             user_id=user_id,
             game_id=game_id,
@@ -414,23 +323,43 @@ def game_completed():
     except Exception as e:
         logger.error(f"Game completion error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+@miniapp_bp.route('/user/balance', methods=['GET'])
+def get_user_balance():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'User ID required'}), 400
+        
+    try:
+        user_id_int = int(user_id)
+        user_data = db.get_user_data(user_id_int)
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
+            
+        return jsonify({
+            'game_coins': user_data.get('game_coins', 0),
+            'ton_equivalent': game_coins_to_ton(user_data.get('game_coins', 0))
+        })
+    except Exception as e:
+        logger.error(f"User balance error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
+@miniapp_bp.route('/otc/quote', methods=['GET'])
+def get_otc_quote():
+    user_id = request.args.get('user_id')
+    currency = request.args.get('currency', 'USD')
     
-# Add to miniapp.py
-def init_edge_surf():
-    # Initialize Telegram WebApp
-    user_id = request.json.get('user_id')
-    token = generate_security_token(user_id)
+    from src.features.otc_desk import get_otc_quote as get_quote
+    quote = get_quote(int(user_id), currency)
     
-    # Return game initialization data
-    return jsonify({
-        'status': 'success',
-        'token': token,
-        'game_config': {
-            'max_reward': config.MAX_GAME_REWARD['edge-surf'],
-            'reward_rate': config.REWARD_RATES['edge-surf']
-        }
-    })
+    if not quote:
+        return jsonify({'error': 'Could not generate quote'}), 400
+        
+    return jsonify(quote)
+
+def game_coins_to_ton(coins):
+    """Convert game coins to TON equivalent"""
+    return coins * config.GAME_COIN_TO_TON_RATE
 
 def validate_init_data(init_data, bot_token):
     """Validate Telegram WebApp initData"""
@@ -462,8 +391,3 @@ def validate_init_data(init_data, bot_token):
         
     except Exception:
         return False
-    
-def miniapp_security_middleware(request):
-    init_data = request.headers.get('X-Telegram-InitData')
-    if not validate_init_data(init_data, config.TELEGRAM_TOKEN):
-        return jsonify({'error': 'Invalid Telegram authentication'}), 401

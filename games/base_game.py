@@ -10,14 +10,15 @@ class BaseGame:
     
     def __init__(self, name: str):
         self.name = name
-        self.players = {}  # Store active game sessions
-        self.min_reward = 0.001  # Minimum TON reward
-        self.max_reward = 0.1    # Maximum TON reward
-        self.max_score_per_second = 50  # Anti-cheat threshold
-        self.game_timeout = 300  # 5 minutes max game session
-        self.suspicious_activities = {}  # Track suspicious behavior
-        self.max_retry_attempts = 3  # Add retry configuration
-        self.retry_delay = 1.5       # Add retry delay
+        self.players = {}
+        self.min_reward = 0.001
+        self.max_reward = 0.1
+        self.max_score_per_second = 50
+        self.game_timeout = 300
+        self.suspicious_activities = {}
+        self.max_retry_attempts = 3
+        self.retry_delay = 1.5
+        self.gc_multiplier = 1.0  # ADDED: Default multiplier
         
         logger.info(f"Initialized {self.name} game")
     
@@ -143,20 +144,38 @@ class BaseGame:
             
             # Calculate reward
             reward = self._calculate_reward(player["score"], duration)
+            # CONVERT TO GAME COINS WITH MULTIPLIER
+            gc_reward = int(reward * TON_TO_GC_RATE * self.gc_multiplier)
             
             # Check if new high score
             is_new_high_score = player["score"] > player.get("high_score", 0)
             if is_new_high_score:
                 self._update_high_score(user_id, player["score"])
+
+            # UPDATE USER'S GAME COINS
+            user = get_user(user_id)
+            if user:
+                # Apply daily limit
+                available_daily = MAX_DAILY_GC - user.daily_gc_earned
+                if gc_reward > available_daily:
+                    gc_reward = available_daily
+                
+                user.game_coins += gc_reward
+                user.daily_gc_earned += gc_reward
+                user.save()
+            else:
+                logger.error(f"User not found: {user_id}")
             
             # Log game completion
-            logger.info(f"Game {self.name} completed by user {user_id}: score={player['score']}, reward={reward}, duration={duration:.2f}s")
+            logger.info(f"Game {self.name} completed by user {user_id}: score={player['score']}, GC reward={gc_reward}")
             
             return {
                 "status": "completed",
                 "score": player["score"],
                 "duration": round(duration, 2),
-                "reward": reward,
+                "gc_reward": gc_reward,
+                "multiplier": self.gc_multiplier,
+                "total_gc": user.game_coins if user else 0,
                 "new_high_score": is_new_high_score,
                 "game_stats": {
                     "actions_performed": player["actions_count"],
@@ -341,3 +360,13 @@ class BaseGame:
             "total_sessions": len(self.players),
             "suspicious_users": len(self.suspicious_activities)
         }
+    
+    def apply_boosters(self, user_id):
+        """Apply active boosters to current session"""
+        user = get_user(user_id)
+        if not user:
+            return
+            
+        for item in user.inventory:
+            if 'multiplier' in item.get('effect', {}):
+                self.gc_multiplier = max(self.gc_multiplier, item['effect']['multiplier'])

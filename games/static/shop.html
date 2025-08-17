@@ -1,0 +1,176 @@
+<!-- shop.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TON Game Shop</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/css/main.css">
+  <style>
+    .shop-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .shop-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .coins-display {
+      background: linear-gradient(135deg, #ffd700, #ffb700);
+      color: #8b4513;
+      padding: 10px 15px;
+      border-radius: 20px;
+      font-weight: bold;
+      display: inline-block;
+      margin: 10px 0;
+    }
+    
+    .shop-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+    }
+    
+    .shop-item {
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transition: transform 0.3s;
+    }
+    
+    .shop-item:hover {
+      transform: translateY(-5px);
+    }
+    
+    .item-header {
+      background: #4e54c8;
+      color: white;
+      padding: 15px;
+      text-align: center;
+    }
+    
+    .item-body {
+      padding: 15px;
+    }
+    
+    .item-price {
+      font-weight: bold;
+      color: #e74c3c;
+      margin: 10px 0;
+    }
+    
+    .btn-buy {
+      background: #27ae60;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+    }
+    
+    .btn-buy:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+    
+    .item-icon {
+      font-size: 2.5rem;
+      text-align: center;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="shop-container">
+    <div class="shop-header">
+      <h1>🎮 Game Shop</h1>
+      <div class="coins-display" id="gc-balance">Loading GC balance...</div>
+      <p>Buy items to enhance your gaming experience!</p>
+    </div>
+    
+    <div class="shop-items">
+      <!-- Global Boosters -->
+      <div class="shop-item">
+        <div class="item-header">
+          <h3>2x Earnings Booster</h3>
+        </div>
+        <div class="item-icon">🚀</div>
+        <div class="item-body">
+          <p>Double your earnings in all games for 1 hour</p>
+          <div class="item-price">Price: 2000 GC</div>
+          <button class="btn-buy" data-item="global_booster">Buy Now</button>
+        </div>
+      </div>
+      
+      <!-- Trivia Items -->
+      <div class="shop-item">
+        <div class="item-header">
+          <h3>Trivia Time Extender</h3>
+        </div>
+        <div class="item-icon">⏱️</div>
+        <div class="item-body">
+          <p>Adds 10 seconds per question in Trivia</p>
+          <div class="item-price">Price: 500 GC</div>
+          <button class="btn-buy" data-item="trivia_extra_time">Buy Now</button>
+        </div>
+      </div>
+      
+      <!-- Spin Wheel Items -->
+      <div class="shop-item">
+        <div class="item-header">
+          <h3>Extra Spin</h3>
+        </div>
+        <div class="item-icon">🎡</div>
+        <div class="item-body">
+          <p>Get an extra spin in the Spin Wheel game</p>
+          <div class="item-price">Price: 300 GC</div>
+          <button class="btn-buy" data-item="spin_extra_spin">Buy Now</button>
+        </div>
+      </div>
+      
+      <!-- Clicker Items -->
+      <div class="shop-item">
+        <div class="item-header">
+          <h3>Auto-Clicker</h3>
+        </div>
+        <div class="item-icon">🤖</div>
+        <div class="item-body">
+          <p>Automatically click for you every 5 seconds</p>
+          <div class="item-price">Price: 1000 GC</div>
+          <button class="btn-buy" data-item="clicker_auto_upgrade">Buy Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/miniapp.js"></script>
+  <script>
+    // Update GC balance display
+    function updateGCBalance(balance) {
+      document.getElementById('gc-balance').textContent = `${balance} GC`;
+    }
+    
+    // Initialize with current balance
+    document.addEventListener('DOMContentLoaded', () => {
+      Miniapp.loadUserData().then(() => {
+        updateGCBalance(Miniapp.userData.gameCoins || 0);
+      });
+      
+      // Handle purchase buttons
+      document.querySelectorAll('.btn-buy').forEach(button => {
+        button.addEventListener('click', function() {
+          const itemId = this.dataset.item;
+          Miniapp.purchaseItem(itemId);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

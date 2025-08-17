@@ -31,6 +31,7 @@ class Config:
         self.TON_ADMIN_ADDRESS = os.getenv('TON_ADMIN_ADDRESS')
         self.TON_NETWORK = os.getenv('TON_NETWORK', 'mainnet')
         self.TON_API_KEY = os.getenv('TON_API_KEY')
+        self.TON_LITE_SERVERS = self.parse_lite_servers(os.getenv('TON_LITE_SERVERS'))
         
         # Ensure TON_API_KEY is set if LiteClient fails
         if not self.TON_API_KEY:
@@ -42,43 +43,74 @@ class Config:
         
         # Security and limits
         self.MIN_HOT_BALANCE = float(os.getenv('MIN_HOT_BALANCE', '1.0'))
-        self.FREE_DAILY_EARN_LIMIT = float(os.getenv('FREE_DAILY_EARN_LIMIT', '0.5'))
         self.USER_DAILY_WITHDRAWAL_LIMIT = float(os.getenv('USER_DAILY_WITHDRAWAL_LIMIT', '10.0'))
         self.DAILY_WITHDRAWAL_LIMIT = float(os.getenv('DAILY_WITHDRAWAL_LIMIT', '10.0'))
         self.ALERT_WEBHOOK = os.getenv('ALERT_WEBHOOK')
         self.SECRET_KEY = os.getenv('SECRET_KEY', 'your_secret_key_here')
+        self.ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', 'default_encryption_key').encode()
         
-        # Rewards Configuration (in TON)
+        # Game Coin System Configuration
+        self.GC_TO_TON_RATE = 2000  # 200,000 GC = 100 TON
+        self.MAX_DAILY_GC = 20000  # 10 TON equivalent
+        self.MAX_RESETS = 3  # Per game per day
+        self.MIN_WITHDRAWAL_GC = 200000  # 100 TON equivalent
+        self.MIN_GC_PURCHASE = 1000  # Minimum game coins for purchases
+        
+        # Rewards Configuration (in Game Coins)
         self.REWARDS = {
-            "faucet": float(os.getenv("FAUCET_REWARD", 0.01)),
-            "trivia_correct": float(os.getenv("TRIVIA_CORRECT_REWARD", 0.005)),
-            "trivia_incorrect": float(os.getenv("TRIVIA_INCORRECT_REWARD", 0.001)),
-            "spin_win": float(os.getenv("SPIN_WIN_REWARD", 0.02)),
-            "spin_loss": float(os.getenv("SPIN_LOSS_REWARD", 0.001)),
-            "ad_view": float(os.getenv("AD_VIEW_REWARD", 0.003)),
-            "referral": float(os.getenv("REFERRAL_REWARD", 0.05)),
-            "quest": float(os.getenv("QUEST_REWARD", 0.03))
+            "faucet": int(os.getenv("FAUCET_REWARD", 1000)),
+            "trivia_correct": int(os.getenv("TRIVIA_CORRECT_REWARD", 50)),
+            "trivia_incorrect": int(os.getenv("TRIVIA_INCORRECT_REWARD", 10)),
+            "spin_win": int(os.getenv("SPIN_WIN_REWARD", 200)),
+            "spin_loss": int(os.getenv("SPIN_LOSS_REWARD", 10)),
+            "ad_view": int(os.getenv("AD_VIEW_REWARD", 30)),
+            "referral": int(os.getenv("REFERRAL_REWARD", 500)),
+            "quest": int(os.getenv("QUEST_REWARD", 300)),
+            "daily_bonus": int(os.getenv("DAILY_BONUS", 500))
+        }
+        
+        # Membership Tiers and Benefits
+        self.MEMBERSHIP_TIERS = {
+            "BASIC": {
+                "price": 0,
+                "benefits": ["standard_earnings"]
+            },
+            "PREMIUM": {
+                "price": 5.0,  # in TON
+                "benefits": [
+                    "1.5x_earnings", 
+                    "extra_questions", 
+                    "daily_reset_booster",
+                    "ad_free"
+                ]
+            },
+            "ULTIMATE": {
+                "price": 10.0,  # in TON
+                "benefits": [
+                    "2x_earnings",
+                    "unlimited_questions",
+                    "free_resets",
+                    "priority_support",
+                    "exclusive_items"
+                ]
+            }
         }
         
         # Game Configuration
         self.GAME_COOLDOWN = int(os.getenv("GAME_COOLDOWN", 30))  # minutes
         self.FAUCET_COOLDOWN = int(os.getenv("FAUCET_COOLDOWN", 24))  # hours
-        self.MIN_WITHDRAWAL = float(os.getenv("MIN_WITHDRAWAL", 0.1))  # TON
+        
+        # In-Game Purchases
+        self.IN_GAME_ITEMS = {
+            "trivia_questions": {"id": "TRIV-EXTRA", "price_gc": 500, "effect": {"questions": 10}},
+            "double_earnings": {"id": "BOOST-2X", "price_gc": 2000, "effect": {"multiplier": 2.0, "duration": 3600}},
+            "extra_life": {"id": "LIFE-EXTRA", "price_gc": 300, "effect": {"lives": 1}},
+            "auto_clicker": {"id": "AUTO-CLICK", "price_gc": 1500, "effect": {"auto_click": True}}
+        }
         
         # Web Server Configuration
         self.RENDER_URL = os.getenv("RENDER_URL", "crptgameminer.onrender.com")
         self.RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "crptgameminer.onrender.com/miniapp")
-        
-        # Payment Processors
-        self.PAYPAL_MODE = os.getenv("PAYPAL_MODE", "sandbox")
-        self.PAYPAL_CLIENT_ID = os.getenv("PAYPAL_CLIENT_ID", "your_paypal_id")
-        self.PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET", "your_paypal_secret")
-        self.PAYPAL_WEBHOOK_ID = os.getenv("PAYPAL_WEBHOOK_ID", "your_webhook_id")
-        self.MPESA_SHORTCODE = os.getenv("MPESA_SHORTCODE", "174379")
-        self.MPESA_BUSINESS_SHORTCODE = os.getenv("MPESA_BUSINESS_SHORTCODE", "174379")
-        self.MPESA_CONSUMER_KEY = os.getenv("MPESA_CONSUMER_KEY", "")
-        self.MPESA_INITIATOR_NAME = os.getenv("MPESA_INITIATOR_NAME", "")
-        self.MPESA_SECURITY_CREDENTIAL = os.getenv("MPESA_SECURITY_CREDENTIAL", "")
         
         # Ad Platforms
         self.AD_PLATFORMS = {
@@ -110,90 +142,47 @@ class Config:
                 'type': 'gaming',
                 'difficulty': 1,
                 'tasks': ['win_X_games'],
-                'reward': 0.05
+                'reward_gc': 500
             },
             {
                 'type': 'social',
                 'difficulty': 2,
                 'tasks': ['refer_X_friends'],
-                'reward': 0.1
+                'reward_gc': 1000
             },
             {
                 'type': 'exploration',
                 'difficulty': 1,
                 'tasks': ['play_X_game_types'],
-                'reward': 0.03
+                'reward_gc': 300
             },
             {
                 'type': 'general',
                 'difficulty': 1,
                 'tasks': ['complete_any_3_actions'],
-                'reward': 0.04
+                'reward_gc': 400
             }
         ]
         self.QUEST_REFRESH_HOUR = 4  # 4 AM UTC
         self.DAILY_QUEST_COUNT = 3
-        self.AVAILABLE_GAME_TYPES = {'trivia', 'spin', 'puzzle', 'battle', 'mining'}
+        self.AVAILABLE_GAME_TYPES = {'trivia', 'spin', 'clicker', 'trex', 'edge-surf'}
         self.LEVEL_XP_BASE = 100
         self.LEVEL_XP_MULTIPLIER = 1.5
         self.MAX_LEVEL = 50
 
-        # Mining Economics
-        self.REWARD_PER_BLOCK = 0.1  # TON
-        self.DAILY_EMISSION = 50  # TON
-        self.USER_ACTIVITY_POOL_RATIO = 0.7  # 70%
-        self.MIN_STAKE = 5.0  # Minimum TON for staking
-        
-        # Game Reward Rates
+        # Game Reward Rates (in GC)
         self.REWARD_RATES = {
-            'edge-surf': {'base': 0.003, 'per_minute': 0.007},
-            'trex-runner': {'base': 0.001, 'per_100_meters': 0.005},
-            'clicker': {'base': 0.000, 'per_1000_points': 0.015},
-            'trivia': {'base': 0.002, 'per_correct_answer': 0.005},
-            'spin': {'base': 0.004}
+            'edge-surf': {'base': 30, 'per_second': 7},
+            'trex-runner': {'base': 10, 'per_100_meters': 50},
+            'clicker': {'base': 5, 'per_1000_points': 15},
+            'trivia': {'base': 20, 'per_correct_answer': 50},
+            'spin': {'base': 40}
         }
-
-        self.MAX_GAME_REWARD = {
-            'edge-surf': 0.5,
-            'trex-runner': 0.4,
-            'clicker': 0.6,
-            'trivia': 0.3,
-            'spin': 0.2
-        }
-
-        # Reward Multipliers
-        PREMIUM_AD_BONUS = 1.5
-        AD_STREAK_BONUS_HIGH = 1.8  # 7+ day streak
-        AD_STREAK_BONUS_MEDIUM = 1.3  # 3-6 day streak
-        PEAK_HOUR_BONUS = 1.2  # 7-9 PM local time
-        WEEKEND_BONUS = 1.5
-        REGIONAL_BONUS = 1.4  # High-value regions
-        MOBILE_BONUS = 1.1
-
-        # Peak hours (7 PM - 9 PM)
-        PEAK_HOURS = [19, 20, 21]
 
         # Anti-Cheating Thresholds
         self.MIN_CLICK_INTERVAL = 0.1  # seconds
         self.SESSION_DURATION_VARIANCE = 0.3  # Allowed deviation
         
-        # Ad Monetization Rates (USD)
-        self.AD_RATES = {
-            'monetag': 0.003,
-            'a-ads': 0.0012,
-            'ad-mob': 0.0025
-        }
-        
-        # Premium Tiers (USD/month)
-        self.PREMIUM_TIERS = {
-            'basic': 4.99,
-            'pro': 9.99,
-            'vip': 19.99
-        }
-        
-        # Data Insights Value
-        self.DATA_POINT_VALUE = 0.0001  # USD per point
-
         # OTC Desk
         self.OTC_USD_RATE = float(os.getenv("OTC_USD_RATE", "6.80"))
         self.OTC_EUR_RATE = float(os.getenv("OTC_EUR_RATE", "6.20"))
@@ -206,6 +195,8 @@ class Config:
         self.FEATURE_OTC = os.getenv("FEATURE_OTC", "true").lower() == "true"
         self.FEATURE_ADS = os.getenv("FEATURE_ADS", "true").lower() == "true"
         self.FEATURE_GAMES = os.getenv("FEATURE_GAMES", "true").lower() == "true"
+        self.FEATURE_IN_GAME_PURCHASES = os.getenv("FEATURE_IN_GAME_PURCHASES", "true").lower() == "true"
+        self.FEATURE_MEMBERSHIPS = os.getenv("FEATURE_MEMBERSHIPS", "true").lower() == "true"
         
         # Logging
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -218,6 +209,23 @@ class Config:
         # Log configuration status
         self.log_config_summary()
 
+    def parse_lite_servers(self, servers_str):
+        """Parse TON lite servers from environment variable"""
+        if not servers_str:
+            return []
+            
+        try:
+            return json.loads(servers_str)
+        except json.JSONDecodeError:
+            logger.warning("Invalid TON_LITE_SERVERS format, using default")
+            return [
+                {
+                    "ip": 109764204,
+                    "port": 48014,
+                    "id": {"@type": "pub.ed25519", "key": "peJ2mzyUq4x1ivXgF5oJjBD4l7YdfYf0r4UJt6NpD/o="}
+                }
+            ]
+
     def fix_base64_padding(self, value):
         """Ensure base64 string has correct padding"""
         value = value.strip()
@@ -225,7 +233,6 @@ class Config:
         if pad_length == 4:
             return value
         return value + ('=' * pad_length)
-
 
     def load_firebase_creds(self):
         """Load Firebase credentials with enhanced error handling"""
@@ -301,7 +308,10 @@ class Config:
         logger.info(f"Environment: {self.ENV}")
         logger.info(f"TON Enabled: {self.TON_ENABLED}")
         logger.info(f"TON Network: {self.TON_NETWORK}")
-        logger.info(f"Firebase Creds Available: {bool(self.FIREBASE_CREDS)}")
+        logger.info(f"Game Coin System: Enabled (Rate: 1 TON = {self.GC_TO_TON_RATE} GC)")
+        logger.info(f"Daily GC Limit: {self.MAX_DAILY_GC}")
+        logger.info(f"Min Withdrawal: {self.MIN_WITHDRAWAL_GC} GC")
+        logger.info(f"Max Resets: {self.MAX_RESETS} per game/day")
         logger.info(f"Features - OTC: {self.FEATURE_OTC}, Ads: {self.FEATURE_ADS}, Games: {self.FEATURE_GAMES}")
         
         # Log partial TON wallet info for security

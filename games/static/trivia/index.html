@@ -15,6 +15,10 @@
         <span class="ton-logo">TON</span>
         <span id="score">0.000</span>
       </div>
+
+      <button class="btn btn-secondary" onclick="resetGame('trivia')">
+        🔄 Reset (3 left)
+      </button>
     </div>
     
     <div id="game-screen">
@@ -133,6 +137,26 @@
               showRewardedAd('game_start_interstitial');
           }, 2000);
       });
+
+      document.getElementById('game-shop-btn').addEventListener('click', () => {
+        if (window.parent && window.parent.Miniapp) {
+          window.parent.postMessage({type: 'open_shop'}, '*');
+        } else {
+          window.location.href = '/shop.html';
+        }
+      });
+
+      // Listen for shop updates
+      window.addEventListener('message', (event) => {
+        if (event.data.type === 'purchased_item') {
+          if (event.data.item_id === 'trivia_extra_time') {
+            // Add extra time to trivia questions
+            timePerQuestion += 10;
+            alert('Extra time added! +10 seconds per question');
+          }
+        }
+      });
+
 
       // Show ad when player achieves milestone
       function checkMilestone(score) {
@@ -399,6 +423,30 @@
       function showError(message) {
         alert(message);
       }
+
+      function resetGame(gameId) {
+        fetch('/api/game/reset', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-User-ID': window.userId,
+                'X-Telegram-Hash': window.initDataHash
+            },
+            body: JSON.stringify({
+                game_id: gameId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Telegram.WebApp.showAlert(`Game reset! ${data.resets_left} resets left today`);
+                // Reload or reset the game
+            } else {
+                Telegram.WebApp.showAlert(data.error || 'Reset failed');
+            }
+        });
+      }
+
     });
   </script>
 </body>

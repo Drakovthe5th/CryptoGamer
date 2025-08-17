@@ -93,6 +93,42 @@ class ClickerGame {
     } catch (error) {
       this.showError('Game initialization failed');
     }
+
+    let resetCount = 0;
+
+    function initGame() {
+        fetch(`/api/reset-status?game=clicker`)
+            .then(res => res.json())
+            .then(data => {
+                resetCount = data.resets_used;
+                updateResetCounter(resetCount);
+            });
+    }
+
+    function updateResetCounter(count) {
+        document.getElementById('reset-counter').textContent = 
+            `Resets: ${count}/${MAX_RESETS}`;
+    }
+
+    document.getElementById('game-shop-btn').addEventListener('click', () => {
+      if (window.parent && window.parent.Miniapp) {
+        window.parent.postMessage({type: 'open_shop'}, '*');
+      } else {
+        window.location.href = '/shop.html';
+      }
+    });
+
+    // Listen for shop updates
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'purchased_item') {
+        if (event.data.item_id === 'extra_click_rates') {
+          // Add extra time to trivia questions
+          timePerQuestion += 10;
+          alert('Extra time added! +10 seconds per question');
+        }
+      }
+    });
+
   }
   
   startPeriodicSaving() {
@@ -431,3 +467,42 @@ class ClickerGame {
     }
   }
 }
+
+function resetGame(gameId) {
+    fetch('/api/game/reset', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-User-ID': window.userId,
+            'X-Telegram-Hash': window.initDataHash
+        },
+        body: JSON.stringify({
+            game_id: gameId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Telegram.WebApp.showAlert(`Game reset! ${data.resets_left} resets left today`);
+            // Reload or reset the game
+        } else {
+            Telegram.WebApp.showAlert(data.error || 'Reset failed');
+        }
+    });
+}
+
+function handleReset() {
+    fetch('/api/game/reset', {
+        method: 'POST',
+        body: JSON.stringify({game: 'clicker'})
+    }).then(checkResetAvailability);
+}
+
+// Handle reset button
+document.getElementById('reset-btn').addEventListener('click', () => {
+    if (resetCount >= MAX_RESETS) {
+        alert("Daily reset limit reached");
+        return;
+    }
+    handleReset('clicker');
+});

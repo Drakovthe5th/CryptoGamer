@@ -1,16 +1,20 @@
-def to_ton(amount: float) -> float:
-    """Convert raw amount to TON (1 TON = 1,000,000,000 nanoton)"""
-    return amount  # Our system uses TON as base unit
+GAME_COIN_TO_TON_RATE = 2000  # 200,000 GC = 100 TON
+MAX_DAILY_GAME_COINS = 20000  # 10 TON equivalent
+MIN_WITHDRAWAL = 200000  # GC (100 TON equivalent)
 
-def ton_to_nano(amount: float) -> int:
-    """Convert TON to nanoton for blockchain operations"""
-    return int(amount * 10**9)
+def game_coins_to_ton(coins):
+    """Convert game coins to TON cryptocurrency"""
+    return coins / GAME_COIN_TO_TON_RATE
 
-def convert_currency(amount_ton: float, rate: float) -> float:
-    """Convert TON to fiat currency"""
-    return amount_ton * rate
+def ton_to_game_coins(ton):
+    """Convert TON to game coins"""
+    return ton * GAME_COIN_TO_TON_RATE
 
-def calculate_fee(amount: float, fee_percent: float, min_fee: float) -> float:
-    """Calculate transaction fee"""
-    fee = amount * fee_percent / 100
-    return max(fee, min_fee)
+def calculate_reward(score, multiplier=1):
+    """Calculate game reward with daily limit enforcement"""
+    raw_coins = score * 10 * multiplier
+    return min(raw_coins, MAX_DAILY_GAME_COINS)
+
+def check_daily_limit(user):
+    """Check if user has reached daily earning limit"""
+    return user.daily_coins_earned >= MAX_DAILY_GAME_COINS

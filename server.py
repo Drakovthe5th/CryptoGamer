@@ -234,7 +234,6 @@ def get_user_balance():
     """Get user balance"""
     try:
         user_id = get_user_id(request)
-        # Import the function directly instead of using db
         from src.database.firebase import get_user_balance as firebase_get_balance
         balance = firebase_get_balance(user_id)
         return jsonify({'balance': balance, 'user_id': user_id})
@@ -387,8 +386,6 @@ def debug_info():
     except Exception as e:
         return jsonify({"error": "Debug info unavailable"}), 500
     
-    # Add these endpoints to server.py
-
 # Dummy ad endpoint
 @app.route('/api/ads/slot/<slot_name>', methods=['GET'])
 def get_ad_slot(slot_name):

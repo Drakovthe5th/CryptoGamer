@@ -1,4 +1,4 @@
-/* miniapp.css - MiniApp specific styles */
+/* style.css */
 :root {
   --bg-dark: #0d0d0d;
   --text-light: #f5f5f5;
@@ -114,17 +114,6 @@ body {
   border-color: #ff4444;
 }
 
-.status-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-green);
-}
-
-.status-indicator.disconnected {
-  background: #ff4444;
-}
-
 .security-alert {
   background: linear-gradient(135deg, #ff4444, #cc0000);
   color: white;
@@ -227,10 +216,6 @@ body {
   border-radius: 12px;
   margin-top: 16px;
   border: 1px solid rgba(255,255,255,0.1);
-}
-
-.withdrawal-form.active {
-  display: block;
 }
 
 .input-group {
@@ -480,44 +465,94 @@ input:focus, select:focus {
   border: 1px solid rgba(255,255,255,0.1);
 }
 
-.transaction-type {
-  font-weight: 600;
-  color: var(--text-light);
+.ad-slot {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 16px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
 }
 
-.transaction-amount {
-  font-weight: 700;
-}
-
-.transaction-amount.positive {
+.click-reward {
+  position: absolute;
+  animation: floatUp 1s ease-out forwards;
   color: var(--accent-green);
+  font-weight: bold;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 10;
 }
 
-.transaction-amount.negative {
-  color: #ff4444;
+@keyframes floatUp {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
 }
 
-@media (max-width: 480px) {
-  .container {
-    padding: 8px;
-  }
-  
-  .nav-bar {
-    padding: 8px 4px 16px;
-  }
-  
-  .nav-btn {
-    font-size: 0.7rem;
-    min-width: 45px;
-  }
-  
-  .game-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .section {
-    padding: 16px;
-  }
+.shop-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.shop-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 15px;
+  text-align: center;
+  transition: transform 0.3s;
+}
+
+.shop-item:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.item-header {
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--primary-yellow);
+}
+
+.item-icon {
+  font-size: 2.5rem;
+  margin: 10px 0;
+}
+
+.item-description {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-bottom: 10px;
+  min-height: 40px;
+}
+
+.item-price {
+  font-weight: bold;
+  color: var(--accent-green);
+  margin-bottom: 15px;
+}
+
+.skeleton-loader {
+  width: 80px;
+  height: 24px;
+  background: linear-gradient(90deg, #2a2a2a 25%, #333 50%, #2a2a2a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @keyframes pulse {
@@ -542,93 +577,4 @@ input:focus, select:focus {
 
 .slide-in {
   animation: slideInUp 0.3s ease-out;
-}
-
-/* Ad slots */
-.ad-slot {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    overflow: hidden;
-    margin: 16px 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-}
-
-/* Ad modal */
-.ad-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.ad-modal-content {
-    background: #1e1f2d;
-    border-radius: 16px;
-    padding: 20px;
-    width: 90%;
-    max-width: 400px;
-    position: relative;
-}
-
-.close-ad {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 24px;
-    background: none;
-    border: none;
-    color: white;
-    cursor: pointer;
-}
-
-/* ADDED to miniapp.css */
-.click-reward {
-    position: absolute;
-    animation: floatUp 1s ease-out forwards;
-    color: var(--accent-green);
-    font-weight: bold;
-    font-size: 14px;
-    pointer-events: none;
-    z-index: 10;
-}
-
-@keyframes floatUp {
-    0% {
-        transform: translateY(0);
-        opacity: 1;
-    }
-    100% {
-        transform: translateY(-30px);
-        opacity: 0;
-    }
-}
-
-.ad-container iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    border-radius: 12px;
-}
-
-#security-alert {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: #ff5555;
-    color: white;
-    text-align: center;
-    padding: 10px;
-    z-index: 1000;
-    font-weight: bold;
 }

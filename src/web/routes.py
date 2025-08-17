@@ -1,11 +1,15 @@
 from flask import request, jsonify, render_template, send_from_directory
-from src.database.firebase import (
-    get_user_data, update_balance, 
-    process_ton_withdrawal, track_ad_reward, SERVER_TIMESTAMP
-)
-from src.database.firebase import get_games_list, record_game_start
+from src.database.firebase import update_game_coins, record_reset, connect_wallet
+from src.database.firebase import get_games_list, record_game_start, get_user_data
 from src.utils.security import validate_telegram_hash
 from src.features.monetization.ads import ad_manager
+from src.features.monetization.purchases import process_purchase
+from src.utils.conversions import check_daily_limit, calculate_reward
+from src.utils.upgrade_manager import upgrade_manager
+from src.integrations.withdrawal import withdrawal_processor
+from src.integrations.ton import ton_wallet, initialize_on_demand
+from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
+from src.utils.validators import validate_ton_address
 from config import config
 import logging
 import datetime
@@ -13,9 +17,11 @@ import os
 
 logger = logging.getLogger(__name__)
 
+MAX_RESETS = 3
+
 def configure_routes(app):
     @app.route('/')
-    def home_route():  # Changed from 'index' to 'home'
+    def home():
         return "CryptoGameBot is running!"
     
     @app.route('/miniapp')
@@ -29,9 +35,8 @@ def configure_routes(app):
         static_dir = os.path.join(root_dir, '../../../static')
         return send_from_directory(static_dir, filename)
     
-
     @app.route('/api/games/list', methods=['GET'])
-    def get_games_list():
+    def get_games_list_route():
         """Get list of available games"""
         try:
             games = get_games_list()
@@ -91,10 +96,6 @@ def configure_routes(app):
         """Serve game static assets"""
         return send_from_directory(f'games/static/{game_id}/static', filename)
     
-    @app.route('/api/game/edge-surf/init', methods=['POST'])
-    def init_edge_surf():
-        return miniapp.init_edge_surf()
-    
     # Error handlers
     @app.errorhandler(404)
     def page_not_found(e):
@@ -118,7 +119,6 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-InitData') 
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            from config import config
             if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
 
@@ -135,14 +135,8 @@ def configure_routes(app):
             logger.error(f"User data error: {str(e)}")
             return jsonify({'error': str(e)}), 500
         
-    @app.route('/api/ads/slot/<slot_id>')
-    def get_ad_slot(slot_id):
-        ad = ad_manager.get_available_ad(slot_id)
-        return jsonify(ad) if ad else ('', 404)
-
     @app.route('/api/game/<game_name>/complete', methods=['POST'])
     def complete_game(game_name):
-        """Simple game completion handler"""
         try:
             data = request.get_json()
             user_id = data.get('user_id')
@@ -151,34 +145,24 @@ def configure_routes(app):
             if not user_id:
                 return jsonify({'error': 'User ID required'}), 400
             
-            # Simple reward calculation based on game type
-            rewards = {
-                'clicker': min(score * 0.001, 0.1),      # 0.001 per click, max 0.1 TON
-                'spin': min(score * 0.05, 0.15),         # Variable based on spin result  
-                'trivia': min(score * 0.002, 0.08),      # 0.002 per correct answer
-                'trex': min(score * 0.005, 0.12),        # 0.005 per 100 points
-                'edge_surf': min(score * 0.007, 0.1)     # 0.007 per minute played
-            }
+            # Calculate game coin reward (score * 10 coins)
+            coins = score * 10
             
-            reward = rewards.get(game_name, 0)
-            
-            # Update user balance using your existing function
-            from src.database.firebase import update_balance
-            new_balance = update_balance(int(user_id), reward)
+            # Update user balance in game coins
+            new_balance = update_game_coins(int(user_id), coins)
             
             return jsonify({
                 'success': True,
-                'reward': reward,
+                'coins': coins,
                 'new_balance': new_balance,
-                'message': f'You earned {reward:.6f} TON!'
+                'message': f'You earned {coins} game coins!'
             })
-            
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    # Game initialization with reset info
     @app.route('/api/game/<game_name>/init', methods=['POST'])  
     def init_game(game_name):
-        """Simple game initialization"""
         try:
             data = request.get_json()
             user_id = data.get('user_id')
@@ -186,16 +170,19 @@ def configure_routes(app):
             if not user_id:
                 return jsonify({'error': 'User ID required'}), 400
             
-            # Get user balance using your existing function
-            from src.database.firebase import get_user_data
+            # Get user data
             user_data = get_user_data(int(user_id))
+            
+            # Get reset count
+            resets = user_data.get('daily_resets', {}).get(game_name, 0)
+            resets_left = MAX_RESETS - resets
             
             return jsonify({
                 'success': True,
-                'user_balance': user_data.get('balance', 0) if user_data else 0,
-                'game_name': game_name
+                'game_coins': user_data.get('game_coins', 0),
+                'resets_left': resets_left,
+                'max_resets': MAX_RESETS
             })
-            
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
@@ -205,7 +192,6 @@ def configure_routes(app):
             init_data = request.headers.get('X-Telegram-Hash')
             user_id = request.headers.get('X-Telegram-User-ID')
             
-            from config import config
             if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram hash'}), 401
 
@@ -249,7 +235,8 @@ def configure_routes(app):
             new_balance = update_balance(user_id, bonus_amount)
             
             # Update last claimed time
-            users_ref.document(str(user_id)).update({
+            users_ref = db.collection('users').document(str(user_id))
+            users_ref.update({
                 'last_bonus_claimed': datetime.utcnow(),
                 'balance': new_balance
             })
@@ -290,7 +277,8 @@ def configure_routes(app):
             clicks_today += 1
             
             # Update user data
-            users_ref.document(str(user_id)).update({
+            users_ref = db.collection('users').document(str(user_id))
+            users_ref.update({
                 'clicks_today': clicks_today,
                 'last_click_date': datetime.utcnow(),
                 'balance': new_balance
@@ -329,193 +317,236 @@ def configure_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
         
-    @app.route('/api/ads/view/<slot_id>', methods=['POST'])
-    def track_ad_view(slot_id):
-        """Track an ad view for a specific slot and reward the user"""
+    @app.route('/api/game/reset', methods=['POST'])
+    def reset_game():
+        """Reset game progress for a user"""
         try:
-            # Get user ID from request
-            user_id = request.headers.get('X-Telegram-User-ID')
-            if not user_id:
-                return jsonify({'error': 'User ID required'}), 400
-            
-            # Get ad slot info
-            slot_info = ad_manager.ad_slots.get(slot_id)
-            if not slot_info:
-                return jsonify({'error': 'Invalid ad slot'}), 400
-
-            # Get user IP and user agent for reward calculation
-            user_ip = request.remote_addr
-            user_agent = request.headers.get('User-Agent')
-            
-            # Create AdMonetization instance
-            ad_monetization = AdMonetization()
-            
-            # Record the ad view and award reward
-            reward, new_balance = ad_monetization.record_ad_view(
-                int(user_id),
-                slot_info['network'],
-                user_agent,
-                user_ip
-            )
-            
-            # Update slot usage
-            ad_manager.record_ad_view(slot_id)
-            
-            # Record in database
-            record_ad_engagement(
-                user_id=int(user_id),
-                ad_network=slot_info['network'],
-                reward=reward,
-                user_agent=user_agent,
-                ip_address=user_ip
-            )
-            
-            return jsonify({
-                'status': 'success',
-                'reward': reward,
-                'new_balance': new_balance,
-                'slot': slot_id,
-                'network': slot_info['network']
-            })
-            
-        except PermissionError as e:
-            return jsonify({'error': str(e)}), 429  # Too Many Requests
-        except ValueError as e:
-            return jsonify({'error': str(e)}), 400
-        except Exception as e:
-            logger.error(f"Ad tracking error: {str(e)}")
-            return jsonify({'error': 'Internal server error'}), 500
-
-    @app.route('/api/withdraw', methods=['POST'])
-    def miniapp_withdraw():
-        try:
-            init_data = request.headers.get('X-Telegram-Hash')
-            user_id = request.headers.get('X-Telegram-User-ID')
-            
-            from config import config
-            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
-                return jsonify({'error': 'Invalid Telegram hash'}), 401
-                
             data = request.get_json()
-            method = data['method']
-            amount = float(data['amount'])
-            address = data['address']  # TON wallet address
+            user_id = data.get('user_id')
+            game_id = data.get('game_id')
             
-            # Get balance from user data
-            user_data = get_user_data(int(user_id))
-            if not user_data:
-                return jsonify({
-                    'success': False,
-                    'error': 'User not found'
-                }), 404
+            if not user_id or not game_id:
+                return jsonify({'error': 'Missing parameters'}), 400
                 
-            balance = user_data.get('balance', 0)
+            # Get user data
+            user_ref = db.collection('users').document(str(user_id))
+            user_data = user_ref.get().to_dict()
             
-            if balance < config.MIN_WITHDRAWAL:
+            # Check reset count
+            reset_count = user_data.get('daily_resets', {}).get(game_id, 0)
+            if reset_count >= MAX_RESETS:
                 return jsonify({
                     'success': False,
-                    'error': f'Minimum withdrawal: {config.MIN_WITHDRAWAL} TON'
-                })
-                
-            if amount > balance:
-                return jsonify({
-                    'success': False,
-                    'error': 'Amount exceeds balance'
-                })
+                    'error': 'Maximum resets reached for today'
+                }), 400
             
-            # Process TON withdrawal
-            result = process_ton_withdrawal(int(user_id), amount, address)
+            # Update reset count
+            new_resets = user_data.get('daily_resets', {})
+            new_resets[game_id] = reset_count + 1
+            user_ref.update({'daily_resets': new_resets})
             
-            if result and result.get('status') == 'success':
-                update_balance(int(user_id), -amount)
-                return jsonify({
-                    'success': True,
-                    'message': f'Withdrawal of {amount:.6f} TON is processing!',
-                    'tx_hash': result.get('tx_hash', '')
-                })
-            else:
-                error = result.get('error', 'Withdrawal failed') if result else 'Withdrawal failed'
-                return jsonify({
-                    'success': False,
-                    'error': error
-                })
-                
+            return jsonify({'success': True, 'resets_left': MAX_RESETS - (reset_count + 1)})
         except Exception as e:
-            logger.error(f"MiniApp withdrawal error: {str(e)}")
-            return jsonify({'success': False, 'error': str(e)}), 500
+            logger.error(f"Game reset error: {str(e)}")
+            return jsonify({'error': 'Failed to reset game'}), 500
+
+    @app.route('/api/connect-wallet', methods=['POST'])
+    def connect_wallet():
+        user_id = get_user_id(request)
+        wallet_address = request.json['address']
+        
+        if not validate_ton_address(wallet_address):
+            return jsonify({"error": "Invalid wallet address"}), 400
+            
+        connect_wallet(user_id, wallet_address)
+        return jsonify({"success": True})
+
+
+    @app.route('/api/purchase', methods=['POST'])
+    def make_purchase():
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+            
+        data = request.get_json()
+        item_id = data.get('item_id')
+        
+        if not item_id:
+            return jsonify({"error": "Missing item ID"}), 400
+            
+        try:
+            success, message, item = process_purchase(user_id, item_id)
+            if not success:
+                return jsonify({"error": message}), 400
+                
+            return jsonify({
+                "success": True,
+                "message": message,
+                "item": item
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
     
-    # Payment provider webhooks
-    @app.route('/paypal/webhook', methods=['POST'])
-    def paypal_webhook():
-        try:
-            event = request.json
-            logger.info(f"PayPal webhook received: {event}")
-            return jsonify({'status': 'success'}), 200
-        except Exception as e:
-            logger.error(f"PayPal webhook error: {str(e)}")
-            return jsonify({'status': 'error'}), 500
-        
-    @app.route('/mpesa-callback', methods=['POST'])
-    def mpesa_callback():
-        try:
-            data = request.json
-            logger.info(f"M-Pesa callback received: {data}")
-            return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"})
-        except Exception as e:
-            logger.error(f"Error processing M-Pesa callback: {str(e)}")
-            return jsonify({"ResultCode": 1, "ResultDesc": "Server error"}), 500
-        
-    @app.route('/api/ads/slot/<slot_id>', methods=['GET'])
-    def get_ad_slot(slot_id):
-        try:
-            ad = ad_manager.get_available_ad(slot_id)
-            if ad:
-                return jsonify(ad)
+    @app.route('/api/wallet/connect', methods=['POST'])
+    def wallet_connect():
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
             
-            # Fallback if no ad available
-            return jsonify({
-                'html': f"""
-                <div style="width:100%;height:100%;background:#333;border-radius:8px;
-                            display:flex;align-items:center;justify-content:center;">
-                    <div style="text-align:center;color:#666;">
-                        <div style="font-size:2rem;margin-bottom:8px;">📺</div>
-                        <div>Ad Loading...</div>
-                    </div>
-                </div>
-                """,
-                'type': 'html'
-            })
-            
-        except Exception as e:
-            logger.error(f"Ad slot error: {str(e)}")
-            return jsonify({
-                'html': """
-                <div style="width:100%;height:100%;background:#333;border-radius:8px;
-                            display:flex;align-items:center;justify-content:center;">
-                    <div style="text-align:center;color:#666;">
-                        <div style="font-size:2rem;margin-bottom:8px;">❌</div>
-                        <div>Ad Failed to Load</div>
-                    </div>
-                </div>
-                """,
-                'type': 'html'
-            })
+        data = request.get_json()
+        wallet_address = data.get('address')
         
-    @app.route('/api/ads/show/<slot_name>')
-    def show_rewarded_ad(slot_name):
-        ad = ad_manager.get_available_ad(slot_name)
-        if ad and 'rewarded' in slot_name:
-            return jsonify(ad)
-        return jsonify({'error': 'No rewarded ad available'}), 404
+        if not wallet_address or not ton_wallet.is_valid_ton_address(wallet_address):
+            return jsonify({"error": "Invalid wallet address"}), 400
+            
+        try:
+            ton_wallet.save_wallet_address(user_id, wallet_address)
+            return jsonify({"success": True})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
+    @app.route('/api/game/complete', methods=['POST'])
+    @validate_json_input({
+        'user_id': {'type': 'int', 'required': True},
+        'game_id': {'type': 'str', 'required': True},
+        'score': {'type': 'int', 'required': True},
+        'session_id': {'type': 'str', 'required': True}
+    })
+    def game_completed():
+        data = request.get_json()
+        user_id = data['user_id']
+        game_id = data['game_id']
+        score = data['score']
+        session_id = data['session_id']
+        
+        # Calculate game coin reward
+        base_reward = score * 10  # 10 coins per point
+        multiplier = 1.0
+        
+        # Apply membership multiplier
+        user_data = db.get_user_data(user_id)
+        if user_data and user_data.get('membership_tier') == 'PREMIUM':
+            multiplier = 1.5
+        elif user_data and user_data.get('membership_tier') == 'ULTIMATE':
+            multiplier = 2.0
+            
+        coins = int(base_reward * multiplier)
+        
+        # Update user balance
+        new_balance, actual_coins = db.update_game_coins(user_id, coins)
+        
+        return jsonify({
+            'success': True,
+            'reward': actual_coins,
+            'new_balance': new_balance
+        })
 
-    @app.route('/api/ads/view/<slot_name>')
-    def track_ad_view(slot_name):
-        ad_manager.record_ad_view(slot_name)
-        return jsonify({'status': 'recorded'})
+    @app.route('/api/upgrade', methods=['POST'])
+    def upgrade_membership():
+        user_id = get_user_id(request)
+        tier = request.json['tier']
+        
+        success = upgrade_manager.upgrade_user(user_id, tier)
+        if not success:
+            return jsonify({"success": False, "message": "Upgrade failed"}), 400
+            
+        return jsonify({"success": True})
+    
+    @app.route('/api/withdraw', methods=['POST'])
+    def withdraw_gc():
+        """WITHDRAW GAME COINS AS TON"""
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+            
+        try:
+            success, result = withdrawal_processor.process_gc_withdrawal(user_id)
+            if not success:
+                return jsonify({"error": result}), 400
+                
+            return jsonify({"success": True, "tx_hash": result})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
+    @app.route('/api/shop/items', methods=['GET'])
+    def get_shop_items():
+        """Get available shop items"""
+        from src.features.monetization.purchases import BOOSTERS
+        return jsonify(BOOSTERS)
 
-    @app.route('/api/ads/reward')
-    def reward_ad_view():
-        slot_name = request.args.get('slot')
-        ad_type = request.args.get('type')
-        # Add reward logic here
-        return jsonify({'status': 'rewarded'})
+    @app.route('/api/purchase/item', methods=['POST'])
+    def purchase_item():
+        data = request.get_json()
+        user_id = data.get('user_id')
+        item_id = data.get('item_id')
+        item_price = data.get('price')  # Price in TON
+        
+        if not user_id or not item_id or not item_price:
+            return jsonify({"error": "Missing parameters"}), 400
+            
+        # Initialize wallet if needed
+        if not await initialize_on_demand():
+            return jsonify({"error": "Payment system unavailable"}), 500
+            
+        # Process purchase
+        result = await ton_wallet.process_in_game_purchase(user_id, item_id, item_price)
+        
+        if result['status'] == 'success':
+            # Grant item to user
+            db.grant_item(user_id, item_id)
+            return jsonify({
+                "success": True,
+                "tx_hash": result['tx_hash'],
+                "item": item_id
+            })
+        return jsonify({"error": result.get('error', 'Purchase failed')}), 400
+    
+    @app.route('/api/withdraw/gc', methods=['POST'])
+    def withdraw_game_coins():
+        data = request.get_json()
+        user_id = data.get('user_id')
+        amount_gc = data.get('amount')
+        
+        if not user_id or not amount_gc:
+            return jsonify({"error": "Missing parameters"}), 400
+            
+        # Minimum withdrawal check
+        if amount_gc < 200000:
+            return jsonify({"error": "Minimum withdrawal is 200,000 GC (100 TON)"}), 400
+            
+        # Initialize wallet if needed
+        if not await initialize_on_demand():
+            return jsonify({"error": "Withdrawal system unavailable"}), 500
+            
+        # Process withdrawal
+        result = await ton_wallet.process_withdrawal(user_id, amount_gc)
+        
+        if result['status'] == 'success':
+            # Deduct game coins
+            db.update_game_coins(user_id, -amount_gc)
+            return jsonify({
+                "success": True,
+                "tx_hash": result['tx_hash'],
+                "amount_ton": ton_wallet.game_coins_to_ton(amount_gc)
+            })
+        return jsonify({"error": result.get('error', 'Withdrawal failed')}), 400
+        
+# HELPER FUNCTION
+def get_user_id(request):
+    """Extract user ID from Telegram headers"""
+    init_data = request.headers.get('X-Telegram-InitData')
+    if not init_data:
+        return None
+    
+    # Parse init_data to get user ID (simplified)
+    # In real implementation, validate hash and extract user
+    try:
+        from urllib.parse import parse_qs
+        data = parse_qs(init_data)
+        user = data.get('user', [{}])[0]
+        if isinstance(user, str):
+            import json
+            user = json.loads(user)
+        return user.get('id')
+    except:
+        return None

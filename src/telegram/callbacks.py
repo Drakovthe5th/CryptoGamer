@@ -8,7 +8,7 @@ from src.database.firebase import (
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
 from src.integrations.tonE2 import process_ton_withdrawal
-from src.utils.conversions import to_ton, convert_currency, calculate_fee
+from src.utils.conversions import to_ton, convert_currency, calculate_fee, game_coins_to_ton
 from src.utils.validators import validate_ton_address, validate_mpesa_number, validate_email
 from config import Config
 import random
@@ -229,18 +229,19 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
     user_data = get_user_data(user_id)
     balance = user_data.get('balance', 0)
     
-    if balance < Config.MIN_WITHDRAWAL:
+    MIN_WITHDRAWAL_GC = 200000  # 200,000 GC = 100 TON
+    
+    if game_coins < MIN_WITHDRAWAL_GC:
         await query.edit_message_text(
-            f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON\n"
-            f"Your balance: {balance:.6f} TON"
+            f"❌ Minimum withdrawal: {MIN_WITHDRAWAL_GC:,} GC (100 TON)\n"
+            f"Your balance: {game_coins:,} GC"
         )
         return
         
     # Process withdrawal based on method
     if method == 'ton':
-        # TON blockchain withdrawal
         context.user_data['withdrawal_method'] = 'ton'
-        context.user_data['withdrawal_amount'] = balance
+        context.user_data['withdrawal_amount_gc'] = MIN_WITHDRAWAL_GC
         await query.edit_message_text(
             "🌐 Please enter your TON wallet address:",
             parse_mode='Markdown'
@@ -326,12 +327,15 @@ async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_
     user_id = update.effective_user.id
     address = update.message.text.strip()
     amount = context.user_data['withdrawal_amount']
+    ton_amount = game_coins_to_ton(amount_gc)
     
     if not validate_ton_address(address):
         await update.message.reply_text("❌ Invalid TON address format. Please try again.")
         return
     
-    result = process_ton_withdrawal(user_id, amount, address)
+        # Deduct game coins and process TON withdrawal
+    update_game_coins(user_id, -amount_gc)
+    result = process_ton_withdrawal(user_id, ton_amount, address)
     
     if result and result.get('status') == 'success':
         withdrawal_data = {

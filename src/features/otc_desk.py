@@ -9,9 +9,31 @@ from src.database.firebase import otc_deals_ref, update_user, db
 from src.integrations.mpesa import process_mpesa_payment
 from src.integrations.paypal import process_paypal_payment
 from src.integrations.banking import process_bank_transfer
+from src.utils.conversions import game_coins_to_ton
 
 logger = logging.getLogger(__name__)
 
+otc_bp = Blueprint('otc', __name__, url_prefix='/api/otc')
+
+@otc_bp.route('/convert/gc-to-ton', methods=['POST'])
+def convert_gc_to_ton():
+    try:
+        data = request.get_json()
+        gc_amount = float(data['gc_amount'])
+        
+        # Convert using the standard rate
+        ton_amount = game_coins_to_ton(gc_amount)
+        
+        return jsonify({
+            'success': True,
+            'ton_amount': ton_amount,
+            'conversion_rate': 2000  # GC per TON
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
 class OTCDesk:
     def __init__(self):
         self.buy_rates = {}
@@ -153,6 +175,11 @@ class OTCDesk:
             self.last_processing = datetime.now()
         except Exception as e:
             logger.error(f"OTC deal processing failed: {e}")
+    
+    def get_quote(self, user_id, currency):
+        user_data = get_user_data(user_id)
+        game_coins = user_data.get('game_coins', 0)
+        return get_otc_quote(game_coins, currency)
 
     def start(self):
         """Start OTC scheduler"""
@@ -178,6 +205,27 @@ class OTCDesk:
 
 # Global OTC desk instance
 otc_desk = OTCDesk()
+
+def get_otc_quote(game_coins, currency):
+    """Generate OTC quote based on game coins"""
+    ton_amount = game_coins_to_ton(game_coins)
+    rate = buy_rates.get(currency, 0)
+    
+    if not rate:
+        return None
+    
+    fiat_amount = ton_amount * rate
+    fee = calculate_fee(fiat_amount, OTC_FEE_PERCENT, MIN_OTC_FEE)
+    total = fiat_amount - fee
+    
+    return {
+        'game_coins': game_coins,
+        'amount_ton': ton_amount,
+        'currency': currency,
+        'rate': rate,
+        'fee': fee,
+        'total': total
+    }
 
 def start_otc_scheduler():
     """Start the OTC desk scheduler"""

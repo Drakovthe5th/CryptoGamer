@@ -41,3 +41,30 @@ def send_telegram_message(user_id: int, message: str) -> bool:
     except Exception as e:
         logger.error(f"Telegram message exception: {e}")
         return False
+    
+async def handle_webapp_data(data):
+    if data['type'] == 'connect_wallet':
+        user_id = data['user_id']
+        wallet_address = data['address']
+        
+        from src.utils.validators import validate_ton_address
+        if validate_ton_address(wallet_address):
+            from src.database.firebase import connect_wallet as save_wallet
+            if save_wallet(user_id, wallet_address):
+                return "Wallet connected successfully!"
+            return "Database error"
+        return "Invalid wallet address"
+    
+    return "Unknown action"
+
+async def connect_wallet(update, context):
+    user_id = update.effective_user.id
+    wallet_address = update.message.text.strip()
+    
+    if not validate_wallet(wallet_address):
+        return "Invalid wallet address"
+    
+    user = get_user(user_id)
+    user.wallet_address = wallet_address
+    user.save()
+    return "✅ Wallet connected successfully!"

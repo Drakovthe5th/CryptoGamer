@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, storage
 from google.cloud.firestore_v1.base_query import FieldFilter
 from datetime import datetime, timedelta
+from src.utils.validators import validate_ton_address
 import os
 import logging
 from config import config
@@ -46,6 +47,22 @@ def get_firestore_db():
     global db
     return db
 
+def create_user(user_id, username):
+    user_ref = db.collection('users').document(str(user_id))
+    if not user_ref.get().exists:
+        user_ref.set({
+            'user_id': user_id,
+            'username': username,
+            'balance': 0.0,  # TON balance
+            'game_coins': 0,  # New game coin balance
+            'daily_coins_earned': 0,
+            'daily_resets': {},
+            'wallet_address': None,
+            'membership_tier': 'BASIC',
+            'created_at': SERVER_TIMESTAMP,
+            'last_active': SERVER_TIMESTAMP
+        })
+
 # User operations
 def get_user_data(user_id: int):
     try:
@@ -55,6 +72,105 @@ def get_user_data(user_id: int):
     except Exception as e:
         logger.error(f"Error getting user data: {str(e)}")
         return None
+    
+MAX_RESETS = 3
+MAX_DAILY_GAME_COINS = 20000
+    
+
+def update_game_coins(user_id: int, coins: int) -> int:
+    """Update user's game coin balance with daily limit"""
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
+        transaction = db.transaction()
+        
+        @firestore.transactional
+        def update_in_transaction(transaction, doc_ref):
+            snapshot = doc_ref.get(transaction=transaction)
+            user_data = snapshot.to_dict()
+            current_coins = user_data.get('game_coins', 0)
+            daily_earned = user_data.get('daily_coins_earned', 0)
+            
+            # Apply daily limit
+            if coins > 0:
+                remaining_daily = MAX_DAILY_GAME_COINS - daily_earned
+                actual_coins = min(coins, remaining_daily)
+                daily_earned += actual_coins
+                new_coins = current_coins + actual_coins
+            else:
+                new_coins = current_coins + coins
+                actual_coins = coins
+            
+            transaction.update(doc_ref, {
+                'game_coins': new_coins,
+                'daily_coins_earned': daily_earned
+            })
+            return new_coins, actual_coins
+        
+        return update_in_transaction(transaction, doc_ref)
+    except Exception as e:
+        logger.error(f"Error updating game coins: {str(e)}")
+        return 0, 0
+    
+def get_game_coins(user_id):
+    user_data = get_user_data(user_id)
+    return user_data.get('game_coins', 0) if user_data else 0
+
+def record_reset(user_id: int, game_type: str) -> bool:
+    """Record game reset for user"""
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
+        transaction = db.transaction()
+        
+        @firestore.transactional
+        def update_in_transaction(transaction, doc_ref):
+            snapshot = doc_ref.get(transaction=transaction)
+            user_data = snapshot.to_dict()
+            daily_resets = user_data.get('daily_resets', {})
+            reset_count = daily_resets.get(game_type, 0)
+            
+            if reset_count >= MAX_RESETS:
+                return False
+            
+            if not daily_resets:
+                daily_resets = {}
+                
+            daily_resets[game_type] = reset_count + 1
+            transaction.update(doc_ref, {'daily_resets': daily_resets})
+            return True
+        
+        return update_in_transaction(transaction, doc_ref)
+    except Exception as e:
+        logger.error(f"Error recording reset: {str(e)}")
+        return False
+    
+def reset_all_daily_limits():
+    try:
+        users_ref = db.collection('users')
+        for user in users_ref.stream():
+            user_ref = users_ref.document(user.id)
+            user_ref.update({
+                'daily_coins_earned': 0,
+                'daily_resets': {}
+            })
+        logger.info("Daily limits reset for all users")
+        return True
+    except Exception as e:
+        logger.error(f"Daily reset failed: {str(e)}")
+        return False
+
+def connect_wallet(user_id: int, wallet_address: str):
+    """Connect user's wallet address"""
+    if not validate_ton_address(wallet_address):
+        logger.error(f"Invalid wallet address: {wallet_address}")
+        return False
+
+    try:
+        doc_ref = db.collection('users').document(str(user_id))
+        doc_ref.update({'wallet_address': wallet_address})
+        return True
+    except Exception as e:
+        logger.error(f"Error connecting wallet: {str(e)}")
+        return False
 
 def get_user_balance(user_id: int) -> float:
     try:
@@ -118,33 +234,6 @@ def get_withdrawal_history(user_id: int) -> list:
         logger.error(f"Error getting withdrawal history: {str(e)}")
         return []
 
-# Withdrawal operations
-def process_ton_withdrawal(user_id: int, amount: float, address: str) -> dict:
-    try:
-        withdrawal_data = {
-            'user_id': str(user_id),
-            'amount': amount,
-            'address': address,
-            'status': 'pending',
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
-        }
-        
-        doc_ref = db.collection('withdrawals').document()
-        doc_ref.set(withdrawal_data)
-        
-        return {
-            'status': 'success',
-            'withdrawal_id': doc_ref.id,
-            'message': 'Withdrawal request submitted'
-        }
-    except Exception as e:
-        logger.error(f"Withdrawal processing failed: {str(e)}")
-        return {
-            'status': 'error',
-            'error': str(e)
-        }
-
 def record_game_start(user_id: int, game_id: str) -> str:
     """Record game start and return session ID"""
     try:
@@ -164,10 +253,9 @@ def record_game_start(user_id: int, game_id: str) -> str:
 def get_game_session(session_id: str) -> dict:
     """Get game session by session ID"""
     try:
-        sessions_ref = db.collection('game_sessions')
-        query = sessions_ref.where('session_id', '==', session_id).limit(1)
-        results = [doc.to_dict() for doc in query.stream()]
-        return results[0] if results else None
+        doc_ref = db.collection('game_sessions').document(session_id)
+        doc = doc_ref.get()
+        return doc.to_dict() if doc.exists else None
     except Exception as e:
         logger.error(f"Error getting game session: {str(e)}")
         return None
@@ -184,7 +272,7 @@ def save_game_session(user_id: int, game_id: str, score: int, reward: float, ses
             'completed_at': SERVER_TIMESTAMP
         }
         
-        db.collection('game_sessions').add(session_data)
+        db.collection('game_sessions').document(session_id).set(session_data)
         return True
     except Exception as e:
         logger.error(f"Error saving game session: {str(e)}")
@@ -222,7 +310,7 @@ def track_ad_reward(user_id: int, amount: float, source: str, is_weekend: bool):
             'amount': amount,
             'source': source,
             'is_weekend': is_weekend,
-            'timestamp': datetime.utcnow()
+            'timestamp': firestore.SERVER_TIMESTAMP
         }
         
         db.collection('ad_rewards').add(reward_data)
@@ -244,21 +332,6 @@ def add_whitelist(user_id: int, address: str):
         logger.error(f"Error adding to whitelist: {str(e)}")
         return False
 
-def get_recent_withdrawals(user_id: int, hours=24) -> list:
-    try:
-        end_time = datetime.utcnow()
-        start_time = end_time - timedelta(hours=hours)
-        
-        withdrawals_ref = db.collection('withdrawals')
-        query = withdrawals_ref.where('user_id', '==', str(user_id)) \
-            .where('created_at', '>=', start_time) \
-            .where('created_at', '<=', end_time)
-        
-        return [doc.to_dict() for doc in query.stream()]
-    except Exception as e:
-        logger.error(f"Error getting recent withdrawals: {str(e)}")
-        return []
-
 # Staking operations
 def save_staking(user_id: int, contract_address: str, amount: float):
     try:
@@ -266,7 +339,7 @@ def save_staking(user_id: int, contract_address: str, amount: float):
             'user_id': str(user_id),
             'contract_address': contract_address,
             'amount': amount,
-            'start_date': datetime.utcnow(),
+            'start_date': firestore.SERVER_TIMESTAMP,
             'status': 'active'
         }
         
@@ -280,7 +353,7 @@ def record_activity(user_id, activity_type, amount):
     """Log user activity for reward distribution"""
     doc_ref = db.collection('user_activities').document()
     doc_ref.set({
-        'user_id': user_id,  # Fix: changed from 'user_id' to 'user_id'
+        'user_id': user_id,
         'type': activity_type,
         'amount': amount,
         'timestamp': SERVER_TIMESTAMP

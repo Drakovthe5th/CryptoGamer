@@ -53,6 +53,25 @@ async function initGame(userId, token) {
         },
         body: JSON.stringify({user_id: userId})
     });
+
+    document.getElementById('game-shop-btn').addEventListener('click', () => {
+        if (window.parent && window.parent.Miniapp) {
+            window.parent.postMessage({type: 'open_shop'}, '*');
+        } else {
+            window.location.href = '/shop.html';
+        }
+        });
+
+        // Listen for shop updates
+    window.addEventListener('message', (event) => {
+        if (event.data.type === 'purchased_item') {
+            if (event.data.item_id === 'extra_earning') {
+            // Add extra time to trivia questions
+            timePerQuestion += 10;
+            alert('Extra time added! +10 seconds per question');
+            }
+        }
+    });
 }
 
 // Track jumps
@@ -1140,7 +1159,7 @@ document.addEventListener('keydown', (e) => {
         })
         .catch(error => console.error('Reward error:', error));
         }
-    };
+    });
 
     // Helper function to show reward notification
     function showRewardNotification(reward, newBalance) {
@@ -2868,6 +2887,35 @@ document.addEventListener('keydown', (e) => {
     };
 })();
 
+function resetGame(gameId) {
+    fetch('/api/game/reset', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-User-ID': window.userId,
+            'X-Telegram-Hash': window.initDataHash
+        },
+        body: JSON.stringify({
+            game_id: gameId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Telegram.WebApp.showAlert(`Game reset! ${data.resets_left} resets left today`);
+            // Reload or reset the game
+        } else {
+            Telegram.WebApp.showAlert(data.error || 'Reset failed');
+        }
+    });
+}
+
+function handleReset() {
+    fetch('/api/game/reset', {
+        method: 'POST',
+        body: JSON.stringify({game: 'clicker'})
+    }).then(checkResetAvailability);
+}
 
 function onDocumentLoad() {
     new Runner('.interstitial-wrapper');

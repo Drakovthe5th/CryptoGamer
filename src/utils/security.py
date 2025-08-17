@@ -132,7 +132,16 @@ def get_user_id(request) -> int:
     except Exception as e:
         logger.error(f"Error getting user ID: {str(e)}")
         return 0  # Default user ID for testing
+
+def validate_game_request(request):
+    init_data = request.headers.get('X-Telegram-InitData')
+    if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
+        raise PermissionError("Invalid Telegram hash")
     
+    user_id = get_user_id(request)
+    if is_abnormal_activity(user_id):
+        raise SecurityException("Suspicious activity detected")
+
 # Reusable for all games
 def generate_security_token(user_id):
     payload = {'user_id': user_id, 'exp': datetime.utcnow() + timedelta(minutes=30)}

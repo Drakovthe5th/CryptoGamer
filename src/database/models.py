@@ -2,32 +2,40 @@ import os
 from google.cloud import firestore
 from datetime import datetime
 
-class User:
+class User(BaseModel):
     def __init__(self, data):
         self.user_id = data.get('user_id')
         self.username = data.get('username', '')
-        self.balance = data.get('balance', 0.0)
-        self.points = data.get('points', 0)
+        self.game_coins = data.get('game_coins', 0)
         self.last_played = data.get('last_played', {})
         self.referral_count = data.get('referral_count', 0)
         self.faucet_claimed = data.get('faucet_claimed')
-        self.withdrawal_methods = data.get('withdrawal_methods', {})
-        self.payment_methods = data.get('payment_methods', {})
-        self.completed_quests = data.get('completed_quests', {})
+        self.wallet_address = data.get('wallet_address', '')
+        self.daily_coins_earned = data.get('daily_coins_earned', 0)
+        self.daily_resets = data.get('daily_resets', {})
+        self.inventory = data.get('inventory', [])
+        self.membership_tier = data.get('membership_tier', 'BASIC')
         self.created_at = data.get('created_at', datetime.now())
+        wallet_address = CharField(null=True)
+        game_coins = IntegerField(default=0)
+        daily_gc_earned = IntegerField(default=0)
+        daily_resets = JSONField(default={})  # {game_type: reset_count}
+        membership_tier = CharField(default='BASIC')
+        inventory = JSONField(default=[])  # List of purchased items
 
     def to_dict(self):
         return {
             'user_id': self.user_id,
             'username': self.username,
-            'balance': self.balance,
-            'points': self.points,
+            'game_coins': self.game_coins,
             'last_played': self.last_played,
             'referral_count': self.referral_count,
             'faucet_claimed': self.faucet_claimed,
-            'withdrawal_methods': self.withdrawal_methods,
-            'payment_methods': self.payment_methods,
-            'completed_quests': self.completed_quests,
+            'wallet_address': self.wallet_address,
+            'daily_coins_earned': self.daily_coins_earned,
+            'daily_resets': self.daily_resets,
+            'inventory': self.inventory,
+            'membership_tier': self.membership_tier,
             'created_at': self.created_at
         }
 
