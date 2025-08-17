@@ -1,6 +1,6 @@
 from datetime import datetime
 from google.cloud import firestore
-from src.database.firebase import db, get_user_balance, save_user
+from src.database.firebase import db, get_user_balance, create_user
 from src.utils.logger import logger
 
 BOOSTERS = {
