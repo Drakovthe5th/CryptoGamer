@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
-
+from src.web.routes import configure_routes
 
 # Configure logging
 logging.basicConfig(
@@ -468,9 +468,9 @@ def internal_error(error):
     logger.error(f"Internal server error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
-# Initialize application
 try:
     initialize_production_app()
+    configure_routes(app)  # Add this line to register routes
 except Exception as e:
     logger.critical(f"❌ FAILED TO START PRODUCTION APP: {e}")
     exit(1)

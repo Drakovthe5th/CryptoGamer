@@ -1,4 +1,4 @@
-// script.js
+// miniapp.js - Core Mini App functionality
 const MAX_RESETS = 3;
 let userData = {
   id: null,
@@ -102,14 +102,14 @@ class Miniapp {
 
   static updateUI() {
     document.querySelectorAll('#balance, #wallet-balance, #profile-balance').forEach(el => {
-      el.textContent = this.userData.balance.toFixed(6);
+      el.textContent = this.userData.balance.toFixed(6) + ' TON';
     });
     
     document.getElementById('click-count').textContent = this.userData.clicks;
     document.getElementById('quest-ads').textContent = "0";
     document.getElementById('quest-invite').textContent = this.userData.referrals > 0 ? "1" : "0";
     document.getElementById('ref-count').textContent = this.userData.referrals;
-    document.getElementById('ref-earnings').textContent = this.userData.refEarnings.toFixed(6);
+    document.getElementById('ref-earnings').textContent = this.userData.refEarnings.toFixed(6) + ' TON';
     
     document.querySelectorAll('#profile-username, #profile-name').forEach(el => {
       el.textContent = this.userData.username;
@@ -130,7 +130,10 @@ class Miniapp {
       el.textContent = `${this.userData.gameCoins} GC`;
     });
 
-    document.getElementById('ton-equivalent').textContent = (this.userData.gameCoins / 2000).toFixed(6);
+    const tonEquivalent = document.getElementById('ton-equivalent');
+    if (tonEquivalent) {
+      tonEquivalent.textContent = (this.userData.gameCoins / 2000).toFixed(6) + ' TON';
+    }
   }
 
   static async claimDailyBonus() {
@@ -291,23 +294,22 @@ class Miniapp {
   }
 
   static async launchGame(gameId) {
-    try {
-      const gameUrl = `/games/${gameId}?user_id=${this.userData.id}`;
-      
-      const response = await this.apiRequest(`/api/games/token?game=${gameId}`);
-      
-      if (response?.token) {
-        document.getElementById('game-iframe').src = `${gameUrl}&token=${response.token}`;
-        document.getElementById('game-iframe-page').style.display = 'block';
-        
-        await this.apiRequest('/api/games/start', 'POST', {
-          game_id: gameId
-        });
+      try {
+          const response = await this.apiRequest(`/api/games/token?game=${gameId}`);
+          
+          if (response?.token) {
+              const gameUrl = `/games/${gameId}?user_id=${this.userData.id}&token=${response.token}`;
+              document.getElementById('game-iframe').src = gameUrl;
+              document.getElementById('game-iframe-page').style.display = 'block';
+              
+              await this.apiRequest('/api/game/start', 'POST', {
+                  game_id: gameId
+              });
+          }
+      } catch (error) {
+          console.error('Failed to launch game:', error);
+          Telegram.WebApp.showAlert('Game failed to load. Please try again.');
       }
-    } catch (error) {
-      console.error('Failed to launch game:', error);
-      Telegram.WebApp.showAlert('Game failed to load. Please try again.');
-    }
   }
 
   static async convertGC(gcAmount) {
@@ -387,6 +389,48 @@ class Miniapp {
       }
     });
   }
+
+    // ADD to Miniapp class
+  static async getGameSessionData(sessionId) {
+      try {
+          const response = await this.apiRequest(`/api/game/session/${sessionId}`);
+          return response;
+      } catch (error) {
+          console.error('Failed to get session data:', error);
+          return null;
+      }
+  }
+
+  static async submitGameResults(gameId, score, sessionId) {
+      try {
+          const response = await this.apiRequest('/api/game/complete', 'POST', {
+              game_id: gameId,
+              score: score,
+              session_id: sessionId
+          });
+          
+          if (response && response.success) {
+              this.userData.gameCoins = response.new_gc_balance;
+              this.updateUI();
+              return true;
+          }
+          return false;
+      } catch (error) {
+          console.error('Failed to submit game results:', error);
+          return false;
+      }
+  }
+
+  static async getBoosters() {
+      try {
+          const response = await this.apiRequest('/api/boosters/active');
+          return response.boosters || [];
+      } catch (error) {
+          console.error('Failed to get boosters:', error);
+          return [];
+      }
+  }
+
 }
 
 // Helper functions
@@ -407,18 +451,6 @@ function hideGame() {
   document.getElementById('game-iframe').src = '';
 }
 
-function showWithdrawalForm() {
-  document.getElementById('withdrawal-form').style.display = 'block';
-}
-
-function hideWithdrawalForm() {
-  document.getElementById('withdrawal-form').style.display = 'none';
-}
-
-function showTransactionHistory() {
-  document.getElementById('transaction-history').style.display = 'block';
-}
-
 function updateWalletStatus(connected, address = '') {
     const indicator = document.getElementById('wallet-indicator');
     const addressEl = document.getElementById('wallet-address');
@@ -429,69 +461,6 @@ function updateWalletStatus(connected, address = '') {
     } else {
         indicator.textContent = '🔴';
         addressEl.textContent = 'Not connected';
-    }
-}
-
-function processWithdrawal() {
-  const address = document.getElementById('withdraw-address').value;
-  const amount = parseFloat(document.getElementById('withdraw-amount').value);
-  
-  if (!address || !amount) {
-    Miniapp.showToast('Please fill all fields', 'error');
-    return;
-  }
-  
-  Miniapp.apiRequest('/api/withdraw', 'POST', {
-    address: address,
-    amount: amount
-  }).then(response => {
-    if (response && response.success) {
-      Miniapp.userData.balance -= amount;
-      Miniapp.updateUI();
-      Miniapp.showToast(`Withdrawal of ${amount} TON processing!`);
-      hideWithdrawalForm();
-    }
-  });
-}
-
-Miniapp.connectWallet = async function() {
-    try {
-        const wallets = await window.ton.send("ton_requestWallets");
-        if (wallets.length > 0) {
-            const address = wallets[0].address;
-            
-            // Save to backend
-            const response = await this.apiRequest('/api/wallet/connect', 'POST', {
-                address: address
-            });
-            
-            if (response && response.success) {
-                updateWalletStatus(true, address);
-                return true;
-            }
-        }
-        return false;
-    } catch (error) {
-        console.error("Wallet connection failed:", error);
-        return false;
-    }
-}
-
-Miniapp.purchaseItem = async function(itemId, priceTON) {
-    try {
-        const response = await this.apiRequest('/api/purchase/item', 'POST', {
-            item_id: itemId,
-            price: priceTON
-        });
-        
-        if (response && response.success) {
-            // Update UI with new item
-            return true;
-        }
-        return false;
-    } catch (error) {
-        console.error("Purchase failed:", error);
-        return false;
     }
 }
 
@@ -513,7 +482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await Miniapp.generateReferralLink();
     await Miniapp.getReferralStats();
 
-        // Check wallet connection
+    // Check wallet connection
     const userData = await Miniapp.loadUserData();
     if (userData && userData.wallet_address) {
         updateWalletStatus(true, userData.wallet_address);
@@ -535,10 +504,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup event handlers
     document.getElementById('bonus-btn').addEventListener('click', () => Miniapp.claimDailyBonus());
-    document.querySelector('.click-area').addEventListener('click', () => Miniapp.earnFromClick());
-    document.getElementById('watch-ad-btn').addEventListener('click', () => Miniapp.rewardedInterstitial());
-    document.getElementById('staking-btn').addEventListener('click', () => Miniapp.createStaking(5));
-    document.getElementById('copy-ref-btn').addEventListener('click', () => {
+    document.querySelector('.click-area')?.addEventListener('click', () => Miniapp.earnFromClick());
+    document.getElementById('watch-ad-btn')?.addEventListener('click', () => Miniapp.rewardedInterstitial());
+    document.getElementById('staking-btn')?.addEventListener('click', () => Miniapp.createStaking(5));
+    document.getElementById('copy-ref-btn')?.addEventListener('click', () => {
       navigator.clipboard.writeText(document.getElementById('ref-link').textContent);
       tg.showPopup({
         title: 'Copied', 
@@ -546,7 +515,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         buttons: [{id: 'ok', type: 'ok'}]
       });
     });
-    document.getElementById('convert-gc-btn').addEventListener('click', () => {
+    document.getElementById('convert-gc-btn')?.addEventListener('click', () => {
       const gcInput = document.getElementById('gc-amount');
       const gcValue = parseFloat(gcInput.value);
       
@@ -568,16 +537,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     });
-    document.getElementById('share-app-btn').addEventListener('click', () => {
+    document.getElementById('share-app-btn')?.addEventListener('click', () => {
       Telegram.WebApp.shareUrl(
         'https://t.me/CryptoGameMinerBot',
         'Earn TON coins by playing games!'
       );
     });
-    document.getElementById('swap-ton-btn').addEventListener('click', () => {
+    document.getElementById('swap-ton-btn')?.addEventListener('click', () => {
       Miniapp.showToast('Exchange started', 'success');
     });
-    document.getElementById('quest-bonus-btn').addEventListener('click', () => {
+    document.getElementById('quest-bonus-btn')?.addEventListener('click', () => {
       Miniapp.claimDailyBonus();
     });
     
@@ -597,9 +566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelectorAll('.purchase-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const itemId = this.dataset.itemId;
-            const price = parseFloat(this.dataset.price);
-            
-            Miniapp.purchaseItem(itemId, price).then(success => {
+            Miniapp.purchaseItem(itemId).then(success => {
                 if (success) {
                     Telegram.WebApp.showPopup({
                         title: 'Purchase Complete!',
@@ -610,6 +577,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
     });
+    
+    // Close game button
+    document.getElementById('close-game-btn').addEventListener('click', hideGame);
     
   } catch (error) {
     console.error('Initialization failed:', error);

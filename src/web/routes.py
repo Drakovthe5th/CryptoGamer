@@ -31,9 +31,11 @@ def configure_routes(app):
     # Serve static files
     @app.route('/static/<path:filename>')
     def serve_static(filename):
-        root_dir = os.path.dirname(os.path.abspath(__file__))
-        static_dir = os.path.join(root_dir, '../../../static')
-        return send_from_directory(static_dir, filename)
+        return send_from_directory(os.path.join(app.root_path, 'static'), filename)
+    
+    @app.route('/games/static/<path:filename>')
+    def serve_game_static(filename):
+        return send_from_directory(os.path.join(app.root_path, 'games', 'static'), filename)
     
     @app.route('/api/games/list', methods=['GET'])
     def get_games_list_route():
@@ -96,6 +98,61 @@ def configure_routes(app):
         """Serve game static assets"""
         return send_from_directory(f'games/static/{game_id}/static', filename)
     
+    @app.route('/api/games/launch/<game_id>', methods=['GET'])
+    def launch_game_route(game_id):
+        """Generate game launch URL"""
+        try:
+            user_id = get_user_id(request)
+            if not user_id:
+                return jsonify({"error": "Unauthorized"}), 401
+            
+            # Generate secure token
+            token = generate_security_token(user_id)
+            game_url = f"https://yourserver.com/games/{game_id}?user_id={user_id}&token={token}"
+            
+            return jsonify({
+                "success": True,
+                "url": game_url
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
+    @ app.route('/api/games/token', methods=['GET'])
+    def get_game_token():
+        """Generate secure game token"""
+        try:
+            game_id = request.args.get('game')
+            user_id = get_user_id(request)
+            token = generate_security_token(user_id)  # Implement this function
+            return jsonify({'token': token})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
+    @ app.route('/api/convert/gc-to-ton', methods=['POST'])
+    def convert_gc_to_ton():
+        """Convert game coins to TON"""
+        try:
+            data = request.get_json()
+            gc_amount = data.get('gc_amount')
+            ton_amount = gc_amount / 2000  # Conversion rate
+            return jsonify({
+                'success': True,
+                'ton_amount': ton_amount,
+                'conversion_rate': 2000
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @ app.route('/api/shop/items', methods=['GET'])
+    def get_shop_items():
+        """Return available shop items"""
+        return jsonify([
+            {'id': 'global_booster', 'name': '2x Earnings Booster', 'price': 2000},
+            {'id': 'trivia_extra_time', 'name': 'Trivia Time Extender', 'price': 500},
+            {'id': 'spin_extra_spin', 'name': 'Extra Spin', 'price': 300},
+            {'id': 'clicker_auto_upgrade', 'name': 'Auto-Clicker', 'price': 1000}
+        ])
+        
     # Error handlers
     @app.errorhandler(404)
     def page_not_found(e):
@@ -501,6 +558,29 @@ def configure_routes(app):
             })
         return jsonify({"error": result.get('error', 'Purchase failed')}), 400
     
+    @app.route('/api/shop/purchase/<item_id>', methods=['POST'])
+    def purchase_item_route(item_id):
+        """Process item purchase"""
+        try:
+            user_id = get_user_id(request)
+            if not user_id:
+                return jsonify({"error": "Unauthorized"}), 401
+
+            # Process purchase
+            success, message, new_balance = process_purchase(user_id, item_id)
+            
+            if not success:
+                return jsonify({"error": message}), 400
+                
+            return jsonify({
+                "success": True,
+                "message": message,
+                "new_gc_balance": new_balance,
+                "item_id": item_id
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+    
     @app.route('/api/withdraw/gc', methods=['POST'])
     def withdraw_game_coins():
         data = request.get_json()
@@ -550,3 +630,13 @@ def get_user_id(request):
         return user.get('id')
     except:
         return None
+    
+def generate_security_token(user_id):
+    """Generate secure session token"""
+    timestamp = str(int(time.time()))
+    signature = hmac.new(
+        config.SECRET_KEY.encode(),
+        f"{user_id}{timestamp}".encode(),
+        'sha256'
+    ).hexdigest()
+    return f"{user_id}.{timestamp}.{signature}"
