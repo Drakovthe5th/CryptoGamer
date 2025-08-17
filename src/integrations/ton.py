@@ -18,7 +18,7 @@ from config import config
 # Core TON libraries
 from pytoniq import LiteClient, LiteServerError
 from pytoniq_core import Cell, begin_cell, Address
-from pytoniq_core.boc import Boc
+from pytoniq_core.boc import begin_cell, Builder, Slice
 from pytonlib import TonlibClient
 from tonsdk.utils import bytes_to_b64str, b64str_to_bytes
 from tonsdk.contract.wallet import Wallets, WalletVersionEnum
@@ -258,14 +258,18 @@ class TONWallet:
             # Send transaction
             try:
                 if self.connection_type == "Tonlib":
-                    boc = bytes_to_b64str(query["message"].to_boc(False))
-                    result = await self.tonlib_client.raw_send_message(boc)
+                    # FIXED: Use Cell instead of Boc
+                    cell = Cell.one_from_boc(query["message"].to_boc(False))
+                    result = await self.tonlib_client.raw_send_message(cell.to_boc())
                     tx_hash = result["hash"]
                 else:
-                    # Fallback to liteclient
-                    await self.lite_client.send_message(Boc.raw_parse(query["message"].to_boc(False)))
-                    tx_hash = "liteclient_" + str(int(time.time()))
-                
+                    # FIXED: Use Cell directly
+                    cell = Cell.one_from_boc(query["message"].to_boc(False))
+                    await self.lite_client.send_message(cell)
+                    tx_hash = "liteclient_" + str(int(time.time())
+                )
+
+
                 # Track transaction
                 self.pending_transactions[tx_hash] = {
                     "destination": destination,
