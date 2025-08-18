@@ -1,7 +1,7 @@
 import requests
 import logging
 from config import config
-from src.database.mongo import get_mongodb
+from src.database.mongo import db
 
 logger = logging.getLogger(__name__)
 
