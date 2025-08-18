@@ -1,3 +1,5 @@
+import hmac
+import datetime
 from functools import wraps
 import asyncio
 from flask import request, jsonify, render_template, send_from_directory
@@ -14,12 +16,33 @@ from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
 from src.utils.validators import validate_ton_address
 from config import config
 import logging
-import datetime
+
 import os
 
 logger = logging.getLogger(__name__)
 
 MAX_RESETS = 3
+
+def validate_json_input(schema):
+    """JSON validation decorator for Flask routes"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "Missing JSON body"}), 400
+                
+            for key, rules in schema.items():
+                if rules.get('required') and key not in data:
+                    return jsonify({"error": f"Missing required field: {key}"}), 400
+                
+                if key in data:
+                    # Add type validation here if needed
+                    pass
+                    
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 def configure_routes(app):
     @app.route('/')
@@ -524,6 +547,11 @@ def configure_routes(app):
         """Get available shop items"""
         from src.features.monetization.purchases import BOOSTERS
         return jsonify(BOOSTERS)
+    
+    @app.route('/api/wallet/status')
+    async def wallet_status():
+        status = await get_wallet_status()
+        return jsonify(status)
 
     @app.route('/api/purchase/item', methods=['POST'])
     def purchase_item():
@@ -654,23 +682,3 @@ def generate_security_token(user_id):
         'sha256'
     ).hexdigest()
     return f"{user_id}.{timestamp}.{signature}"
-
-def validate_json_input(schema):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            data = request.get_json()
-            if not data:
-                return jsonify({"error": "Missing JSON body"}), 400
-                
-            for key, rules in schema.items():
-                if rules.get('required') and key not in data:
-                    return jsonify({"error": f"Missing required field: {key}"}), 400
-                
-                if key in data:
-                    # Add type validation here if needed
-                    pass
-                    
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator

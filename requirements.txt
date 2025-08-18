@@ -31,6 +31,8 @@ paypalrestsdk==1.13.1
 # TON Blockchain Core Dependencies
 pytoniq==0.1.41
 pytoniq-core==0.1.44
+wheel==0.43.0
+pytoniq==0.1.45 
 PyNaCl==1.5.0
 mnemonic==0.20
 base58==2.1.1  # Required for address handling

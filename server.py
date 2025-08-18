@@ -457,6 +457,8 @@ except Exception as e:
     logger.critical(f"❌ FAILED TO START PRODUCTION APP: {e}")
     exit(1)
 
+asyncio.run(verify_ton_config())
+
 # Register shutdown handler
 atexit.register(shutdown_production_app)
 

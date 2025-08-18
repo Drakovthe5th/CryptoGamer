@@ -22,52 +22,48 @@ class TonWallet:
         self.network = config.TON_NETWORK
         self.initialized = False
 
-    async def initialize(self):
-        """Initialize TON wallet with robust error handling and fallbacks"""
-        self.healthy = False
-        self.status = "initializing"
+    async def initialize_ton_wallet():
+        """Initialize TON wallet connection with retry logic"""
+        global ton_wallet, client
         
-        try:
-            # Validate credentials
-            if not config.TON_MNEMONIC and not config.TON_PRIVATE_KEY:
-                logger.error("Missing TON credentials (both mnemonic and private key)")
-                self.status = "error: missing credentials"
-                return False
-                
-            # Create wallet instance
-            if config.TON_MNEMONIC:
-                self.wallet = WalletV4R2.from_mnemonic(config.TON_MNEMONIC.split())
-            elif config.TON_PRIVATE_KEY:
-                private_key = base64.b64decode(config.TON_PRIVATE_KEY)
-                self.wallet = WalletV4R2(private_key=private_key, workchain=0)
-            
-            self.address = str(self.wallet.address)
-            logger.info(f"Wallet created: {secure_mask(self.address)}")
-            
-            # Connect to network if servers available
-            if config.TON_LITE_SERVERS:
-                self.client = LiteClient()
-                connection_success = await self._connect_with_retries()
-                
-                if connection_success:
-                    self.balance = await self._get_balance()
-                    self.healthy = True
-                    self.status = "connected"
-                    logger.info(f"TON wallet ready | Balance: {self.balance:.6f} TON")
+        max_retries = 3
+        backoff_sec = 2
+        
+        for attempt in range(max_retries):
+            try:
+                # Initialize LiteClient with proper network config
+                if config.TON_NETWORK == 'testnet':
+                    client = LiteClient.from_testnet_config()
                 else:
-                    self.status = "degraded: no network"
-                    logger.warning("TON wallet in degraded mode - no network connection")
-            else:
-                self.status = "degraded: no lite servers"
-                logger.warning("TON wallet initialized without network (no LiteServers configured)")
+                    client = LiteClient.from_mainnet_config()
                 
-            self.initialized = True
-            return True
-            
-        except Exception as e:
-            logger.error(f"TON wallet initialization failed: {str(e)}", exc_info=True)
-            self.status = f"error: {str(e)}"
-            return False
+                await client.connect()
+                
+                # Initialize wallet with secure handling
+                if config.TON_MNEMONIC:
+                    ton_wallet = await WalletV4R2.from_mnemonic(
+                        client, 
+                        config.TON_MNEMONIC.split(),
+                        workchain=0
+                    )
+                elif config.TON_PRIVATE_KEY:
+                    # Ensure proper base64 decoding
+                    private_key = base64.urlsafe_b64decode(config.TON_PRIVATE_KEY)
+                    ton_wallet = WalletV4R2(
+                        provider=client, 
+                        private_key=private_key,
+                        workchain=0
+                    )
+                
+                logger.info(f"TON wallet initialized: {ton_wallet.address}")
+                return True
+            except Exception as e:
+                logger.error(f"TON wallet initialization attempt {attempt+1} failed: {str(e)}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(backoff_sec * (2 ** attempt))
+                else:
+                    logger.critical("TON wallet initialization failed after all retries")
+                    return False
 
     async def _connect_with_retries(self, retries=3, timeout=10):
         """Attempt to connect to TON network with retries and timeouts"""
@@ -170,6 +166,21 @@ class TonWallet:
         except Exception as e:
             logger.error(f"TON transfer error: {str(e)}", exc_info=True)
             return {'success': False, 'error': str(e)}
+        
+    
+    async def robust_send_ton(to_address: str, amount: float) -> Dict[str, any]:
+        """Send TON with connection error handling"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                return await send_ton(to_address, amount)
+            except (ConnectionResetError, asyncio.IncompleteReadError) as e:
+                logger.warning(f"Network error during transfer (attempt {attempt+1}): {str(e)}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1 + attempt * 2)
+                    await client.reconnect()  # Re-establish connection
+                else:
+                    raise
     
     async def create_payment_request(self, user_id: int, item_id: str, amount_ton: float) -> str:
         """Create TON payment request"""

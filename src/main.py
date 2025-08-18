@@ -54,6 +54,19 @@ async def set_webhook():
         except Exception as fallback_error:
             logger.error(f"Failed to delete webhook: {fallback_error}")
 
+async def verify_ton_config():
+    """Validate production TON configuration"""
+    if config.ENV == 'production':
+        if not config.TON_PRIVATE_KEY and not config.TON_MNEMONIC:
+            raise RuntimeError("Production requires TON wallet credentials")
+        
+        if config.TON_NETWORK not in ['mainnet', 'testnet']:
+            raise ValueError("Invalid TON_NETWORK configuration")
+        
+        # Validate wallet address format
+        if config.TON_HOT_WALLET and not validate_ton_address(config.TON_HOT_WALLET):
+            raise ValueError("Invalid TON hot wallet address")
+
 def initialize_background_services():
     try:
         threading.Thread(target=start_quest_scheduler, daemon=True).start()
