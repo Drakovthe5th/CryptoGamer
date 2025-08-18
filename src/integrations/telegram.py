@@ -1,7 +1,7 @@
 import requests
 import logging
 from config import config
-from src.database.firebase import get_firestore_db
+from src.database.mongo import get_mongodb
 
 logger = logging.getLogger(__name__)
 
