@@ -38,7 +38,7 @@ class WithdrawalProcessor:
         self.today_withdrawn = amount
 
     
-    def process_withdrawal(user_id):
+    def process_withdrawal(self, user_id):
         user = get_user(user_id)
         
         if not user.wallet_address:
@@ -190,3 +190,11 @@ def get_withdrawal_processor():
 class DummyWithdrawalProcessor:
     def process_gc_withdrawal(self, user_id):
         return False, "Withdrawals temporarily unavailable"
+    
+def start_withdrawal_processor():
+    """Start the withdrawal processor as a background service"""
+    logger.info("🚀 Starting withdrawal processor")
+    processor = WithdrawalProcessor()
+    processor_thread = threading.Thread(target=processor.run, daemon=True)
+    processor_thread.start()
+    return processor
