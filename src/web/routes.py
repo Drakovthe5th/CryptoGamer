@@ -671,6 +671,19 @@ def configure_routes(app):
                 'version': '1.0.0'
             }
         })
+    
+    @app.route('/api/wallet/health')
+    async def wallet_health():
+        """Wallet health check for production monitoring"""
+        try:
+            status = await get_wallet_status()
+            return jsonify({
+                'status': 'healthy' if status.get('healthy') else 'degraded',
+                'balance': status.get('balance', 0),
+                'last_block': status.get('last_block', 0)
+            })
+        except Exception as e:
+            return jsonify({'status': 'unavailable', 'error': str(e)}), 500
         
 # HELPER FUNCTION
 def get_user_id(request):
