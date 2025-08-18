@@ -549,12 +549,6 @@ def configure_routes(app):
             return jsonify({"success": True, "tx_hash": result})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
-        
-    @app.route('/api/shop/items', methods=['GET'])
-    def get_shop_items():
-        """Get available shop items"""
-        from src.features.monetization.purchases import BOOSTERS
-        return jsonify(BOOSTERS)
     
     @app.route('/api/wallet/status')
     async def wallet_status():
