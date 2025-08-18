@@ -1,7 +1,7 @@
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from src.database.firebase import (
+from src.database.mongo import (
     get_user_data, update_balance, update_leaderboard_points, 
     quests_ref, users_ref, SERVER_TIMESTAMP, withdrawals_ref, otc_deals_ref
 )
@@ -368,12 +368,12 @@ async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quest_id = query.data.split('_')[1]
     
     # Get quest details
-    quest_doc = quests_ref.document(quest_id).get()
-    if not quest_doc.exists:
+    quest_doc = db.quests.find_one({"_id": quest_id})
+    if not quest_doc:
         await query.edit_message_text("Quest not found.")
         return
     
-    quest_data = quest_doc.to_dict()
+    quest_data = quest_doc
     
     # Format quest details
     text = f"<b>{quest_data['title']}</b>\n\n"

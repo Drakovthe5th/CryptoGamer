@@ -1,5 +1,5 @@
 import statistics
-from src.database.firebase import get_user_activity
+from src.database.mongo import get_user_activity
 
 class AntiCheatSystem:
     def detect_farming(self, user_id):

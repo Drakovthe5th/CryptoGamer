@@ -1,18 +1,11 @@
 services:
   - type: web
-    name: cryptogame-web
+    name: cryptogamer-web
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --worker-tmp-dir /dev/shm --workers 2 --threads 4 --worker-class gthread app:app
-
-  - type: worker
-    name: cryptogame-bot
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
-
-jobs:
-  - type: cron
-    name: process-withdrawals
-    schedule: "*/30 * * * *"
-    runCommand: python scripts/process_withdrawals.py
+    startCommand: python main.py
+    envVars:
+      - key: MONGO_URI
+        value: ${MONGO_URI}  # Will use value from Render dashboard
+      - key: PORT
+        value: 10000

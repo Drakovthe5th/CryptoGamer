@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request, send_from_directory, render_template
-from src.database.firebase import initialize_firebase
+from src.database.mongo import initialize_firebase
 from src.features import quests, ads
 from src.utils import security, validation
 from games.games import games_bp

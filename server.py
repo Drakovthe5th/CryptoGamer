@@ -9,6 +9,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.web.routes import configure_routes
+from src.database.mongo import initialize_mongodb
 
 # Configure logging
 logging.basicConfig(
@@ -85,14 +86,10 @@ def initialize_production_app():
     """Initialize production application with more resilience"""
     logger.info("🚀 STARTING PRODUCTION APPLICATION")
     
-    # Initialize Firebase first
-    try:
-        firebase_creds = config.FIREBASE_CREDS
-        initialize_firebase(firebase_creds)
-        logger.info("✅ Firebase initialized successfully")
-    except Exception as e:
-        logger.error(f"❌ Firebase initialization failed: {e}")
-        send_alert_to_admin(f"Firebase init failed: {str(e)}")
+    # Initialize MongoDB
+    if not initialize_mongodb():
+        logger.critical("❌ MongoDB initialization failed")
+        exit(1)
     
     # TON wallet initialization
     logger.info("Initializing PRODUCTION TON wallet...")

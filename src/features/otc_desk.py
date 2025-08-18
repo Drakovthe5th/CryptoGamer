@@ -5,7 +5,7 @@ import logging
 import requests
 from datetime import datetime
 from config import config
-from src.database.firebase import otc_deals_ref, update_user, db
+from src.database.mongo import db, create_otc_deal, get_otc_quote
 from src.integrations.mpesa import process_mpesa_payment
 from src.integrations.paypal import process_paypal_payment
 from src.integrations.banking import process_bank_transfer
@@ -93,16 +93,15 @@ class OTCDesk:
         return round(fee, 2)
         
     def create_otc_deal(self, user_id: int, ton_amount: float, currency: str, method: str) -> str:
-        """Create OTC deal in Firestore"""
+        """Create OTC deal in MongoDB"""
         try:
             fiat_amount = self.calculate_fiat_amount(ton_amount, currency)
             fee = self.calculate_fee(fiat_amount)
             total = fiat_amount - fee
             
             # Get user payment details
-            user_ref = db.collection('users').document(str(user_id))
-            user_data = user_ref.get().to_dict()
-            payment_details = user_data.get('payment_methods', {}).get(method, {})
+            user = db.users.find_one({"user_id": user_id})
+            payment_details = user.get('payment_methods', {}).get(method, {})
             
             deal_data = {
                 'user_id': user_id,
@@ -118,8 +117,7 @@ class OTCDesk:
                 'payment_details': payment_details
             }
             
-            deal_ref = otc_deals_ref.add(deal_data)
-            deal_id = deal_ref[1].id
+            deal_id = create_otc_deal(user_id, ton_amount, currency, method, fiat_amount, fee, self.get_sell_rate(currency))
             logger.info(f"Created OTC deal {deal_id} for user {user_id}")
             return deal_id
         except Exception as e:
@@ -129,9 +127,9 @@ class OTCDesk:
     def process_pending_deals(self):
         """Process pending OTC deals"""
         try:
-            pending_deals = otc_deals_ref.where('status', '==', 'pending').stream()
+            pending_deals = db.otc_deals.find({'status': 'pending'})
             for deal in pending_deals:
-                deal_data = deal.to_dict()
+                deal_data = deal
                 
                 # Process based on payment method
                 method = deal_data['payment_method']
@@ -158,26 +156,32 @@ class OTCDesk:
                 
                 # Update deal status
                 if result and result.get('status') == 'success':
-                    otc_deals_ref.document(deal.id).update({
-                        'status': 'completed',
-                        'completed_at': datetime.now(),
-                        'transaction_id': result.get('transaction_id')
-                    })
-                    logger.info(f"Processed OTC deal: {deal.id}")
+                    db.otc_deals.update_one(
+                        {'_id': deal['_id']},
+                        {'$set': {
+                            'status': 'completed',
+                            'completed_at': datetime.now(),
+                            'transaction_id': result.get('transaction_id')
+                        }}
+                    )
+                    logger.info(f"Processed OTC deal: {deal['_id']}")
                 else:
                     error = result.get('error', 'Unknown error') if result else 'Processing failed'
-                    otc_deals_ref.document(deal.id).update({
-                        'status': 'failed',
-                        'error': error
-                    })
-                    logger.error(f"Failed to process OTC deal {deal.id}: {error}")
+                    db.otc_deals.update_one(
+                        {'_id': deal['_id']},
+                        {'$set': {
+                            'status': 'failed',
+                            'error': error
+                        }}
+                    )
+                    logger.error(f"Failed to process OTC deal {deal['_id']}: {error}")
                     
             self.last_processing = datetime.now()
         except Exception as e:
             logger.error(f"OTC deal processing failed: {e}")
     
     def get_quote(self, user_id, currency):
-        user_data = get_user_data(user_id)
+        user_data = db.users.find_one({"user_id": user_id})
         game_coins = user_data.get('game_coins', 0)
         return get_otc_quote(game_coins, currency)
 
@@ -205,27 +209,6 @@ class OTCDesk:
 
 # Global OTC desk instance
 otc_desk = OTCDesk()
-
-def get_otc_quote(game_coins, currency):
-    """Generate OTC quote based on game coins"""
-    ton_amount = game_coins_to_ton(game_coins)
-    rate = buy_rates.get(currency, 0)
-    
-    if not rate:
-        return None
-    
-    fiat_amount = ton_amount * rate
-    fee = calculate_fee(fiat_amount, OTC_FEE_PERCENT, MIN_OTC_FEE)
-    total = fiat_amount - fee
-    
-    return {
-        'game_coins': game_coins,
-        'amount_ton': ton_amount,
-        'currency': currency,
-        'rate': rate,
-        'fee': fee,
-        'total': total
-    }
 
 def start_otc_scheduler():
     """Start the OTC desk scheduler"""

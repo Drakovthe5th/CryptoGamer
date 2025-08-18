@@ -1,4 +1,4 @@
-from src.database.firebase import db
+from src.database.mongo import db
 from datetime import datetime
 import time
 

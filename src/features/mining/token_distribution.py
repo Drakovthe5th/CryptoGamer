@@ -1,8 +1,7 @@
-from src.database.firebase import update_game_coins, update_balance, record_activity
+from src.database.mongo import update_game_coins, record_activity
 from config import config
 
 def distribute_rewards(user_id, activity_type, score=None):
-    """Award game coins for user activities"""
     rewards_config = {
         'click': 50,
         'trivia_correct': 100 + (50 * (score/100)) if score else 100,

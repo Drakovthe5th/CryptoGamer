@@ -4,7 +4,7 @@ import hmac
 import logging
 import asyncio
 from flask import Blueprint, request, jsonify
-from src.database import firebase as db
+from src.database import mongo as db
 from src.telegram.auth import validate_init_data
 from src.utils import security, validators
 from src.security import anti_cheat

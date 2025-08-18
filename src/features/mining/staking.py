@@ -1,8 +1,8 @@
+# src/features/mining/staking.py
+from src.database.mongo import get_user_balance, update_balance, record_staking
 from src.integrations.staking_contracts import create_staking_contract
-from src.database.firebase import update_balance, record_staking, get_user_balance
 
 def validate_stake(user_id, amount):
-    """Validate staking request"""
     user_balance = get_user_balance(user_id)
     if amount < 5:
         return False, "Minimum stake is 5 TON"
@@ -11,20 +11,16 @@ def validate_stake(user_id, amount):
     return True, ""
 
 async def process_stake(user_id, amount):
-    """Process staking request"""
-    # Debit user balance immediately
+    # Deduct user balance
     new_balance = update_balance(user_id, -amount)
     
     # Create staking contract
     contract_address = await create_staking_contract(user_id, amount)
     
     if contract_address:
-        # Record staking
         record_staking(user_id, contract_address, amount)
         return True, contract_address
     else:
         # Refund if failed
         update_balance(user_id, amount)
         return False, "Staking contract creation failed"
-    
-    

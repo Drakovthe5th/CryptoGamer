@@ -3,15 +3,14 @@ import random
 import hashlib
 import logging
 from config import config
-from src.database.firebase import db, update_balance, get_user_data, save_quest_progress
-from src.utils.user_helpers import get_user_country
+from src.database.mongo import db, update_balance, get_user_data, save_quest_progress
 
 logger = logging.getLogger(__name__)
 
 class QuestSystem:
     def __init__(self):
         self.quest_templates = config.QUEST_TEMPLATES
-        self.daily_refresh_time = config.QUEST_REFRESH_HOUR  # Configurable refresh time
+        self.daily_refresh_time = config.QUEST_REFRESH_HOUR
 
     def generate_dynamic_quest(self, user_id, ip_address=None):
         """Create personalized quest for user"""
@@ -156,13 +155,12 @@ class QuestSystem:
         return quests
 
     def check_quest_completion(self, user_id, quest_id, evidence=None):
-        """Verify quest completion and award rewards"""
-        user_data = get_user_data(user_id)
-        if not user_data:
+        user = db.users.find_one({"user_id": user_id})
+        if not user:
             raise ValueError("User not found")
         
-        quest = next((q for q in user_data.get('active_quests', []) if q['id'] == quest_id), None)
-        
+        # Find quest in active_quests
+        quest = next((q for q in user.get("active_quests", []) if q['id'] == quest_id), None)
         if not quest:
             raise ValueError("Quest not found")
         
@@ -175,35 +173,29 @@ class QuestSystem:
         if not is_valid:
             return False, message
         
-        # Award reward
+        # Update user document
         reward = quest['reward']
-        new_balance = update_balance(user_id, reward)
-        
-        # Update quest status
-        if 'completed_quests' not in user_data:
-            user_data['completed_quests'] = []
-        user_data['completed_quests'].append(quest_id)
-        
-        if 'active_quests' in user_data:
-            user_data['active_quests'] = [q for q in user_data['active_quests'] if q['id'] != quest_id]
-        
-        # Record XP
         xp_earned = int(reward * 100)
-        user_data['xp'] = user_data.get('xp', 0) + xp_earned
+        new_level = self.check_level_up(user['xp'] + xp_earned)
         
-        # Check level up
-        new_level = self.check_level_up(user_data['xp'])
-        level_up = new_level > user_data.get('level', 1)
-        if level_up:
-            user_data['level'] = new_level
+        update_data = {
+            "$inc": {"balance": reward, "xp": xp_earned},
+            "$addToSet": {"completed_quests": quest_id},
+            "$pull": {"active_quests": {"id": quest_id}}
+        }
         
-        save_quest_progress(user_id, user_data)
+        if new_level > user.get("level", 1):
+            update_data["$set"] = {"level": new_level}
+        
+        db.users.update_one(
+            {"user_id": user_id},
+            update_data
+        )
         
         return True, {
             'reward': reward,
-            'new_balance': new_balance,
             'xp_earned': xp_earned,
-            'new_level': new_level if level_up else None
+            'new_level': new_level if new_level > user.get("level", 1) else None
         }
 
     def verify_completion(self, quest, evidence):

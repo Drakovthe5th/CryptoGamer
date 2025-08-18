@@ -5,7 +5,7 @@ import logging
 import json
 from telegram import Update
 from telegram.ext import Application
-from src.database.firebase import initialize_firebase
+from src.database.mongo import initialize_firebase
 from src.integrations.tonE2 import initialize_ton_wallet, close_ton_wallet
 from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler

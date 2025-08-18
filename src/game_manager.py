@@ -6,7 +6,7 @@ import hashlib
 import uuid
 import hmac
 from config import config
-from src.database.firebase import db, get_user_data, update_game_coins
+from src.database.mongo import db, get_user_data, update_game_coins
 from src.utils.security import validate_session_token
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
-from src.integrations.tonE2 import usd_to_ton
-from src.database.firebase import get_reward_pool, update_reward_pool
+from src.integrations.ton import usd_to_ton
+from src.database.mongo import get_reward_pool, update_reward_pool
 
 class RewardPool:
     def __init__(self):

@@ -6,7 +6,7 @@ import urllib.parse
 from datetime import datetime, timedelta
 from flask import request
 from config import Config
-from src.database.firebase import get_user_activity, get_withdrawal_history
+from src.database.mongo import get_user_activity, get_withdrawal_history
 
 logger = logging.getLogger(__name__)
 

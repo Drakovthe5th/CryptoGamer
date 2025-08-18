@@ -1,4 +1,4 @@
-from src.database.firebase import statistics
+from src.database.mongo import statistics
 from datetime import datetime
 from src.integrations.ton_mining import ton_mining
 

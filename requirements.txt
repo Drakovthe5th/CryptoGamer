@@ -47,3 +47,4 @@ pytonlib==0.0.66          # TON library for Python
 # Security and Encoding
 ed25519==1.5              # For key pair operations
 base64io==1.0.3           # Better base64 handling
+pymongo==4.5.0

@@ -1,6 +1,5 @@
 from datetime import datetime
-from google.cloud import firestore
-from src.database.firebase import db, get_user_balance, create_user
+from src.database.mongo import db
 from src.utils.logger import logger
 
 BOOSTERS = {
@@ -27,45 +26,30 @@ BOOSTERS = {
 }
 
 def process_purchase(user_id: int, item_id: str):
-    """Process in-game purchase"""
-
+    if item_id not in BOOSTERS:
+        return False, "Invalid item"
+        
+    item = BOOSTERS[item_id]
+    
     try:
-        # Validate item
-        if item_id not in BOOSTERS:
-            return False, "Invalid item"
-            
-        item = BOOSTERS[item_id]
-        user_ref = db.collection('users').document(str(user_id))
-        transaction = db.transaction()
+        # Transaction-like operation using find_one_and_update
+        result = db.users.find_one_and_update(
+            {"user_id": user_id, "game_coins": {"$gte": item['cost']}},
+            {
+                "$inc": {"game_coins": -item['cost']},
+                "$push": {"inventory": {
+                    "item_id": item_id,
+                    "purchased_at": datetime.utcnow(),
+                    **item
+                }}
+            },
+            return_document=ReturnDocument.AFTER
+        )
         
-        @firestore.transactional
-        def purchase_transaction(transaction, user_ref):
-            # Get current user data
-            user_snap = user_ref.get(transaction=transaction)
-            user_data = user_snap.to_dict()
-            current_coins = user_data.get('game_coins', 0)
-            
-            # Check affordability
-            if current_coins < item['cost']:
-                return False, "Insufficient coins"
-            
-            # Deduct coins
-            new_coins = current_coins - item['cost']
-            transaction.update(user_ref, {'game_coins': new_coins})
-            
-            # Add to inventory
-            inventory = user_data.get('inventory', [])
-            new_item = {
-                'item_id': item_id,
-                'purchased_at': datetime.utcnow(),
-                **item
-            }
-            inventory.append(new_item)
-            transaction.update(user_ref, {'inventory': inventory})
-            
-            return True, "Purchase successful", new_item
-        
-        return purchase_transaction(transaction, user_ref)
+        if result:
+            return True, "Purchase successful", result["inventory"][-1]
+        else:
+            return False, "Insufficient coins"
     except Exception as e:
         logger.error(f"Purchase failed: {str(e)}")
         return False, "Transaction error"

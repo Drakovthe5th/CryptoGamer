@@ -1,8 +1,8 @@
 from src.features.mining import reward_pool
 from src.features.monetization import ad_revenue, data_insights
-from src.database.firebase import db
+from src.database.mongo import db
 import logging
-from src.database.firebase import reset_all_daily_limits
+from src.database.mongo import reset_all_daily_limits
 from datetime import datetime
 import schedule
 import time

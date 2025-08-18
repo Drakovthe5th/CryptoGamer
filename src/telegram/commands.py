@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from firebase_admin import firestore
-from src.database.firebase import (
+from pymongo import MongoClient
+from src.database.mongo import (
     create_user, get_user_balance, update_balance, get_user_data,
     users_ref, update_leaderboard_points, get_leaderboard, get_user_rank
 )
@@ -33,8 +33,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 update_leaderboard_points(referrer_id, 50)
                 
                 # Update referral count
-                user_ref = users_ref.document(str(referrer_id))
-                user_ref.update({'referral_count': firestore.Increment(1)})
+                db.users.update_one(
+                    {"user_id": referrer_id},
+                    {"$inc": {"referral_count": 1}}
+                )
                 
                 # Notify referrer
                 try:
@@ -191,8 +193,10 @@ async def faucet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     new_balance = update_balance(user_id, reward)
     
     # Update last claim time
-    user_ref = users_ref.document(str(user_id))
-    user_ref.update({'faucet_claimed': now})
+    db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {'faucet_claimed': now}}
+    )
     
     await update.message.reply_text(
         f"💧 You claimed {reward:.6f} TON!\n"
