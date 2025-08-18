@@ -257,7 +257,7 @@ ton_wallet = TonWallet()
 
 async def initialize_ton_wallet():
     """Initialize the TON wallet instance"""
-    return await ton_wallet.initialize()
+    return await ton_wallet.initialize() 
 
 async def get_wallet_status():
     """Get current wallet status"""

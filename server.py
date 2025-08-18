@@ -10,6 +10,7 @@ from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.web.routes import configure_routes
 from src.database.mongo import initialize_mongodb
+from src.main import validate_production_config
 
 # Configure logging
 logging.basicConfig(
