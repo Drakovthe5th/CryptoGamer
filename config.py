@@ -34,7 +34,7 @@ class Config:
         
         # MongoDB configuration
         self.MONGO_URI = os.getenv('MONGO_URI')
-        self.MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'CryptoGamer')
+        self.MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'render-user')
         self.validate_mongo_config()
         
         # TON blockchain configuration
@@ -261,7 +261,7 @@ class Config:
             raise ValueError("Invalid MongoDB URI format")
             
         if not self.MONGO_DB_NAME:
-            logger.warning("MONGO_DB_NAME not set, using default 'cryptogamer'")
+            logger.warning("MONGO_DB_NAME not set, using default 'CryptoGamer'")
             
         logger.info(f"Using MongoDB database: {self.MONGO_DB_NAME}")
 
