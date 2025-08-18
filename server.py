@@ -100,16 +100,15 @@ def initialize_production_app():
     
     try:
         # Initialize TON wallet
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         success = loop.run_until_complete(initialize_ton_wallet())
-        status = loop.run_until_complete(get_wallet_status())
-        
-        if not success or not status.get('healthy'):
-            logger.warning("TON wallet initialized with limitations")
-            # Enable degraded mode features
-            config.TON_ENABLED = False
-        else:
+        if success:
+            status = loop.run_until_complete(get_wallet_status())
             logger.info(f"TON wallet ready | Balance: {status['balance']:.6f} TON")
-            
+        else:
+            logger.warning("TON wallet initialization failed")
+            config.TON_ENABLED = False
     except Exception as e:
         logger.critical(f"TON initialization failed: {str(e)}")
         config.TON_ENABLED = False
@@ -145,45 +144,6 @@ def serve_static(path):
     root_dir = os.path.dirname(os.path.abspath(__file__))
     static_dir = os.path.join(root_dir, 'static')
     return send_from_directory(static_dir, path)
-
-@app.route('/health')
-def health_check():
-    """Production health check"""
-    try:
-        # Get TON wallet status
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            wallet_status = loop.run_until_complete(get_wallet_status())
-        finally:
-            loop.close()
-        
-        health_data = {
-            'status': 'healthy' if wallet_status.get('healthy', False) else 'unhealthy',
-            'timestamp': datetime.datetime.utcnow().isoformat(),
-            'wallet': {
-                'healthy': wallet_status.get('healthy', False),
-                'balance': wallet_status.get('balance', 0),
-                'network': wallet_status.get('network', 'unknown')
-            },
-            'maintenance_available': MAINTENANCE_AVAILABLE
-        }
-        
-        if MAINTENANCE_AVAILABLE:
-            additional_checks = run_health_checks()
-            health_data.update(additional_checks)
-        
-        status_code = 200 if health_data['status'] == 'healthy' else 503
-        return jsonify(health_data), status_code
-        
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'timestamp': datetime.datetime.utcnow().isoformat()
-        }), 500
 
 # Game Routes
 @app.route('/games/<path:game_path>')
@@ -403,7 +363,7 @@ def get_staking_data():
     })
 
 # Referral endpoints
-@app.route('/api/referral/generate', methods=['GET'])
+@app.route('/api/referral/generate', endpoint='referral_generate')
 def generate_referral():
     """Generate referral link"""
     user_id = request.args.get('user_id', 'default')
@@ -411,7 +371,7 @@ def generate_referral():
         'link': f'https://t.me/CryptoGameMinerBot?start=ref-{user_id}'
     })
 
-@app.route('/api/referral/stats', methods=['GET'])
+@app.route('/api/referral/stats', endpoint='referral_stats')
 def referral_stats():
     """Return referral statistics"""
     return jsonify({
@@ -422,7 +382,7 @@ def referral_stats():
     })
 
 # OTC rates endpoint
-@app.route('/api/otc/rates', methods=['GET'])
+@app.route('/api/otc/rates', endpoint='otc_rates')
 def get_otc_rates():
     """Return exchange rates"""
     return jsonify({
