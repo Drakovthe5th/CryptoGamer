@@ -76,3 +76,30 @@ def send_mpesa_payment(phone: str, amount: float, currency: str = "KES") -> dict
     except Exception as e:
         logger.error(f"M-Pesa payment exception: {e}")
         return {"status": "error", "error": str(e)}
+    
+def process_mpesa_payment(user_id: int, amount: float, currency: str) -> dict:
+    """Process M-Pesa payment for a user"""
+    try:
+        # Get user's phone number
+        user = db.users.find_one({"user_id": user_id})
+        if not user or not user.get("phone"):
+            return {"status": "error", "error": "User phone number not found"}
+        
+        # Send payment
+        result = send_mpesa_payment(
+            phone=user["phone"],
+            amount=amount,
+            currency=currency
+        )
+        
+        if result["status"] == "success":
+            # Update user's balance
+            db.users.update_one(
+                {"user_id": user_id},
+                {"$inc": {"balance": -amount}}
+            )
+            return {"status": "success", "tx_id": result["response"]["ConversationID"]}
+        return result
+    except Exception as e:
+        logger.error(f"MPesa processing failed: {e}")
+        return {"status": "error", "error": "Payment processing failed"}
