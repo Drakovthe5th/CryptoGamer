@@ -182,7 +182,11 @@ class WithdrawalProcessor:
 withdrawal_processor = None
 
 def get_withdrawal_processor():
-    global withdrawal_processor
-    if withdrawal_processor is None:
-        withdrawal_processor = WithdrawalProcessor()
-    return withdrawal_processor
+    if config.TON_ENABLED:
+        return TonWithdrawalProcessor()
+    else:
+        return DummyWithdrawalProcessor()
+        
+class DummyWithdrawalProcessor:
+    def process_gc_withdrawal(self, user_id):
+        return False, "Withdrawals temporarily unavailable"

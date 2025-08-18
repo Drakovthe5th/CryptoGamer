@@ -1,3 +1,4 @@
+from functools import wraps
 import asyncio
 from flask import request, jsonify, render_template, send_from_directory
 from src.database.mongo import update_game_coins, record_reset, connect_wallet
@@ -653,3 +654,23 @@ def generate_security_token(user_id):
         'sha256'
     ).hexdigest()
     return f"{user_id}.{timestamp}.{signature}"
+
+def validate_json_input(schema):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "Missing JSON body"}), 400
+                
+            for key, rules in schema.items():
+                if rules.get('required') and key not in data:
+                    return jsonify({"error": f"Missing required field: {key}"}), 400
+                
+                if key in data:
+                    # Add type validation here if needed
+                    pass
+                    
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

@@ -99,33 +99,18 @@ def initialize_production_app():
     try:
         # Initialize TON wallet
         success = loop.run_until_complete(initialize_ton_wallet())
-
-        if not success:
-            logger.critical("❌ PRODUCTION TON WALLET INITIALIZATION FAILED")
-            send_alert_to_admin("🚨 CRITICAL: TON wallet failed to initialize")
-            # Start in degraded mode instead of failing
-            logger.warning("Starting in degraded mode with limited functionality")
-
-        # Verify wallet status
         status = loop.run_until_complete(get_wallet_status())
-        logger.info(f"✅ PRODUCTION Wallet Status: {status}")
         
-        if not status.get('healthy', False):
-            logger.critical("❌ PRODUCTION TON WALLET IS UNHEALTHY")
-            # Continue in degraded mode
-            logger.warning("Continuing in degraded mode")
-        
-        # Log production wallet details
-        logger.info(f"🏦 Production Wallet: {status.get('address', 'N/A')}")
-        logger.info(f"💰 Wallet Balance: {status.get('balance', 0):.6f} TON")
-        logger.info(f"🌐 Network: {status.get('network', 'unknown')}")
-        
+        if not success or not status.get('healthy'):
+            logger.warning("TON wallet initialized with limitations")
+            # Enable degraded mode features
+            config.TON_ENABLED = False
+        else:
+            logger.info(f"TON wallet ready | Balance: {status['balance']:.6f} TON")
+            
     except Exception as e:
-        logger.critical(f"❌ PRODUCTION TON INITIALIZATION FAILED: {e}")
-        send_alert_to_admin(f"🚨 PRODUCTION FAILURE: {str(e)}")
-        logger.warning("Starting in degraded mode due to initialization failure")
-    finally:
-        loop.close()
+        logger.critical(f"TON initialization failed: {str(e)}")
+        config.TON_ENABLED = False
     
     logger.info("✅ PRODUCTION APPLICATION INITIALIZATION COMPLETE")
 
