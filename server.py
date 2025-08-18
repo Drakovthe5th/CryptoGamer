@@ -69,8 +69,7 @@ except ImportError as e:
         return {"status": "limited", "message": "Full health checks unavailable"}
 
 from config import config
-from src.database.firebase import initialize_firebase
-
+from src.database.mongo import initialize_mongodb
 # Create Flask app
 app = Flask(__name__, template_folder='templates')
 CORS(app, origins="*")
