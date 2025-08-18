@@ -4,7 +4,7 @@ import datetime
 import asyncio
 import logging
 import atexit
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, Blueprint, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
