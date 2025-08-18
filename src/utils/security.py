@@ -190,6 +190,29 @@ def is_abnormal_activity(user_id: int) -> bool:
         logger.error(f"Error checking abnormal activity: {str(e)}")
         return False
 
+def secure_mask(value, show_first=6, show_last=4, min_length=10):
+    """
+    Mask sensitive information while showing partial content
+    :param value: The value to mask
+    :param show_first: Number of leading characters to show
+    :param show_last: Number of trailing characters to show
+    :param min_length: Minimum length to apply masking
+    :return: Masked string
+    """
+    if not value:
+        return "[EMPTY]"
+    
+    str_value = str(value)
+    length = len(str_value)
+    
+    if length < min_length:
+        return "[REDACTED]"
+    
+    if length <= (show_first + show_last):
+        return str_value[:show_first] + "..." if length > show_first else str_value
+    
+    return f"{str_value[:show_first]}...{str_value[-show_last:]}"
+
 # Fraud Detection System
 class FraudDetectionSystem:
     def __init__(self):
