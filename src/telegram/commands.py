@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes
 from pymongo import MongoClient
 from src.database.mongo import (
     create_user, get_user_balance, update_balance, get_user_data,
-    users_ref, update_leaderboard_points, get_leaderboard, get_user_rank
+    update_leaderboard_points, get_leaderboard, get_user_rank
 )
 from src.features.quests import get_active_quests
 from src.utils.conversions import game_coins_to_ton
@@ -14,6 +14,7 @@ import random
 import logging
 
 logger = logging.getLogger(__name__)
+user = get_user_data(user_id)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
