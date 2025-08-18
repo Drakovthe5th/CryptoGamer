@@ -23,8 +23,8 @@ SERVER_TIMESTAMP = datetime.utcnow()
 def initialize_mongodb():
     global client, db
     try:
-        mongo_uri = os.getenv('MONGO_URI', config.MONGO_URI)
-        client = MongoClient(mongo_uri)
+        # Use config.MONGO_URI instead of os.getenv
+        client = MongoClient(config.MONGO_URI)
         db = client[config.MONGO_DB_NAME]
         
         # Create indexes

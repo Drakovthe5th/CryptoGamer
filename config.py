@@ -23,13 +23,17 @@ class Config:
         self.ENV = os.getenv('ENV', 'production')
         self.PORT = int(os.getenv('PORT', 10000))
 
-        # MongoDB configuration - ADD URL ENCODING
+        # MongoDB configuration - FIXED
         raw_uri = os.getenv('MONGO_URI')
         if raw_uri:
             self.MONGO_URI = self.encode_mongo_uri(raw_uri)
         else:
             self.MONGO_URI = None
-            
+
+        # Set DB name AFTER setting URI
+        self.MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'render-user')
+        
+        # SINGLE validation call AFTER all properties are set
         self.validate_mongo_config()
         
         # MongoDB configuration
