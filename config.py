@@ -1,3 +1,4 @@
+# config.py
 import os
 import json
 import re
@@ -14,15 +15,17 @@ load_dotenv()
 
 class Config:
     def __init__(self):
-        # Load Firebase credentials first
-        self.FIREBASE_CREDS = self.load_firebase_creds()
-        
         # Core configuration
         self.TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
         self.TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME')
         self.ADMIN_ID = os.getenv('ADMIN_ID')
         self.ENV = os.getenv('ENV', 'production')
         self.PORT = int(os.getenv('PORT', 10000))
+        
+        # MongoDB configuration
+        self.MONGO_URI = os.getenv('MONGO_URI')
+        self.MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'CryptoGamer')
+        self.validate_mongo_config()
         
         # TON blockchain configuration
         self.TON_ENABLED = os.getenv('TON_ENABLED', 'true').lower() == 'true'
@@ -209,6 +212,22 @@ class Config:
         # Log configuration status
         self.log_config_summary()
 
+    def validate_mongo_config(self):
+        """Validate MongoDB configuration"""
+        if not self.MONGO_URI:
+            logger.error("MONGO_URI is not set in environment variables")
+            raise ValueError("MongoDB connection string is required")
+        
+        # Validate MongoDB URI format
+        if not re.match(r'^mongodb(\+srv)?://', self.MONGO_URI):
+            logger.error("Invalid MONGO_URI format. Must start with mongodb:// or mongodb+srv://")
+            raise ValueError("Invalid MongoDB URI format")
+            
+        if not self.MONGO_DB_NAME:
+            logger.warning("MONGO_DB_NAME not set, using default 'cryptogamer'")
+            
+        logger.info(f"Using MongoDB database: {self.MONGO_DB_NAME}")
+
     def parse_lite_servers(self, servers_str):
         """Parse TON lite servers from environment variable"""
         if not servers_str:
@@ -234,74 +253,6 @@ class Config:
             return value
         return value + ('=' * pad_length)
 
-    def load_firebase_creds(self):
-        """Load Firebase credentials with enhanced error handling"""
-        try:
-            # Strategy 1: Direct JSON in environment variable
-            creds_json = os.getenv('FIREBASE_CREDS_JSON')
-            if creds_json:
-                logger.info("Attempting to parse FIREBASE_CREDS_JSON")
-                try:
-                    creds = json.loads(creds_json)
-                    if self.validate_firebase_creds(creds):
-                        logger.info("Loaded Firebase credentials from FIREBASE_CREDS_JSON")
-                        return creds
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON decode error in FIREBASE_CREDS_JSON: {e}")
-
-            # Strategy 2: File path
-            creds_path = os.getenv('FIREBASE_CREDS_PATH', '/etc/secrets/firebase_creds.json')
-            if os.path.exists(creds_path):
-                logger.info(f"Loading Firebase creds from {creds_path}")
-                try:
-                    with open(creds_path, 'r') as f:
-                        return json.load(f)
-                except Exception as e:
-                    logger.error(f"Error reading {creds_path}: {str(e)}")
-            
-            # Strategy 3: Direct environment variable (deprecated)
-            creds_str = os.getenv('FIREBASE_CREDS')
-            if creds_str:
-                logger.warning("FIREBASE_CREDS is deprecated. Use FIREBASE_CREDS_JSON instead.")
-                try:
-                    return json.loads(creds_str)
-                except json.JSONDecodeError:
-                    pass
-                    
-        except Exception as e:
-            logger.error(f"Error loading Firebase credentials: {str(e)}")
-        
-        logger.error("No valid Firebase credentials found")
-        return {}
-
-    def validate_firebase_creds(self, creds):
-        """Validate Firebase credentials structure"""
-        if not isinstance(creds, dict):
-            logger.error("Firebase credentials are not a dictionary")
-            return False
-            
-        required_keys = [
-            "type", "project_id", "private_key_id", "private_key",
-            "client_email", "client_id", "token_uri"
-        ]
-        
-        missing_keys = [key for key in required_keys if key not in creds]
-        if missing_keys:
-            logger.error(f"Firebase credentials missing required keys: {', '.join(missing_keys)}")
-            return False
-            
-        if creds.get("type") != "service_account":
-            logger.error("Firebase credentials type is not 'service_account'")
-            return False
-            
-        # Validate private key format
-        private_key = creds.get("private_key", "")
-        if not private_key.startswith("-----BEGIN PRIVATE KEY-----") or \
-           not private_key.endswith("-----END PRIVATE KEY-----\n"):
-            logger.warning("Firebase private key format appears incorrect")
-            
-        return True
-
     def log_config_summary(self):
         """Log a secure summary of the configuration"""
         logger.info("Configuration Summary:")
@@ -313,19 +264,13 @@ class Config:
         logger.info(f"Min Withdrawal: {self.MIN_WITHDRAWAL_GC} GC")
         logger.info(f"Max Resets: {self.MAX_RESETS} per game/day")
         logger.info(f"Features - OTC: {self.FEATURE_OTC}, Ads: {self.FEATURE_ADS}, Games: {self.FEATURE_GAMES}")
+        logger.info(f"MongoDB Database: {self.MONGO_DB_NAME}")
         
         # Log partial TON wallet info for security
         if self.TON_HOT_WALLET:
             logger.info(f"TON Hot Wallet: {self.secure_mask(self.TON_HOT_WALLET)}")
         else:
             logger.warning("TON Hot Wallet not configured")
-        
-        # Validate Firebase credentials
-        if self.FIREBASE_CREDS:
-            if not self.validate_firebase_creds(self.FIREBASE_CREDS):
-                logger.error("Invalid Firebase credentials structure")
-        else:
-            logger.error("Firebase credentials are missing")
 
     def secure_mask(self, value, show_first=6, show_last=4):
         """Mask sensitive information for logging"""
