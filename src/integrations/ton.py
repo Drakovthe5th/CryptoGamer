@@ -357,3 +357,7 @@ async def initialize_on_demand():
     except Exception as e:
         logger.critical(f"On-demand initialization failed: {str(e)}")
         return False
+    
+async def close_ton_wallet() -> None:
+    """Close TON wallet connection"""
+    await ton_wallet.close()
