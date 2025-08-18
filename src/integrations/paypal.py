@@ -81,3 +81,17 @@ def verify_paypal_webhook(headers, body):
     except Exception as e:
         logger.error(f"PayPal webhook verification failed: {e}")
         return False
+    
+def process_paypal_payment(email: str, amount: float, currency: str = "USD"):
+    """Process PayPal payment (wrapper for create_payout)"""
+    payout_result = create_payout(email, amount, currency)
+    
+    if payout_result['status'] == 'success':
+        return {
+            'status': 'success',
+            'transaction_id': payout_result['payout_batch_id']
+        }
+    return {
+        'status': 'failed',
+        'error': payout_result.get('error', 'Unknown PayPal error')
+    }
