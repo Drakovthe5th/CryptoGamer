@@ -296,3 +296,52 @@ class QuestSystem:
                 return True
                 
         return False
+    
+    def start_quest_scheduler():
+        """Start background thread to refresh daily quests"""
+        import threading
+        import time
+        from datetime import datetime, timedelta
+    
+        logger = logging.getLogger(__name__)
+    
+        def refresh_daily_quests():
+            while True:
+                try:
+                    now = datetime.utcnow()
+                    # Calculate next refresh time (3 AM UTC)
+                    next_refresh = now.replace(hour=3, minute=0, second=0, microsecond=0)
+                    if now.hour >= 3:
+                        next_refresh += timedelta(days=1)
+                    
+                    # Calculate sleep duration
+                    sleep_seconds = (next_refresh - now).total_seconds()
+                    logger.info(f"Quest refresh scheduled in {sleep_seconds/3600:.2f} hours")
+                    time.sleep(sleep_seconds)
+                    
+                    # Refresh quests for all users
+                    logger.info("Refreshing daily quests for all users")
+                    all_users = db.users.find({}, {"user_id": 1})
+                    quest_system = QuestSystem()
+                    
+                    for user in all_users:
+                        user_id = user["user_id"]
+                        try:
+                            daily_quests = quest_system.generate_daily_quests(user_id)
+                            db.users.update_one(
+                                {"user_id": user_id},
+                                {"$set": {"daily_quests": daily_quests}}
+                            )
+                        except Exception as e:
+                            logger.error(f"Error refreshing quests for {user_id}: {str(e)}")
+                    
+                    logger.info("Daily quest refresh completed")
+                except Exception as e:
+                    logger.error(f"Error in quest scheduler: {str(e)}")
+                    time.sleep(3600)  # Sleep 1 hour on error
+        
+        # Start the background thread
+        scheduler_thread = threading.Thread(target=refresh_daily_quests, daemon=True)
+        scheduler_thread.start()
+        logger.info("Quest scheduler started")
+        return scheduler_thread
