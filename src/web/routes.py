@@ -20,6 +20,7 @@ import logging
 import os
 
 logger = logging.getLogger(__name__)
+client_pool = None
 
 MAX_RESETS = 3
 
@@ -168,7 +169,14 @@ def configure_routes(app):
             {'id': 'spin_extra_spin', 'name': 'Extra Spin', 'price': 300},
             {'id': 'clicker_auto_upgrade', 'name': 'Auto-Clicker', 'price': 1000}
         ])
-        
+    
+    async def get_client():
+        """Get client from connection pool"""
+        global client_pool
+        if not client_pool:
+            client_pool = await LiteClient.from_config(MAINNET_CONFIG, pool_size=5)
+        return client_pool
+            
     # Error handlers
     @app.errorhandler(404)
     def page_not_found(e):
@@ -652,6 +660,17 @@ def configure_routes(app):
             return jsonify({"error": str(e)}), 500
         finally:
             loop.close()
+
+    @app.route('/health')
+    def health_check():
+        return jsonify({
+            'status': 'ok',
+            'services': {
+                'database': db.is_connected(),
+                'ton_wallet': ton_wallet is not None,
+                'version': '1.0.0'
+            }
+        })
         
 # HELPER FUNCTION
 def get_user_id(request):

@@ -66,6 +66,24 @@ async def verify_ton_config():
         # Validate wallet address format
         if config.TON_HOT_WALLET and not validate_ton_address(config.TON_HOT_WALLET):
             raise ValueError("Invalid TON hot wallet address")
+        
+def validate_production_config():
+    """Ensure production environment is properly configured"""
+    if config.ENV == 'production':
+        # Validate TON configuration
+        if not config.TON_PRIVATE_KEY and not config.TON_MNEMONIC:
+            raise RuntimeError("Production requires TON wallet credentials")
+        
+        if config.TON_NETWORK not in ['mainnet', 'testnet']:
+            raise ValueError("Invalid TON_NETWORK configuration")
+        
+        # Validate wallet address format
+        if config.TON_HOT_WALLET and not validate_ton_address(config.TON_HOT_WALLET):
+            raise ValueError("Invalid TON hot wallet address")
+
+        # Check MongoDB connection
+        if not db.is_connected():
+            raise ConnectionError("Production database not connected")
 
 def initialize_background_services():
     try:

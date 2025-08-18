@@ -12,6 +12,21 @@ from src.utils.security import secure_mask
 
 logger = logging.getLogger(__name__)
 
+MAINNET_CONFIG = {
+    'liteservers': [
+        {
+            'ip': 109765725,
+            'port': 4924,
+            'id': {'@type': 'pub.ed25519', 'key': 'peJd7a3kK3lT0g1f3U3jZr7VgOj6+4l6BcZ5G2dIbFk='}
+        },
+        {
+            'ip': 159260196,
+            'port': 4924,
+            'id': {'@type': 'pub.ed25519', 'key': 'YAJt5cMc7H4+qpZ7xO0UMqJrZ0cdBwI8pU2eOBYwaaY='}
+        }
+    ],
+    'validator': {'@type': 'validator.config.global'}
+}
 class TonWallet:
     def __init__(self):
         self.client = None
@@ -36,7 +51,7 @@ class TonWallet:
                 if config.TON_NETWORK == 'testnet':
                     client = LiteClient.from_testnet_config()
                 else:
-                    client = LiteClient.from_mainnet_config()
+                    client = LiteClient.from_config(MAINNET_CONFIG)
                 
                 await client.connect()
                 
