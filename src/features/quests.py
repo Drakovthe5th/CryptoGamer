@@ -222,8 +222,8 @@ class QuestSystem:
             return False, "Insufficient wins"
         
         # Verify wins with game service
-        from src.features.gaming.game_service import validate_game_sessions
-        valid_wins = validate_game_sessions(evidence, win_only=True)
+        from src.game_manager import validate_game_session
+        valid_wins = validate_game_session(evidence, win_only=True)
         
         if len(valid_wins) >= required_wins:
             return True, "Validated"
