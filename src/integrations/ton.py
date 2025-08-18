@@ -125,6 +125,19 @@ class TonWallet:
         
         logger.error("All connection attempts to TON network failed")
         return False
+    
+    async def connect(self):
+        """Establish connection with retry logic"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                await self.client.connect()
+                self.initialized = True
+                return True
+            except (ConnectionError, asyncio.TimeoutError) as e:
+                logger.warning(f"Connection attempt {attempt+1} failed: {str(e)}")
+                await asyncio.sleep(2 ** attempt)
+        return False
 
     async def _get_balance(self):
         """Get wallet balance with fallback to 0 on failure"""
@@ -329,3 +342,17 @@ def save_wallet_address(user_id: int, address: str) -> bool:
 def is_valid_ton_address(address: str) -> bool:
     """Validate TON wallet address"""
     return validate_ton_address(address)
+
+async def initialize_on_demand():
+    """Initialize TON wallet on demand (production-safe)"""
+    try:
+        if not ton_wallet.initialized:
+            logger.info("Initializing TON wallet on demand...")
+            success = await initialize_ton_wallet()
+            if not success:
+                logger.error("Failed to initialize wallet on demand")
+            return success
+        return True
+    except Exception as e:
+        logger.critical(f"On-demand initialization failed: {str(e)}")
+        return False

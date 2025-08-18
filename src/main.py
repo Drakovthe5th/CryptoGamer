@@ -3,15 +3,21 @@ import threading
 import asyncio
 import logging
 import json
+import time
+import binascii
 from telegram import Update
 from telegram.ext import Application
-from src.database.mongo import initialize_firebase
-from src.integrations.tonE2 import initialize_ton_wallet, close_ton_wallet
+from src.database.mongo import initialize_mongodb, db
+from src.integrations.ton import (
+    initialize_ton_wallet, 
+    close_ton_wallet,
+    get_wallet_status,
+    validate_ton_address
+)
 from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler
 from src.integrations.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
-from app import create_app
 from config import config
 from waitress import serve
 import atexit
@@ -26,15 +32,19 @@ logger = logging.getLogger(__name__)
 telegram_application = None
 
 def run_web_server():
+    """Production-grade web server runner"""
     try:
+        from app import create_app
         app = create_app()
         port = int(os.environ.get('PORT', config.PORT))
-        logger.info(f"🌐 Starting web server on port {port}")
+        logger.info(f"🌐 Starting production web server on port {port}")
         serve(app, host='0.0.0.0', port=port)
     except Exception as e:
         logger.critical(f"Web server failed: {e}")
+        raise RuntimeError("Web server startup failed") from e
 
 async def set_webhook():
+    """Configure Telegram webhook with production-grade error handling"""
     if not telegram_application:
         return
         
@@ -45,139 +55,237 @@ async def set_webhook():
             secret_token=config.TELEGRAM_SECRET,
             drop_pending_updates=True
         )
-        logger.info(f"Webhook configured: {webhook_url}")
+        logger.info(f"✅ Production webhook configured: {webhook_url}")
     except Exception as e:
-        logger.error(f"Error setting webhook: {e}")
+        logger.error(f"⚠️ Error setting webhook: {e}")
         try:
             await telegram_application.bot.delete_webhook()
-            logger.info("Webhook deleted as fallback")
+            logger.warning("🗑️ Webhook deleted as fallback")
         except Exception as fallback_error:
-            logger.error(f"Failed to delete webhook: {fallback_error}")
+            logger.error(f"❌ Failed to delete webhook: {fallback_error}")
 
-async def verify_ton_config():
-    """Validate production TON configuration"""
+async def validate_ton_config():
+    """Production-grade TON configuration validation"""
     if config.ENV == 'production':
+        # Validate credentials
         if not config.TON_PRIVATE_KEY and not config.TON_MNEMONIC:
             raise RuntimeError("Production requires TON wallet credentials")
         
+        # Validate network
         if config.TON_NETWORK not in ['mainnet', 'testnet']:
             raise ValueError("Invalid TON_NETWORK configuration")
         
-        # Validate wallet address format
+        # Validate wallet address
         if config.TON_HOT_WALLET and not validate_ton_address(config.TON_HOT_WALLET):
             raise ValueError("Invalid TON hot wallet address")
-        
+
 def validate_production_config():
-    """Ensure production environment is properly configured"""
+    """Comprehensive production configuration validation"""
     if config.ENV == 'production':
-        # Validate TON configuration
-        if not config.TON_PRIVATE_KEY and not config.TON_MNEMONIC:
-            raise RuntimeError("Production requires TON wallet credentials")
-        
-        if config.TON_NETWORK not in ['mainnet', 'testnet']:
-            raise ValueError("Invalid TON_NETWORK configuration")
-        
-        # Validate wallet address format
-        if config.TON_HOT_WALLET and not validate_ton_address(config.TON_HOT_WALLET):
-            raise ValueError("Invalid TON hot wallet address")
-
-        # Check MongoDB connection
+        # Validate MongoDB connection
         if not db.is_connected():
             raise ConnectionError("Production database not connected")
+        
+        # Validate TON configuration
+        if config.TON_ENABLED:
+            asyncio.run(validate_ton_config())
+            
+        # Validate Telegram configuration
+        if not config.TELEGRAM_TOKEN or not config.TELEGRAM_SECRET:
+            raise ValueError("Telegram credentials are required in production")
+            
+        logger.info("✅ Production configuration validated")
 
 def initialize_background_services():
+    """Start background services with production monitoring"""
     try:
-        threading.Thread(target=start_quest_scheduler, daemon=True).start()
-        logger.info("🎯 Quest scheduler started")
+        # Start services with thread monitoring
+        services = {
+            "Quest Scheduler": start_quest_scheduler,
+            "OTC Scheduler": start_otc_scheduler,
+            "Withdrawal Processor": start_withdrawal_processor
+        }
         
-        threading.Thread(target=start_otc_scheduler, daemon=True).start()
-        logger.info("💱 OTC scheduler started")
+        for name, starter in services.items():
+            thread = threading.Thread(target=starter, daemon=True)
+            thread.start()
+            logger.info(f"🚀 {name} started (Thread ID: {thread.ident})")
         
-        threading.Thread(target=start_withdrawal_processor, daemon=True).start()
-        logger.info("💸 Withdrawal processor started")
-        
+        # Security monitoring
         if config.ENABLE_SECURITY_MONITOR:
             from src.utils.security import start_security_monitoring
-            threading.Thread(target=start_security_monitoring, daemon=True).start()
-            logger.info("🔒 Security monitoring started")
+            security_thread = threading.Thread(
+                target=start_security_monitoring, 
+                daemon=True,
+                name="SecurityMonitor"
+            )
+            security_thread.start()
+            logger.info(f"🔒 Security monitoring started (Thread ID: {security_thread.ident})")
+            
+        logger.info("✅ All background services started")
     except Exception as e:
-        logger.error(f"Failed to start background services: {e}")
+        logger.error(f"❌ Failed to start background services: {e}")
+        raise
+
+async def initialize_ton_with_retry(max_retries=3):
+    """Production-grade TON initialization with exponential backoff"""
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"🔑 Initializing TON wallet (Attempt {attempt+1}/{max_retries})")
+            success = await initialize_ton_wallet()
+            if success:
+                status = await get_wallet_status()
+                logger.info(f"💎 TON wallet initialized | Balance: {status.get('balance', 0):.6f} TON")
+                return True
+        except Exception as e:
+            logger.error(f"TON initialization error: {str(e)}")
+        
+        if attempt < max_retries - 1:
+            wait_time = 2 ** (attempt + 1)
+            logger.warning(f"⏳ Retrying TON initialization in {wait_time}s...")
+            await asyncio.sleep(wait_time)
+    
+    logger.critical("❌ TON wallet initialization failed after all retries")
+    return False
+
+async def production_initialization():
+    """Production-grade service initialization sequence"""
+    logger.info("🚀 Starting production initialization sequence")
+    
+    # Phase 1: Configuration validation
+    try:
+        validate_production_config()
+        logger.info("✅ Configuration validated")
+    except Exception as e:
+        logger.critical(f"❌ Configuration validation failed: {str(e)}")
+        return False
+
+    # Phase 2: MongoDB initialization
+    try:
+        if not initialize_mongodb():
+            raise ConnectionError("MongoDB initialization failed")
+        logger.info("✅ MongoDB initialized")
+    except Exception as e:
+        logger.critical(f"❌ Database initialization failed: {str(e)}")
+        return False
+
+    # Phase 3: TON wallet initialization (with retries)
+    if config.TON_ENABLED:
+        if not await initialize_ton_with_retry():
+            config.TON_ENABLED = False
+            logger.warning("⚠️ Continuing in degraded mode without TON")
+    else:
+        logger.info("⏭️ TON integration disabled by configuration")
+
+    # Phase 4: Background services
+    try:
+        initialize_background_services()
+    except Exception as e:
+        logger.error(f"⚠️ Background services partially failed: {str(e)}")
+
+    return True
 
 def shutdown_app():
-    """Shutdown application components"""
-    logger.info("Shutting down application...")
+    """Graceful shutdown procedure for production"""
+    logger.info("🛑 Initiating production shutdown sequence...")
     
     # Close TON wallet connection
     if config.TON_ENABLED:
-        logger.info("Closing TON wallet...")
+        logger.info("🔒 Closing TON wallet connection...")
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             loop.run_until_complete(close_ton_wallet())
+            logger.info("✅ TON wallet closed")
         except Exception as e:
-            logger.error(f"Error closing TON wallet: {e}")
+            logger.error(f"❌ Error closing TON wallet: {e}")
         finally:
             loop.close()
     
-    logger.info("Application shutdown complete")
+    logger.info("✅ Production shutdown complete")
 
-def run_bot():
+async def run_bot():
+    """Main bot execution with production-grade error handling"""
     global telegram_application
     
-    logger.info("🤖 Initializing Telegram bot services...")
+    logger.info("🤖 Starting Telegram bot services...")
     
     try:
-        creds_str = os.environ.get('FIREBASE_CREDS', config.FIREBASE_CREDS)
-        firebase_creds = json.loads(creds_str) if isinstance(creds_str, str) else creds_str
-        
-        if not initialize_firebase(firebase_creds):
-            raise RuntimeError("Firebase initialization failed")
-        logger.info("🔥 Firebase initialized")
-        
-        if config.TON_ENABLED:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(initialize_ton_wallet())
-            logger.info("💎 TON wallet initialized")
-        else:
-            logger.warning("⚠️ TON integration disabled")
-        
-        initialize_background_services()
-        
+        # Production initialization
+        if not await production_initialization():
+            logger.critical("❌ Production initialization failed")
+            return False
+
+        # Initialize Telegram application
         telegram_application = Application.builder() \
             .token(config.TELEGRAM_BOT_TOKEN) \
             .build()
         setup_handlers(telegram_application)
-        logger.info("📱 Telegram handlers configured")
+        logger.info("✅ Telegram handlers configured")
         
+        # Configure webhook for production
         if config.ENV == 'production':
             logger.info("🚀 Starting in PRODUCTION mode")
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(set_webhook())
+            await set_webhook()
+            return True
         else:
             logger.info("🔧 Starting in DEVELOPMENT mode")
-            telegram_application.run_polling(
+            await telegram_application.run_polling(
                 drop_pending_updates=True,
                 allowed_updates=Update.ALL_TYPES
             )
+            return True
             
     except Exception as e:
-        logger.critical(f"❌ Failed to start bot: {e}")
+        logger.critical(f"❌ Bot startup failed: {e}")
         if telegram_application:
-            telegram_application.stop()
-            telegram_application.shutdown()
-        raise
+            await telegram_application.stop()
+            await telegram_application.shutdown()
+        return False
 
-if __name__ == '__main__':
+async def main_async():
+    """Asynchronous main entry point with production monitoring"""
     # Register shutdown handler
     atexit.register(shutdown_app)
     
-    # Start bot in background thread
-    bot_thread = threading.Thread(target=run_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
-    logger.info("🤖 Bot started in background thread")
+    # Start bot as asynchronous task
+    bot_task = asyncio.create_task(run_bot())
+    logger.info("🤖 Bot startup initiated")
+    
+    # Production monitoring
+    if config.ENV == 'production':
+        logger.info("📊 Starting production monitoring")
+        from src.utils.monitoring import start_monitoring
+        monitoring_task = asyncio.create_task(start_monitoring())
     
     # Start web server in main thread
-    run_web_server()
+    try:
+        run_web_server()
+    except Exception as e:
+        logger.critical(f"❌ Web server crashed: {e}")
+    finally:
+        # Wait for bot task to complete
+        await bot_task
+        if config.ENV == 'production':
+            await monitoring_task
+
+if __name__ == '__main__':
+    # Create and run event loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        logger.info("🏁 Starting production application")
+        loop.run_until_complete(main_async())
+    except KeyboardInterrupt:
+        logger.info("🛑 Shutdown requested by user")
+    except Exception as e:
+        logger.critical(f"❌ Catastrophic failure: {e}")
+    finally:
+        # Cleanup resources
+        tasks = asyncio.all_tasks(loop)
+        for task in tasks:
+            task.cancel()
+        loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+        loop.close()
+        logger.info("✅ Application fully stopped")
