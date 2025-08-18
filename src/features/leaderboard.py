@@ -1,6 +1,5 @@
 import os
-from src.database.firebase import users_ref
-from src.database.firebase import update_leaderboard_points
+from src.database.mongo import get_leaderboard, get_user_rank
 
 def get_leaderboard(limit=10):
     top_users = users_ref.order_by('points', direction='DESCENDING').limit(limit).stream()

@@ -34,6 +34,7 @@ def initialize_mongodb():
         db.otc_deals.create_index("user_id")
         db.withdrawals.create_index("user_id")
         db.staking.create_index("user_id")
+        db.users.create_index("leaderboard_points")
         
         logger.info("✅ MongoDB initialized successfully")
         return True
@@ -62,6 +63,7 @@ def create_user(user_id, username):
             "active_quests": [],
             "xp": 0,
             "level": 1,
+            "leaderboard_points": 0.0,
             "inventory": [],
             "payment_methods": {}
         })
@@ -98,6 +100,18 @@ def update_game_coins(user_id: int, coins: int) -> tuple:
         }
     )
     return new_coins, actual_coins
+
+def update_leaderboard_points(user_id: int, points: float):
+    """Update user's leaderboard points"""
+    try:
+        db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"leaderboard_points": points}}
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error updating leaderboard points: {str(e)}")
+        return False
 
 def get_game_coins(user_id):
     user = db.users.find_one({"user_id": user_id})
@@ -333,3 +347,16 @@ def get_otc_quote(game_coins, currency):
         "fee": fee,
         "total": (ton_amount * rate) - fee
     }
+
+def get_leaderboard(limit=10):
+    """Get top users by leaderboard points"""
+    top_users = db.users.find().sort("leaderboard_points", -1).limit(limit)
+    return [user for user in top_users]
+
+def get_user_rank(user_id: int):
+    """Get user's leaderboard rank"""
+    all_users = list(db.users.find().sort("leaderboard_points", -1))
+    for rank, user in enumerate(all_users, start=1):
+        if user['user_id'] == user_id:
+            return rank
+    return -1
