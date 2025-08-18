@@ -47,38 +47,39 @@ class TonWallet:
         
         for attempt in range(max_retries):
             try:
-                # Initialize LiteClient with proper network config
                 if config.TON_NETWORK == 'testnet':
-                    client = LiteClient.from_testnet_config()
+                    self.client = LiteClient.from_testnet_config()
                 else:
-                    client = LiteClient.from_config(MAINNET_CONFIG)
+                    self.client = LiteClient.from_config(MAINNET_CONFIG)
                 
-                await client.connect()
+                await self.client.connect()
                 
-                # Initialize wallet with secure handling
                 if config.TON_MNEMONIC:
-                    ton_wallet = await WalletV4R2.from_mnemonic(
-                        client, 
+                    self.wallet = await WalletV4R2.from_mnemonic(
+                        self.client, 
                         config.TON_MNEMONIC.split(),
                         workchain=0
                     )
                 elif config.TON_PRIVATE_KEY:
-                    # Ensure proper base64 decoding
                     private_key = base64.urlsafe_b64decode(config.TON_PRIVATE_KEY)
-                    ton_wallet = WalletV4R2(
-                        provider=client, 
+                    self.wallet = WalletV4R2(
+                        provider=self.client, 
                         private_key=private_key,
                         workchain=0
                     )
                 
-                logger.info(f"TON wallet initialized: {ton_wallet.address}")
+                self.address = self.wallet.address.to_string()
+                self.healthy = True
+                self.status = "initialized"
+                self.initialized = True
+                logger.info(f"TON wallet initialized: {self.address}")
                 return True
             except Exception as e:
-                logger.error(f"TON wallet initialization attempt {attempt+1} failed: {str(e)}")
+                logger.error(f"Initialization attempt {attempt+1} failed: {str(e)}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(backoff_sec * (2 ** attempt))
                 else:
-                    logger.critical("TON wallet initialization failed after all retries")
+                    logger.critical("Initialization failed after retries")
                     return False
 
     async def _connect_with_retries(self, retries=3, timeout=10):

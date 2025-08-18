@@ -18,6 +18,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+miniapp_bp = Blueprint('miniapp', __name__)
+games_bp = Blueprint('games', __name__, url_prefix='/games')
+
 # Production TON imports
 try:
     from src.integrations.ton import (
@@ -397,16 +400,6 @@ def get_staking_data():
         'min_stake': 5,
         'current_stake': 0,
         'rewards_earned': 0
-    })
-
-# User security data
-@app.route('/api/user/secure-data', methods=['GET'])
-def get_user_secure_data():
-    """Return security information"""
-    return jsonify({
-        'withdrawals_enabled': True,
-        'daily_limit': 100,
-        'used_today': 0
     })
 
 # Referral endpoints
