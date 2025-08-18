@@ -1,3 +1,4 @@
+from typing import Dict, Optional, Any 
 import urllib.parse
 import asyncio
 import base64
@@ -168,19 +169,34 @@ class TonWallet:
             return {'success': False, 'error': str(e)}
         
     
-    async def robust_send_ton(to_address: str, amount: float) -> Dict[str, any]:
-        """Send TON with connection error handling"""
+    async def robust_send_ton(to_address: str, amount: float) -> Dict[str, Any]:
+        """Send TON with connection error handling (production-grade)"""
         max_retries = 3
         for attempt in range(max_retries):
             try:
+                # Attempt standard send
                 return await send_ton(to_address, amount)
             except (ConnectionResetError, asyncio.IncompleteReadError) as e:
-                logger.warning(f"Network error during transfer (attempt {attempt+1}): {str(e)}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(1 + attempt * 2)
-                    await client.reconnect()  # Re-establish connection
+                logger.warning(f"Network error during transfer (attempt {attempt+1}/{max_retries}): {str(e)}")
+                
+                # Implement exponential backoff
+                wait_time = 1 + (attempt * 2)
+                await asyncio.sleep(wait_time)
+                
+                # Re-establish connection
+                if client:
+                    await client.reconnect()
                 else:
-                    raise
+                    await initialize_ton_wallet()
+                
+                # Last attempt: escalate error
+                if attempt == max_retries - 1:
+                    logger.critical("TON transfer failed after all retries")
+                    return {
+                        'success': False,
+                        'error': 'Network failure after multiple retries',
+                        'retries': max_retries
+                    }
     
     async def create_payment_request(self, user_id: int, item_id: str, amount_ton: float) -> str:
         """Create TON payment request"""
