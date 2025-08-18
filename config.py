@@ -3,6 +3,7 @@ import os
 import json
 import re
 import base64
+import urllib.parse
 from dotenv import load_dotenv
 import logging
 
@@ -21,6 +22,15 @@ class Config:
         self.ADMIN_ID = os.getenv('ADMIN_ID')
         self.ENV = os.getenv('ENV', 'production')
         self.PORT = int(os.getenv('PORT', 10000))
+
+        # MongoDB configuration - ADD URL ENCODING
+        raw_uri = os.getenv('MONGO_URI')
+        if raw_uri:
+            self.MONGO_URI = self.encode_mongo_uri(raw_uri)
+        else:
+            self.MONGO_URI = None
+            
+        self.validate_mongo_config()
         
         # MongoDB configuration
         self.MONGO_URI = os.getenv('MONGO_URI')
@@ -212,15 +222,42 @@ class Config:
         # Log configuration status
         self.log_config_summary()
 
+    def encode_mongo_uri(self, uri):
+        """Encode special characters in MongoDB URI"""
+        if "://" not in uri:
+            return uri
+            
+        parts = uri.split("://")
+        protocol = parts[0]
+        auth_host = parts[1]
+        
+        if "@" in auth_host:
+            auth, host = auth_host.split("@", 1)
+            if ":" in auth:
+                user, password = auth.split(":", 1)
+                # Encode special characters in password
+                password = urllib.parse.quote_plus(password)
+                auth = f"{user}:{password}"
+            return f"{protocol}://{auth}@{host}"
+        return uri
+
     def validate_mongo_config(self):
         """Validate MongoDB configuration"""
         if not self.MONGO_URI:
             logger.error("MONGO_URI is not set in environment variables")
             raise ValueError("MongoDB connection string is required")
         
-        # Validate MongoDB URI format
+        # Clean and validate format
+        self.MONGO_URI = self.MONGO_URI.strip()
+        
+        # Remove surrounding quotes if present
+        if self.MONGO_URI.startswith('"') and self.MONGO_URI.endswith('"'):
+            self.MONGO_URI = self.MONGO_URI[1:-1]
+        
         if not re.match(r'^mongodb(\+srv)?://', self.MONGO_URI):
-            logger.error("Invalid MONGO_URI format. Must start with mongodb:// or mongodb+srv://")
+            # Log first 20 chars for debugging (without exposing credentials)
+            sample = self.MONGO_URI[:20]
+            logger.error(f"Invalid MONGO_URI format. Starts with: '{sample}...'")
             raise ValueError("Invalid MongoDB URI format")
             
         if not self.MONGO_DB_NAME:
