@@ -20,7 +20,6 @@ from src.integrations.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
 from src.utils.maintenance import start_monitoring 
 from config import config
-from waitress import serve
 import atexit
 
 # Configure logging
