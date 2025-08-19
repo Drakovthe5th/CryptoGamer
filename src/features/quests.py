@@ -345,3 +345,22 @@ def start_quest_scheduler():
     scheduler_thread.start()
     logger.info("Quest scheduler started")
     return scheduler_thread
+
+# Global quest system instance
+quest_system = QuestSystem()
+
+# Module-level functions for easier importing
+def get_active_quests(user_id):
+    return quest_system.get_active_quests(user_id)
+
+def get_daily_quests(user_id):
+    return quest_system.get_daily_quests(user_id)
+
+def update_quest_progress(user_id, quest_id, progress):
+    return quest_system.update_quest_progress(user_id, quest_id, progress)
+
+def check_quest_completion(user_id, quest_id, evidence=None):
+    return quest_system.check_quest_completion(user_id, quest_id, evidence)
+
+def generate_dynamic_quest(user_id, ip_address=None):
+    return quest_system.generate_dynamic_quest(user_id, ip_address)

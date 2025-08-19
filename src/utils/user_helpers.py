@@ -154,3 +154,8 @@ def get_device_type(user_agent):
     except Exception as e:
         logger.error(f"Device detection error: {str(e)}")
         return "desktop"
+
+def get_user_country(user_id, ip_address):
+    """Get user country based on IP address or user settings"""
+    # This would be implemented using a geoip database
+    return 'US'  # Default to US for now

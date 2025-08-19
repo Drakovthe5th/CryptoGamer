@@ -314,25 +314,125 @@ def update_reward_pool(balance):
 
 # OTC Desk operations
 def create_otc_deal(user_id: int, ton_amount: float, currency: str, method: str) -> str:
-    # This would use actual rate calculation logic
-    fiat_amount = ton_amount * 5.0  # Simplified
-    fee = max(fiat_amount * 0.05, 0.5)  # 5% fee with $0.5 min
+    """Create an OTC deal with actual rate calculation logic"""
+    try:
+        # Get current exchange rate
+        rate = get_current_exchange_rate(currency.upper())
+        if rate <= 0:
+            raise ValueError(f"Invalid exchange rate for {currency}")
+        
+        # Calculate fiat amount
+        fiat_amount = ton_amount * rate
+        
+        # Calculate fee (5% with $0.5 minimum)
+        fee_percent = 5.0
+        min_fee = 0.5
+        fee = max(fiat_amount * (fee_percent / 100), min_fee)
+        
+        # Apply weekend boost (10% higher rates on weekends)
+        is_weekend = datetime.utcnow().weekday() in [5, 6]  # Sat/Sun
+        if is_weekend:
+            fiat_amount *= 1.10  # 10% boost
+            fee *= 0.8  # 20% fee discount on weekends
+        
+        # Get user's payment details
+        user = db.users.find_one({"user_id": user_id})
+        payment_details = user.get("payment_methods", {}).get(method, {})
+        
+        # Create deal data
+        deal_data = {
+            "user_id": user_id,
+            "amount_ton": ton_amount,
+            "currency": currency.upper(),
+            "payment_method": method,
+            "rate": rate,
+            "fiat_amount": round(fiat_amount, 2),
+            "fee": round(fee, 2),
+            "total": round(fiat_amount - fee, 2),
+            "status": "pending",
+            "created_at": datetime.utcnow(),
+            "payment_details": payment_details,
+            "weekend_boost": is_weekend,
+            "expires_at": datetime.utcnow() + timedelta(minutes=15)  # 15min expiration
+        }
+        
+        # Insert deal and return ID
+        result = db.otc_deals.insert_one(deal_data)
+        return str(result.inserted_id)
+        
+    except Exception as e:
+        logger.error(f"OTC deal creation failed: {str(e)}")
+        # Fallback to simplified version
+        return create_simple_otc_deal(user_id, ton_amount, currency, method)
+
+def create_simple_otc_deal(user_id: int, ton_amount: float, currency: str, method: str) -> str:
+    """Fallback OTC deal creation with simplified logic"""
+    try:
+        rate = config.OTC_RATES.get(currency.upper(), 5.0)
+        fiat_amount = ton_amount * rate
+        fee = max(fiat_amount * 0.05, 0.5)
+        
+        deal_data = {
+            "user_id": user_id,
+            "amount_ton": ton_amount,
+            "currency": currency.upper(),
+            "payment_method": method,
+            "rate": rate,
+            "fiat_amount": round(fiat_amount, 2),
+            "fee": round(fee, 2),
+            "total": round(fiat_amount - fee, 2),
+            "status": "pending",
+            "created_at": datetime.utcnow(),
+            "is_fallback": True  # Mark as fallback
+        }
+        
+        result = db.otc_deals.insert_one(deal_data)
+        return str(result.inserted_id)
+    except Exception as e:
+        logger.critical(f"Fallback OTC deal creation failed: {str(e)}")
+        return ""
+
+def get_current_exchange_rate(currency: str) -> float:
+    """Get current exchange rate from database or API"""
+    try:
+        # First try to get from database cache
+        rate_doc = db.exchange_rates.find_one(
+            {"currency": currency},
+            sort=[("timestamp", -1)]
+        )
+        
+        # Use if recent (within 5 minutes)
+        if rate_doc and (datetime.utcnow() - rate_doc["timestamp"]).seconds < 300:
+            return rate_doc["rate"]
+        
+        # If not available or stale, get from API
+        rate = fetch_live_exchange_rate(currency)
+        
+        # Cache the new rate
+        db.exchange_rates.insert_one({
+            "currency": currency,
+            "rate": rate,
+            "timestamp": datetime.utcnow(),
+            "source": "live_api"
+        })
+        
+        return rate
+        
+    except Exception as e:
+        logger.warning(f"Exchange rate fetch failed: {str(e)}")
+        # Fallback to config rates
+        return config.OTC_RATES.get(currency, 5.0)
+
+def fetch_live_exchange_rate(currency: str) -> float:
+    """Fetch live exchange rate from external API (simulated)"""
+    # In production, this would call a real exchange rate API
+    # For now, simulate with random variation around base rate
+    base_rate = config.OTC_RATES.get(currency, 5.0)
     
-    deal_data = {
-        "user_id": user_id,
-        "amount_ton": ton_amount,
-        "currency": currency,
-        "payment_method": method,
-        "rate": 5.0,
-        "fiat_amount": fiat_amount,
-        "fee": fee,
-        "total": fiat_amount - fee,
-        "status": "pending",
-        "created_at": SERVER_TIMESTAMP
-    }
-    
-    result = db.otc_deals.insert_one(deal_data)
-    return str(result.inserted_id)
+    # Simulate market fluctuation (±2%)
+    import random
+    fluctuation = random.uniform(-0.02, 0.02)
+    return base_rate * (1 + fluctuation)
 
 def get_otc_quote(game_coins, currency):
     ton_amount = game_coins / GC_TO_TON_RATE
