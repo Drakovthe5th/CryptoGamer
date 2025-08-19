@@ -149,7 +149,7 @@ def check_payment_gateways() -> bool:
 def check_database_connectivity() -> bool:
     """Check Firebase database connectivity"""
     try:
-        from src.database.firebase import db
+        from src.database.mongo import db
         
         # Simple connectivity test - try to read a document
         test_result = db.collection('health_check').limit(1).get()

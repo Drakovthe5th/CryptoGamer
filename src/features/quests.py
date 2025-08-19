@@ -364,3 +364,5 @@ def check_quest_completion(user_id, quest_id, evidence=None):
 
 def generate_dynamic_quest(user_id, ip_address=None):
     return quest_system.generate_dynamic_quest(user_id, ip_address)
+
+complete_quest = check_quest_completion 
