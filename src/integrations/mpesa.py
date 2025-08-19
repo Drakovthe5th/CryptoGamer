@@ -2,6 +2,7 @@ import os
 import requests
 import base64
 from datetime import time
+from src.database.mongo import db
 import logging
 from config import config
 

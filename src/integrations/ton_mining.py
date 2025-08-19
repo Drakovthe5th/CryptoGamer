@@ -1,12 +1,12 @@
 from pytoniq import LiteClient
-from src.database.firebase import get_hot_wallet
+from src.database.mongo import get_hot_wallet, get_user_balance
 
 async def distribute_ton_rewards(user_id, amount):
     """Send TON rewards to user's wallet"""
     client = LiteClient()
     await client.connect()
     
-    user_wallet = get_user_wallet(user_id)
+    user_wallet = get_user_balance(user_id)
     hot_wallet = get_hot_wallet()
     
     # Prepare transaction

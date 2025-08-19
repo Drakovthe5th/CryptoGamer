@@ -57,7 +57,7 @@ def check_server_load() -> bool:
 def check_ton_node() -> bool:
     """Check TON node connectivity"""
     try:
-        from src.integrations.tonE2 import ton_wallet
+        from src.integrations.ton import ton_wallet
         
         # Check if wallet is initialized
         if not ton_wallet.initialized:
@@ -328,7 +328,7 @@ def get_system_info() -> dict:
 def get_wallet_info() -> dict:
     """Get TON wallet information"""
     try:
-        from src.integrations.tonE2 import ton_wallet
+        from src.integrations.ton import ton_wallet
         
         if not ton_wallet.initialized:
             return {"status": "not_initialized"}
@@ -452,7 +452,7 @@ def restart_services() -> bool:
         logger.info("Restarting services...")
         
         # Restart TON wallet connection
-        from src.integrations.tonE2 import ton_wallet
+        from src.integrations.ton import ton_wallet
         asyncio.run(ton_wallet.initialize())
         
         logger.info("Services restarted successfully")
@@ -461,6 +461,31 @@ def restart_services() -> bool:
     except Exception as e:
         logger.error(f"Service restart failed: {e}")
         return False
+    
+async def start_monitoring(interval=300):
+    """Start periodic monitoring checks"""
+    logger = logging.getLogger(__name__)
+    logger.info("Starting production monitoring system")
+    
+    while True:
+        try:
+            logger.info("Running periodic health checks...")
+            results = run_health_checks()
+            
+            if results['overall_status'] != 'healthy':
+                send_alert_to_admin(
+                    f"⚠️ System health degraded: {results.get('failed_checks', [])}"
+                )
+            
+            # Clean up logs weekly
+            if datetime.now().weekday() == 0:  # Run on Mondays
+                cleanup_logs()
+                
+            await asyncio.sleep(interval)
+            
+        except Exception as e:
+            logger.error(f"Monitoring error: {e}")
+            await asyncio.sleep(60)  # Wait before retrying
 
 # CLI interface for standalone usage
 if __name__ == "__main__":

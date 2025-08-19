@@ -18,6 +18,7 @@ from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler
 from src.integrations.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
+from src.utils.maintenance import start_monitoring 
 from config import config
 from waitress import serve
 import atexit
@@ -32,13 +33,37 @@ logger = logging.getLogger(__name__)
 telegram_application = None
 
 def run_web_server():
-    """Production-grade web server runner"""
+    """Production-grade web server runner using Gunicorn"""
     try:
         from app import create_app
         app = create_app()
         port = int(os.environ.get('PORT', config.PORT))
         logger.info(f"🌐 Starting production web server on port {port}")
-        serve(app, host='0.0.0.0', port=port)
+        
+        # Use Gunicorn programmatically
+        from gunicorn.app.base import BaseApplication
+        
+        class FlaskApplication(BaseApplication):
+            def __init__(self, app, options=None):
+                self.options = options or {}
+                self.application = app
+                super().__init__()
+            
+            def load_config(self):
+                for key, value in self.options.items():
+                    self.cfg.set(key, value)
+            
+            def load(self):
+                return self.application
+        
+        options = {
+            'bind': f'0.0.0.0:{port}',
+            'workers': 4,
+            'worker_class': 'gevent',
+            'timeout': 300
+        }
+        FlaskApplication(app, options).run()
+        
     except Exception as e:
         logger.critical(f"Web server failed: {e}")
         raise RuntimeError("Web server startup failed") from e
@@ -255,7 +280,6 @@ async def main_async():
     # Production monitoring
     if config.ENV == 'production':
         logger.info("📊 Starting production monitoring")
-        from src.utils.monitoring import start_monitoring
         monitoring_task = asyncio.create_task(start_monitoring())
     
     # Start web server in main thread
