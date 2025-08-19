@@ -9,7 +9,7 @@ from src.database.mongo import (
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
 from src.integrations.ton import process_ton_withdrawal
-from src.utils.conversions import to_ton, convert_currency, calculate_fee, game_coins_to_ton
+from src.utils.conversions import game_coins_to_ton, convert_currency, calculate_fee, game_coins_to_ton
 from src.utils.validators import validate_ton_address, validate_mpesa_number, validate_email
 from config import Config
 import random
@@ -151,7 +151,7 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await query.edit_message_text(
             f"✅ Correct! You earned {reward:.6f} TON\n"
-            f"💰 New balance: {to_ton(new_balance):.6f} TON"
+            f"💰 New balance: {game_coins_to_ton(new_balance):.6f} TON"
         )
     else:
         # Incorrect answer
@@ -162,7 +162,7 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text(
             f"❌ Wrong! The correct answer was: {correct_answer}\n"
             f"💡 You still earned {reward:.6f} TON for playing!\n"
-            f"💰 New balance: {to_ton(new_balance):.6f} TON"
+            f"💰 New balance: {game_coins_to_ton(new_balance):.6f} TON"
         )
 
 async def spin_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -215,7 +215,7 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(
         f"{text}\n"
         f"💰 You earned: {reward:.6f} TON\n"
-        f"💎 New balance: {to_ton(new_balance):.6f} TON"
+        f"💎 New balance: {game_coins_to_ton(new_balance):.6f} TON"
     )
 
 # =====================
