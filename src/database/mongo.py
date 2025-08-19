@@ -4,6 +4,7 @@ from pymongo.errors import PyMongoError
 from datetime import datetime
 import os
 import logging
+from datetime import timedelta
 from config import config
 from src.utils.validators import validate_ton_address
 
@@ -460,3 +461,10 @@ def get_user_rank(user_id: int):
         if user['user_id'] == user_id:
             return rank
     return -1
+
+def check_db_connection():
+    try:
+        db.command('ping')
+        return True
+    except PyMongoError:
+        return False

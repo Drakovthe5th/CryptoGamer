@@ -1,17 +1,20 @@
 import hmac
 import datetime
+import time
 from functools import wraps
 import asyncio
 from flask import request, jsonify, render_template, send_from_directory
-from src.database.mongo import update_game_coins, record_reset, connect_wallet
+from src.database.mongo import update_game_coins, record_reset, connect_wallet,update_balance
 from src.database.mongo import get_games_list, record_game_start, get_user_data
+from src.database.mongo import db, check_db_connection
 from src.utils.security import validate_telegram_hash
 from src.features.ads import ad_manager
+from src.database.mongo import track_ad_reward
 from src.features.monetization.purchases import process_purchase
 from src.utils.conversions import check_daily_limit, calculate_reward
 from src.utils.upgrade_manager import upgrade_manager
 from src.integrations.withdrawal import get_withdrawal_processor
-from src.integrations.ton import ton_wallet, initialize_on_demand
+from src.integrations.ton import ton_wallet, initialize_on_demand, MAINNET_CONFIG, LiteClient, get_wallet_status
 from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
 from src.utils.validators import validate_ton_address
 from config import config
@@ -660,10 +663,11 @@ def configure_routes(app):
         return jsonify({
             'status': 'ok',
             'services': {
-                'database': db.is_connected(),
+                'database': db is not None,  # Check if db is initialized
                 'ton_wallet': ton_wallet is not None,
                 'version': '1.0.0'
-            }
+            },
+            'database': check_db_connection()
         })
     
     @app.route('/api/wallet/health')
