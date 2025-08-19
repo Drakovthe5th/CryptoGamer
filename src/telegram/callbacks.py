@@ -1,9 +1,10 @@
 import os
+from bson import ObjectId  # Added for ObjectID handling
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.database.mongo import (
     get_user_data, update_balance, update_leaderboard_points, 
-    get_db, SERVER_TIMESTAMP
+    get_db, SERVER_TIMESTAMP, db
 )
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
@@ -18,6 +19,9 @@ import logging
 logger = logging.getLogger(__name__)
 db = get_db()
 quests_collection = db.quests
+users_collection = db.users
+withdrawals_collection = db.withdrawals
+otc_deals_collection = db.otc_deals
 
 async def set_ton_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Prompt user to set TON address"""
@@ -133,10 +137,11 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
     correct_idx = context.user_data.get('trivia_answer')
     question = context.user_data.get('trivia_question')
     
-    # Update last played time
-    users_db.document(str(user_id)).update({
-        'last_played.trivia': SERVER_TIMESTAMP
-    })
+    # Update last played time - MongoDB syntax
+    users_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {"last_played.trivia": SERVER_TIMESTAMP}}
+    )
     
     if selected == correct_idx:
         # Correct answer
@@ -191,10 +196,11 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = query.from_user.id
     
-    # Update last played time
-    users_db.document(str(user_id)).update({
-        'last_played.spin': SERVER_TIMESTAMP
-    })
+    # Update last played time - MongoDB syntax
+    users_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {"last_played.spin": SERVER_TIMESTAMP}}
+    )
     
     # Determine win (40% chance)
     if random.random() < 0.4:
@@ -232,6 +238,9 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
     balance = user_data.get('balance', 0)
     
     MIN_WITHDRAWAL_GC = 200000  # 200,000 GC = 100 TON
+    
+    # Get game coins from user data
+    game_coins = user_data.get('game_coins', 0)
     
     if game_coins < MIN_WITHDRAWAL_GC:
         await query.edit_message_text(
@@ -274,7 +283,7 @@ async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYP
     amount = context.user_data['withdrawal_amount']
     
     user_data = get_user_data(user_id)
-    payment_details = user_data['payment_methods'].get(method, {})
+    payment_details = user_data.get('payment_methods', {}).get(method, {})
     
     rate = otc_desk.get_buy_rate(currency)
     if not rate:
@@ -299,8 +308,9 @@ async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYP
         'payment_details': payment_details
     }
     
-    deal_db = otc_deals_db.add(deal_data)
-    deal_id = deal_db[1].id
+    # MongoDB insert
+    result = otc_deals_collection.insert_one(deal_data)
+    deal_id = result.inserted_id
     
     update_balance(user_id, -amount)
     
@@ -328,32 +338,39 @@ async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_
     """Complete TON withdrawal with provided address"""
     user_id = update.effective_user.id
     address = update.message.text.strip()
-    amount = context.user_data['withdrawal_amount']
+    
+    # Get withdrawal amount from context
+    amount_gc = context.user_data.get('withdrawal_amount_gc', 0)
     ton_amount = game_coins_to_ton(amount_gc)
     
     if not validate_ton_address(address):
         await update.message.reply_text("❌ Invalid TON address format. Please try again.")
         return
     
-        # Deduct game coins and process TON withdrawal
-    update_game_coins(user_id, -amount_gc)
+    # Process TON withdrawal
     result = process_ton_withdrawal(user_id, ton_amount, address)
     
     if result and result.get('status') == 'success':
         withdrawal_data = {
             'user_id': user_id,
-            'amount': amount,
+            'amount': ton_amount,
             'address': address,
-            'tx_hash': result['tx_hash'],
+            'tx_hash': result.get('tx_hash', ''),
             'status': 'pending',
             'created_at': SERVER_TIMESTAMP
         }
-        withdrawals_db.add(withdrawal_data)
-        update_balance(user_id, -amount)
+        
+        # MongoDB insert
+        withdrawals_collection.insert_one(withdrawal_data)
+        # Deduct game coins from user
+        users_collection.update_one(
+            {"user_id": user_id},
+            {"$inc": {"game_coins": -amount_gc}}
+        )
         
         await update.message.reply_text(
-            f"✅ Withdrawal of {amount:.6f} TON is processing!\n"
-            f"Transaction: https://tonscan.org/tx/{result.get('tx_hash')}"
+            f"✅ Withdrawal of {ton_amount:.6f} TON is processing!\n"
+            f"Transaction: https://tonscan.org/tx/{result.get('tx_hash', '')}"
         )
     else:
         error = result.get('error', 'Withdrawal failed') if result else 'Withdrawal failed'
@@ -369,8 +386,12 @@ async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     quest_id = query.data.split('_')[1]
     
-    # Get quest details
-    quest_doc = db.quests.find_one({"_id": quest_id})
+    # Get quest details with ObjectID conversion
+    try:
+        quest_doc = quests_collection.find_one({"_id": ObjectId(quest_id)})
+    except:
+        quest_doc = None
+        
     if not quest_doc:
         await query.edit_message_text("Quest not found.")
         return
@@ -386,7 +407,10 @@ async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if user has completed quest
     user_id = query.from_user.id
     user_data = get_user_data(user_id)
-    if quest_id in user_data.get('completed_quests', {}):
+    completed_quests = user_data.get('completed_quests', [])
+    
+    # Convert quest_id to string for comparison
+    if str(quest_id) in completed_quests:
         text += "✅ You've already completed this quest!"
         keyboard = []
     else:
@@ -408,6 +432,7 @@ async def complete_quest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     quest_id = query.data.split('_')[1]
     user_id = query.from_user.id
     
+    # Call the complete_quest function
     if complete_quest(user_id, quest_id):
         await query.edit_message_text("✅ Quest completed! Rewards added to your account.")
     else:
@@ -479,11 +504,11 @@ async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYP
             'account_number': parts[2].strip()
         }
     
-    # Update user profile
-    user_db = users_db.document(str(user_id))
-    user_db.update({
-        f'payment_methods.{method}': payment_data
-    })
+    # Update user profile with MongoDB
+    users_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {f"payment_methods.{method}": payment_data}}
+    )
     
     await update.message.reply_text(
         f"✅ {method} details saved successfully!\n"
