@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.database.mongo import (
     get_user_data, update_balance, update_leaderboard_points, 
-    quests_ref, users_ref, SERVER_TIMESTAMP, withdrawals_ref, otc_deals_ref
+    get_db, users_db, SERVER_TIMESTAMP, withdrawals_db, otc_deals_db
 )
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
@@ -16,6 +16,8 @@ import datetime
 import logging
 
 logger = logging.getLogger(__name__)
+db = get_db()
+quests_collection = db.quests
 
 async def set_ton_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Prompt user to set TON address"""
@@ -132,7 +134,7 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
     question = context.user_data.get('trivia_question')
     
     # Update last played time
-    users_ref.document(str(user_id)).update({
+    users_db.document(str(user_id)).update({
         'last_played.trivia': SERVER_TIMESTAMP
     })
     
@@ -190,7 +192,7 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     
     # Update last played time
-    users_ref.document(str(user_id)).update({
+    users_db.document(str(user_id)).update({
         'last_played.spin': SERVER_TIMESTAMP
     })
     
@@ -297,8 +299,8 @@ async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYP
         'payment_details': payment_details
     }
     
-    deal_ref = otc_deals_ref.add(deal_data)
-    deal_id = deal_ref[1].id
+    deal_db = otc_deals_db.add(deal_data)
+    deal_id = deal_db[1].id
     
     update_balance(user_id, -amount)
     
@@ -346,7 +348,7 @@ async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_
             'status': 'pending',
             'created_at': SERVER_TIMESTAMP
         }
-        withdrawals_ref.add(withdrawal_data)
+        withdrawals_db.add(withdrawal_data)
         update_balance(user_id, -amount)
         
         await update.message.reply_text(
@@ -478,8 +480,8 @@ async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYP
         }
     
     # Update user profile
-    user_ref = users_ref.document(str(user_id))
-    user_ref.update({
+    user_db = users_db.document(str(user_id))
+    user_db.update({
         f'payment_methods.{method}': payment_data
     })
     
