@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.database.mongo import (
     get_user_data, update_balance, update_leaderboard_points, 
-    get_db, SERVER_TIMESTAMP, withdrawals_db, otc_deals_db
+    get_db, SERVER_TIMESTAMP
 )
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
