@@ -38,10 +38,9 @@ class TonWallet:
         self.network = config.TON_NETWORK
         self.initialized = False
 
-    async def initialize_ton_wallet():
+
+    async def initialize(self):  # Renamed method
         """Initialize TON wallet connection with retry logic"""
-        global ton_wallet, client
-        
         max_retries = 3
         backoff_sec = 2
         
@@ -67,12 +66,18 @@ class TonWallet:
                         private_key=private_key,
                         workchain=0
                     )
+                else:
+                    logger.error("No TON_MNEMONIC or TON_PRIVATE_KEY provided")
+                    return False
                 
                 self.address = self.wallet.address.to_string()
                 self.healthy = True
                 self.status = "initialized"
                 self.initialized = True
                 logger.info(f"TON wallet initialized: {self.address}")
+                
+                # Update balance after initialization
+                self.balance = await self._get_balance()
                 return True
             except Exception as e:
                 logger.error(f"Initialization attempt {attempt+1} failed: {str(e)}")

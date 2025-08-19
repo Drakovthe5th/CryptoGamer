@@ -190,8 +190,8 @@ def get_user_balance():
     """Get user balance"""
     try:
         user_id = get_user_id(request)
-        from src.database.firebase import get_user_balance as firebase_get_balance
-        balance = firebase_get_balance(user_id)
+        from src.database.mongo import get_user_balance as get_balance
+        balance = get_balance(user_id)
         return jsonify({'balance': balance, 'user_id': user_id})
     except Exception as e:
         logger.error(f"Balance error: {e}")
@@ -214,7 +214,7 @@ def blockchain_stake():
             return jsonify({'success': False, 'error': 'Wallet unavailable'}), 500
         
         # Save staking record
-        from src.database.firebase import save_staking
+        from src.database.mongo import save_staking
         save_staking(user_id, wallet_address, amount)
         
         return jsonify({
@@ -409,9 +409,6 @@ try:
 except Exception as e:
     logger.critical(f"❌ FAILED TO START PRODUCTION APP: {e}")
     exit(1)
-
-validate_production_config()
-asyncio.run(verify_ton_config())
 
 # Register shutdown handler
 atexit.register(shutdown_production_app)
