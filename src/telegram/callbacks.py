@@ -1,10 +1,10 @@
 import os
-from bson import ObjectId  # Added for ObjectID handling
+from bson import ObjectId
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.database.mongo import (
     get_user_data, update_balance, update_leaderboard_points, 
-    get_db, SERVER_TIMESTAMP, db
+    get_db, SERVER_TIMESTAMP
 )
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
@@ -17,11 +17,9 @@ import datetime
 import logging
 
 logger = logging.getLogger(__name__)
-db = get_db()
-quests_collection = db.quests
-users_collection = db.users
-withdrawals_collection = db.withdrawals
-otc_deals_collection = db.otc_deals
+
+# Database collections initialized inside functions
+# (Removed top-level collection assignments to prevent import-time errors)
 
 async def set_ton_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Prompt user to set TON address"""
@@ -137,8 +135,11 @@ async def handle_trivia_answer(update: Update, context: ContextTypes.DEFAULT_TYP
     correct_idx = context.user_data.get('trivia_answer')
     question = context.user_data.get('trivia_question')
     
+    # Get database instance
+    db = get_db()
+    
     # Update last played time - MongoDB syntax
-    users_collection.update_one(
+    db.users.update_one(
         {"user_id": user_id},
         {"$set": {"last_played.trivia": SERVER_TIMESTAMP}}
     )
@@ -196,8 +197,11 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     user_id = query.from_user.id
     
+    # Get database instance
+    db = get_db()
+    
     # Update last played time - MongoDB syntax
-    users_collection.update_one(
+    db.users.update_one(
         {"user_id": user_id},
         {"$set": {"last_played.spin": SERVER_TIMESTAMP}}
     )
@@ -308,8 +312,11 @@ async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYP
         'payment_details': payment_details
     }
     
+    # Get database instance
+    db = get_db()
+    
     # MongoDB insert
-    result = otc_deals_collection.insert_one(deal_data)
+    result = db.otc_deals.insert_one(deal_data)
     deal_id = result.inserted_id
     
     update_balance(user_id, -amount)
@@ -360,10 +367,13 @@ async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_
             'created_at': SERVER_TIMESTAMP
         }
         
+        # Get database instance
+        db = get_db()
+        
         # MongoDB insert
-        withdrawals_collection.insert_one(withdrawal_data)
+        db.withdrawals.insert_one(withdrawal_data)
         # Deduct game coins from user
-        users_collection.update_one(
+        db.users.update_one(
             {"user_id": user_id},
             {"$inc": {"game_coins": -amount_gc}}
         )
@@ -386,9 +396,12 @@ async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     quest_id = query.data.split('_')[1]
     
+    # Get database instance
+    db = get_db()
+    
     # Get quest details with ObjectID conversion
     try:
-        quest_doc = quests_collection.find_one({"_id": ObjectId(quest_id)})
+        quest_doc = db.quests.find_one({"_id": ObjectId(quest_id)})
     except:
         quest_doc = None
         
@@ -504,8 +517,11 @@ async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYP
             'account_number': parts[2].strip()
         }
     
+    # Get database instance
+    db = get_db()
+    
     # Update user profile with MongoDB
-    users_collection.update_one(
+    db.users.update_one(
         {"user_id": user_id},
         {"$set": {f"payment_methods.{method}": payment_data}}
     )
