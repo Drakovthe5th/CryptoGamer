@@ -7,7 +7,7 @@ from src.database.mongo import (
 )
 from src.features.quests import get_active_quests
 from src.utils.conversions import game_coins_to_ton
-from src.utils.conversions import to_ton
+from src.utils.conversions import ton_to_game_coins
 from config import Config
 import datetime
 import random
