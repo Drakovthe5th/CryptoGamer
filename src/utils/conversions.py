@@ -19,6 +19,11 @@ def convert_currency(amount, rate):
     """Convert TON to fiat currency using exchange rate"""
     return amount * rate
 
+def calculate_fee(fiat_amount, fee_percent, min_fee):
+    """Calculate OTC fee with minimum threshold"""
+    fee = fiat_amount * (fee_percent / 100)
+    return max(fee, min_fee)
+
 def check_daily_limit(user):
     """Check if user has reached daily earning limit"""
     return user.daily_coins_earned >= MAX_DAILY_GAME_COINS
