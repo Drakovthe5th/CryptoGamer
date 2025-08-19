@@ -15,6 +15,10 @@ def calculate_reward(score, multiplier=1):
     raw_coins = score * 10 * multiplier
     return min(raw_coins, MAX_DAILY_GAME_COINS)
 
+def convert_currency(amount, rate):
+    """Convert TON to fiat currency using exchange rate"""
+    return amount * rate
+
 def check_daily_limit(user):
     """Check if user has reached daily earning limit"""
     return user.daily_coins_earned >= MAX_DAILY_GAME_COINS

@@ -9,7 +9,7 @@ from src.database.mongo import (
 from src.features.otc_desk import otc_desk
 from src.features.quests import complete_quest
 from src.integrations.ton import process_ton_withdrawal
-from src.utils.conversions import game_coins_to_ton, convert_currency, calculate_fee, game_coins_to_ton
+from src.utils.conversions import game_coins_to_ton, convert_currency, calculate_fee
 from src.utils.validators import validate_ton_address, validate_mpesa_number, validate_email
 from config import Config
 import random
