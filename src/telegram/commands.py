@@ -14,7 +14,6 @@ import random
 import logging
 
 logger = logging.getLogger(__name__)
-user = get_user_data(user_id)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
