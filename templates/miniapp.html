@@ -6,6 +6,20 @@
   <title>CryptoGamer - TON Game Miner</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="/static/css/miniapp.css">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    /* Additional styles to match miniapp-old.html functionality */
+    .page { display: none; }
+    .page.active { display: block; }
+    .hidden { display: none; }
+    .milestone { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; margin-bottom: 10px; }
+    .milestone.reached { background: rgba(76, 175, 80, 0.1); border-left: 4px solid #4CAF50; }
+    .currency-option { flex: 1; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; }
+    .currency-option.active { background: rgba(255, 215, 0, 0.1); border-color: #ffd700; }
+    .click-area { background: rgba(255, 215, 0, 0.1); border: 2px solid #ffd700; border-radius: 15px; height: 150px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; margin: 15px 0; cursor: pointer; transition: all 0.3s; }
+    .click-area:active { transform: scale(0.95); }
+    @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
+  </style>
 </head>
 <body>
   <!-- Background animation elements -->
@@ -16,6 +30,9 @@
     <div class="ball ball-4"></div>
   </div>
 
+  <!-- Floating Shop Button -->
+  <a href="/shop.html" class="shop-floating-btn">🛒</a>
+
   <!-- Header with profile -->
   <header class="app-header">
     <div class="profile-section">
@@ -24,7 +41,7 @@
         <span class="username" id="username">Loading...</span>
       </div>
       <div class="balance-display">
-        <span id="gc-balance">0 GC</span>
+        <span id="balance">0.000000</span> TON
       </div>
     </div>
   </header>
@@ -40,9 +57,25 @@
         <img src="/static/images/default-avatar.png" alt="Profile" class="menu-avatar">
         <div class="user-details">
           <span class="menu-username" id="menu-username">Username</span>
-          <span class="menu-balance" id="menu-balance">0 GC</span>
+          <span class="menu-balance" id="menu-balance">0.000000 TON</span>
         </div>
       </div>
+      
+      <div class="profile-stats" style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span>Current Balance:</span>
+          <span style="color: #4CAF50; font-weight: bold;"><span id="profile-balance">0.000000</span> TON</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span>Total Earned:</span>
+          <span style="color: #ffd700; font-weight: bold;"><span id="profile-total-earned">0.000000</span> TON</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span>Account Level:</span>
+          <span style="color: #888;" id="account-level">Beginner</span>
+        </div>
+      </div>
+      
       <div class="menu-items">
         <a href="#" class="menu-item" data-page="achievements">
           <span class="icon">🏆</span>
@@ -68,6 +101,10 @@
           <span class="icon">🔒</span>
           <span>Privacy Policy</span>
         </a>
+        <a href="#" class="menu-item" onclick="logout()">
+          <span class="icon">🚪</span>
+          <span>Logout</span>
+        </a>
       </div>
     </div>
   </div>
@@ -76,125 +113,269 @@
   <main class="main-content">
     <!-- Home Page -->
     <section id="home-page" class="page active">
+      <!-- Daily Bonus Popup -->
       <div class="daily-bonus-popup" id="daily-bonus-popup">
         <div class="bonus-content">
-          <h3>Daily Bonus!</h3>
-          <p>Claim your 100 GC daily reward</p>
+          <h3>🎁 Daily Bonus</h3>
+          <p>Claim your 0.05 TON daily reward!</p>
           <button class="claim-bonus" id="claim-bonus">Claim Now</button>
         </div>
       </div>
       
+      <!-- Click & Earn Section -->
       <div class="click-game-preview">
-        <h3>Click & Earn</h3>
-        <div class="click-counter">
-          <span id="click-count">0</span>
-          <span>Clicks</span>
+        <h3>⚡ Click & Earn</h3>
+        <div class="click-area" onclick="handleClickEarn()">
+          <div class="click-text">TAP TO EARN</div>
         </div>
-        <button class="click-button" id="click-button">Click Me!</button>
-        <p>Earn 1 GC per 10 clicks</p>
+        <p style="text-align: center;">
+          Clicks today: <span id="click-count" style="color: #ffd700; font-weight: bold;">0</span>/100
+        </p>
       </div>
       
-      <div class="ad-space" id="home-ad">
-        <!-- Ad content will be loaded here -->
+      <!-- Featured Games -->
+      <div class="home-section">
+        <h2 class="section-title">🎮 Featured Games</h2>
+        <div class="game-grid">
+          <div class="game-card" data-game-id="trivia">
+            <div class="game-icon">❓</div>
+            <div class="game-name">Crypto Trivia</div>
+          </div>
+          <div class="game-card" data-game-id="spin">
+            <div class="game-icon">🎡</div>
+            <div class="game-name">Lucky Spin</div>
+          </div>
+          <div class="game-card" data-game-id="clicker">
+            <div class="game-icon">🖱️</div>
+            <div class="game-name">TON Clicker</div>
+          </div>
+          <div class="game-card" data-game-id="trex">
+            <div class="game-icon">🦖</div>
+            <div class="game-name">T-Rex Runner</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Ad Space -->
+      <div class="home-section">
+        <div class="ad-slot" id="home-ad-slot">
+          <!-- Ad content will be loaded here -->
+        </div>
       </div>
     </section>
 
     <!-- Watch Page -->
     <section id="watch-page" class="page">
       <div class="page-header">
-        <h2>Watch & Earn</h2>
-        <p>Watch videos to earn Game Coins</p>
+        <h2>📺 Watch & Earn</h2>
+        <p>Watch video ads and earn TON coins instantly!</p>
+        <button class="btn btn-primary" style="width: 100%; margin: 15px 0;" onclick="watchAd()">
+          ▶️ Watch Ad & Earn TON
+        </button>
+        <div style="padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
+          <small style="color: #ffcc00;">💡 Tip: Weekend ads give 20% bonus!</small>
+        </div>
       </div>
-      <div class="videos-container">
-        <div class="video-item">
-          <div class="video-thumbnail">
-            <span>▶️</span>
-          </div>
-          <div class="video-info">
-            <h4>Video Ad 1</h4>
-            <p>Earn 50 GC</p>
-            <button class="watch-btn">Watch Now</button>
+
+      <!-- Ad Video Container -->
+      <div class="home-section">
+        <div id="video-ad-container" style="width: 100%; height: 200px; background: #222; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <div style="text-align: center; color: #666;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📺</div>
+            <div>Ad will play here</div>
           </div>
         </div>
-        <!-- More video items -->
       </div>
     </section>
 
     <!-- Wallet Page -->
     <section id="wallet-page" class="page">
       <div class="page-header">
-        <h2>Wallet</h2>
-        <p>Manage your TON wallet</p>
+        <h2>💰 Your Wallet</h2>
       </div>
-      <div class="wallet-status">
-        <div id="wallet-connected" class="hidden">
-          <p>Wallet Connected</p>
-          <p id="wallet-address">EQDrjaMAd1uyVtVb1hECV3a6F5Kc_ZLrjV7lLp7DZqNJiA1D</p>
-          <button id="disconnect-wallet">Disconnect</button>
+      
+      <div class="home-section">
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="font-size: 1.5rem; color: #4CAF50;">
+            <span id="gc-balance">0</span> GC
+          </div>
+          <div style="color: #888; margin-top: 8px;">
+            ≈ <span id="ton-equivalent">0.00</span> TON
+          </div>
+          <div style="color: #666; margin-top: 4px; font-size: 0.8rem;">
+            200,000 GC = 100 TON
+          </div>
         </div>
-        <div id="wallet-disconnected">
-          <p>Connect your TON wallet to withdraw earnings</p>
-          <button id="connect-wallet">Connect Wallet</button>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px;">
+          <button class="btn btn-primary" onclick="showWithdrawalForm()">
+            📤 Withdraw
+          </button>
+          <button class="btn btn-primary" onclick="connectWallet()">
+            🔗 Connect Wallet
+          </button>
         </div>
       </div>
-      <div class="withdrawal-info">
-        <h3>Withdrawal Information</h3>
-        <p>Minimum withdrawal: 200,000 GC (100 TON)</p>
-        <div class="progress-bar">
-          <div class="progress" id="withdrawal-progress" style="width: 35%"></div>
+
+      <!-- Withdrawal Form -->
+      <div class="home-section" id="withdrawal-form" style="display: none;">
+        <h3 style="margin-bottom: 16px; color: #ffd700;">Withdraw TON</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">TON Wallet Address</label>
+          <input type="text" id="withdraw-address" placeholder="EQxxxxx..." style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
         </div>
-        <p id="progress-text">70,000 / 200,000 GC</p>
-        <button id="request-withdrawal" disabled>Request Withdrawal</button>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Amount (TON)</label>
+          <input type="number" id="withdraw-amount" placeholder="0.000000" step="0.000001" min="0.1" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
+          <small style="color: #888;">Minimum withdrawal: 0.1 TON</small>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" style="background: rgba(255,255,255,0.1); flex: 1;" onclick="hideWithdrawalForm()">Cancel</button>
+          <button class="btn btn-primary" style="flex: 1;" onclick="processWithdrawal()">Withdraw</button>
+        </div>
+      </div>
+
+      <!-- Stats Section -->
+      <div class="home-section">
+        <h2 class="section-title">📊 Stats</h2>
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="stat-value" id="total-earned">0.000000</div>
+            <div class="stat-label">Total Earned</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="games-played">0</div>
+            <div class="stat-label">Games Played</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ads-watched">0</div>
+            <div class="stat-label">Ads Watched</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="referrals-count">0</div>
+            <div class="stat-label">Referrals</div>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Games Page -->
     <section id="games-page" class="page">
       <div class="page-header">
-        <h2>Games</h2>
-        <p>Play games to earn Game Coins</p>
-      </div>
-      <div class="games-grid" id="games-container">
-        <!-- Games will be loaded here -->
+        <h2>🎮 All Games</h2>
+        <p style="margin-bottom: 20px; color: #ccc;">
+          Play games, earn TON coins, and climb the leaderboards!
+        </p>
+        
+        <div class="game-grid">
+          <div class="game-card" data-game-id="trivia">
+            <div class="game-icon">❓</div>
+            <div class="game-name">Crypto Trivia</div>
+            <small style="color: #888;">Test your knowledge</small>
+          </div>
+          
+          <div class="game-card" data-game-id="spin">
+            <div class="game-icon">🎡</div>
+            <div class="game-name">Lucky Spin</div>
+            <small style="color: #888;">Spin to win big</small>
+          </div>
+          
+          <div class="game-card" data-game-id="clicker">
+            <div class="game-icon">🖱️</div>
+            <div class="game-name">TON Clicker</div>
+            <small style="color: #888;">Click for rewards</small>
+          </div>
+          
+          <div class="game-card" data-game-id="trex">
+            <div class="game-icon">🦖</div>
+            <div class="game-name">T-Rex Runner</div>
+            <small style="color: #888;">Endless runner</small>
+          </div>
+          
+          <div class="game-card" data-game-id="edge-surf">
+            <div class="game-icon">🏄</div>
+            <div class="game-name">Edge Surf</div>
+            <small style="color: #888;">Surf the web</small>
+          </div>
+          
+          <div class="game-card" style="opacity: 0.6;">
+            <div class="game-icon">🎲</div>
+            <div class="game-name">More Games</div>
+            <small style="color: #888;">Coming soon</small>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- Quests Page -->
     <section id="quests-page" class="page">
       <div class="page-header">
-        <h2>Quests & Missions</h2>
-        <p>Complete tasks to earn rewards</p>
-      </div>
-      <div class="quests-tabs">
-        <button class="tab-btn active" data-tab="quests">Quests</button>
-        <button class="tab-btn" data-tab="missions">Missions</button>
-      </div>
-      <div class="tab-content">
-        <div id="quests-tab" class="tab-pane active">
-          <div class="quest-item">
-            <h4>Daily Login</h4>
-            <p>Log in for 7 consecutive days</p>
-            <div class="quest-progress">
-              <span>4/7 days</span>
-              <button class="claim-btn" disabled>Claim</button>
-            </div>
+        <h2>📝 Daily Quests</h2>
+        <p style="margin-bottom: 16px; color: #ccc;">
+          Complete daily tasks to earn bonus rewards!
+        </p>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">✅ Claim Daily Bonus</div>
+            <small style="color: #888;">Reward: 0.05 TON</small>
           </div>
-          <div class="quest-item">
-            <h4>Invite Friends</h4>
-            <p>Invite 3 friends to join</p>
-            <div class="quest-progress">
-              <span>1/3 friends</span>
-              <button class="claim-btn" disabled>Claim</button>
-            </div>
-          </div>
+          <button class="btn btn-primary" id="quest-bonus-btn">Claim</button>
         </div>
-        <div id="missions-tab" class="tab-pane">
-          <div class="mission-item">
-            <h4>Social Media Share</h4>
-            <p>Share our page on social media</p>
-            <div class="mission-reward">100 GC</div>
-            <button class="mission-btn">Start Mission</button>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">📺 Watch 3 Ads</div>
+            <small style="color: #888;">Progress: <span id="quest-ads">0</span>/3 | Reward: 0.009 TON</small>
           </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('watch')">Watch</button>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">🎮 Play 2 Games</div>
+            <small style="color: #888;">Progress: <span id="quest-games">0</span>/2 | Reward: 0.006 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('games')">Play</button>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">👥 Invite 1 Friend</div>
+            <small style="color: #888;">Progress: <span id="quest-invite">0</span>/1 | Reward: 0.05 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('referrals')">Invite</button>
+        </div>
+      </div>
+
+      <div class="home-section">
+        <h2 class="section-title">🏆 Weekly Challenges</h2>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">🔥 7-Day Streak</div>
+            <small style="color: #888;">Login daily for a week | Reward: 0.5 TON</small>
+          </div>
+          <div style="color: #ffd700; font-weight: bold;" id="daily-streak">0/7</div>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">💯 Score 1000+ Points</div>
+            <small style="color: #888;">In any game | Reward: 0.1 TON</small>
+          </div>
+          <div style="color: #888;" id="high-score">0/1000</div>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">📱 Share App</div>
+            <small style="color: #888;">Share with 5 friends | Reward: 0.25 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" id="share-app-btn">Share</button>
         </div>
       </div>
     </section>
@@ -202,77 +383,119 @@
     <!-- OTC Desk Page -->
     <section id="otc-page" class="page">
       <div class="page-header">
-        <h2>OTC Desk</h2>
-        <p>Swap TON for cash</p>
-      </div>
-      <div class="otc-options">
-        <div class="otc-card">
-          <h3>Swap TON for Cash</h3>
-          <div class="currency-selector">
-            <label for="currency">Select Currency:</label>
-            <select id="currency">
-              <option value="ksh">Kenyan Shilling (KSH)</option>
-              <option value="usdt">USDT</option>
-            </select>
-          </div>
-          <div class="amount-input">
-            <label for="ton-amount">TON Amount:</label>
-            <input type="number" id="ton-amount" placeholder="Enter amount">
-          </div>
-          <div class="conversion-rate">
-            <p>1 TON = 200 KSH</p>
-          </div>
-          <button id="swap-ton">Swap TON for Cash</button>
+        <h2>💱 OTC Exchange</h2>
+        <p style="margin-bottom: 20px; color: #ccc;">
+          Trade your TON for fiat currencies instantly!
+        </p>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Amount (TON)</label>
+          <input type="number" id="otc-amount" placeholder="0.000000" step="0.000001" min="0.1" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
         </div>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Currency</label>
+          <div class="currency-selector">
+            <div class="currency-option active" data-currency="USDT">USDT</div>
+            <div class="currency-option" data-currency="USD">USD</div>
+            <div class="currency-option" data-currency="KES">KES</div>
+            <div class="currency-option" data-currency="EUR">EUR</div>
+          </div>
+        </div>
+        
+        <div id="conversion-preview" style="background: rgba(255,204,0,0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; display: none;">
+          <div style="color: #ffd700; font-weight: 600;">Conversion Preview:</div>
+          <div id="conversion-text"></div>
+          <small style="color: #888;" id="fee-text">Fee: 3% (min $1.00)</small>
+        </div>
+        
+        <button class="btn btn-primary" id="swap-ton-btn" style="width: 100%;">
+          💱 Swap TON for Cash
+        </button>
+      </div>
+
+      <div class="home-section">
+        <h2 class="section-title">💹 Current Rates</h2>
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="stat-value" id="rate-usd">$6.80</div>
+            <div class="stat-label">1 TON = USD</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="rate-kes">950</div>
+            <div class="stat-label">1 TON = KES</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="rate-eur">€6.20</div>
+            <div class="stat-label">1 TON = EUR</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="rate-usdt">6.75</div>
+            <div class="stat-label">1 TON = USDT</div>
+          </div>
+        </div>
+        <small style="color: #888; display: block; text-align: center; margin-top: 12px;">
+          ⏰ Rates updated every 5 minutes
+        </small>
       </div>
     </section>
 
     <!-- Referrals Page -->
     <section id="referrals-page" class="page">
       <div class="page-header">
-        <h2>Referrals</h2>
-        <p>Earn by inviting friends</p>
-      </div>
-      <div class="referral-stats">
-        <div class="stat-item">
-          <h4>Total Referrals</h4>
-          <span class="stat-value">5</span>
+        <h2>👥 Invite & Earn</h2>
+        <p style="margin: 12px 0;">Earn 20% of your friends' earnings forever!</p>
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin: 15px 0; word-break: break-all;" id="ref-link">
+          https://t.me/CryptoGameMinerBot?start=ref-xyz123
         </div>
-        <div class="stat-item">
-          <h4>Earned from Referrals</h4>
-          <span class="stat-value">0.05 TON</span>
-        </div>
+        <button class="btn btn-primary" id="copy-ref-btn" style="width: 100%;">
+          📋 Copy Invite Link
+        </button>
       </div>
-      <div class="referral-tiers">
-        <h3>Referral Tiers</h3>
-        <div class="tier">
-          <span class="tier-label">3 friends</span>
-          <span class="tier-reward">0.01 TON</span>
-          <div class="tier-progress">
-            <div class="progress" style="width: 60%"></div>
+
+      <div class="home-section">
+        <h2 class="section-title">📊 Your Referral Stats</h2>
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="stat-value" id="ref-count">0</div>
+            <div class="stat-label">Friends Invited</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ref-earnings">0.000000</div>
+            <div class="stat-label">Total Earned (TON)</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ref-active">0</div>
+            <div class="stat-label">Active This Week</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ref-level">1</div>
+            <div class="stat-label">Referrer Level</div>
           </div>
         </div>
-        <div class="tier">
-          <span class="tier-label">10 friends</span>
-          <span class="tier-reward">0.03 TON</span>
-          <div class="tier-progress">
-            <div class="progress" style="width: 10%"></div>
-          </div>
-        </div>
       </div>
-      <div class="referral-link">
-        <h4>Your Referral Link</h4>
-        <div class="link-container">
-          <input type="text" id="referral-link" readonly value="https://t.me/Got3dBot?start=ref123">
-          <button id="copy-link">Copy</button>
+
+      <div class="home-section">
+        <h2 class="section-title">🎯 Referral Milestones</h2>
+        
+        <div class="milestone">
+          <span>🥉 3 referrals → Bonus 0.01 TON</span>
+          <span style="color: #4CAF50;" id="milestone-3">0/3</span>
+        </div>
+        <div class="milestone">
+          <span>🥈 10 referrals → Bonus 0.05 TON</span>
+          <span style="color: #888;" id="milestone-10">0/10</span>
+        </div>
+        <div class="milestone">
+          <span>🥇 50 referrals → Bonus 0.25 TON</span>
+          <span style="color: #888;" id="milestone-50">0/50</span>
+        </div>
+        <div class="milestone">
+          <span>💎 100 referrals → Bonus 1.0 TON</span>
+          <span style="color: #888;" id="milestone-100">0/100</span>
         </div>
       </div>
     </section>
-
-    <!-- Shop Icon (floating) -->
-    <div class="shop-icon" id="shop-icon">
-      <span>🛒</span>
-    </div>
   </main>
 
   <!-- Navigation Bar -->
@@ -299,36 +522,411 @@
     </a>
     <a href="#otc" class="nav-item" data-page="otc">
       <span class="nav-icon">💱</span>
-      <span class="nav-label">OTC Desk</span>
+      <span class="nav-label">Trade</span>
     </a>
     <a href="#referrals" class="nav-item" data-page="referrals">
       <span class="nav-icon">👥</span>
-      <span class="nav-label">Referrals</span>
+      <span class="nav-label">Invite</span>
     </a>
   </nav>
 
-  <!-- Shop Modal -->
-  <div class="shop-modal" id="shop-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>Game Shop</h3>
-        <button class="close-modal" id="close-shop">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="shop-items">
-          <div class="shop-item">
-            <div class="item-icon">🚀</div>
-            <h4>2x Earnings Booster</h4>
-            <p>Double your earnings for 1 hour</p>
-            <div class="item-price">0.5 TON</div>
-            <button class="buy-btn">Buy Now</button>
-          </div>
-          <!-- More shop items -->
-        </div>
-      </div>
-    </div>
-  </div>
-
+  <!-- Scripts -->
+  <script src="/static/js/main.js"></script>
   <script src="/static/js/miniapp.js"></script>
+  <script src="/static/js/event_handlers.js"></script>
+  <script src="/static/js/ad_loader.js"></script>
+  <script src="/static/js/ads.js"></script>
+  <script src="/static/js/staking.js"></script>
+  
+  <script>
+    // Additional JavaScript to handle missing functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set up navigation
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const pageId = this.getAttribute('data-page');
+          showPage(pageId);
+          
+          // Update active state
+          document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+          this.classList.add('active');
+        });
+      });
+      
+      // Set up game cards
+      document.querySelectorAll('.game-card').forEach(card => {
+        card.addEventListener('click', function() {
+          const gameId = this.getAttribute('data-game-id');
+          launchGame(gameId);
+        });
+      });
+      
+      // Set up currency selector
+      document.querySelectorAll('.currency-option').forEach(option => {
+        option.addEventListener('click', function() {
+          document.querySelectorAll('.currency-option').forEach(o => o.classList.remove('active'));
+          this.classList.add('active');
+          updateConversionPreview();
+        });
+      });
+      
+      // Set up OTC amount input
+      const otcAmountInput = document.getElementById('otc-amount');
+      if (otcAmountInput) {
+        otcAmountInput.addEventListener('input', updateConversionPreview);
+      }
+      
+      // Set up copy referral link button
+      const copyRefBtn = document.getElementById('copy-ref-btn');
+      if (copyRefBtn) {
+        copyRefBtn.addEventListener('click', function() {
+          const refLink = document.getElementById('ref-link').textContent;
+          navigator.clipboard.writeText(refLink).then(() => {
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Copied!',
+                message: 'Referral link copied to clipboard',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert('Referral link copied to clipboard');
+            }
+          });
+        });
+      }
+      
+      // Load initial data
+      loadUserData();
+    });
+    
+    // Function to show a specific page
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+      });
+      document.getElementById(`${pageId}-page`).classList.add('active');
+    }
+    
+    // Function to handle click earning
+    function handleClickEarn() {
+      const clickCount = parseInt(document.getElementById('click-count').textContent);
+      if (clickCount >= 100) {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Limit Reached',
+            message: 'You have reached the daily click limit. Try again tomorrow!',
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert('You have reached the daily click limit. Try again tomorrow!');
+        }
+        return;
+      }
+      
+      // Update click count
+      document.getElementById('click-count').textContent = clickCount + 1;
+      
+      // Add visual feedback
+      const clickArea = document.querySelector('.click-area');
+      clickArea.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        clickArea.style.transform = 'scale(1)';
+      }, 100);
+      
+      // Show earned amount (would typically come from backend)
+      const earnedElement = document.createElement('div');
+      earnedElement.textContent = '+0.0001 TON';
+      earnedElement.style.position = 'absolute';
+      earnedElement.style.color = '#ffd700';
+      earnedElement.style.fontWeight = 'bold';
+      earnedElement.style.animation = 'floatUp 1s forwards';
+      clickArea.appendChild(earnedElement);
+      
+      setTimeout(() => {
+        earnedElement.remove();
+      }, 1000);
+      
+      // Update balance (would typically come from backend)
+      const currentBalance = parseFloat(document.getElementById('balance').textContent);
+      document.getElementById('balance').textContent = (currentBalance + 0.0001).toFixed(6);
+    }
+    
+    // Function to claim daily bonus
+    function claimDailyBonus() {
+      // Record that bonus was claimed today
+      localStorage.setItem('lastBonusDate', new Date().toDateString());
+      
+      // Hide the popup
+      document.getElementById('daily-bonus-popup').style.display = 'none';
+      
+      // Update balance (would typically come from backend)
+      const currentBalance = parseFloat(document.getElementById('balance').textContent);
+      document.getElementById('balance').textContent = (currentBalance + 0.05).toFixed(6);
+      
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Bonus Claimed!',
+          message: '0.05 TON has been added to your balance',
+          buttons: [{type: 'ok'}]
+        });
+      } else {
+        alert('Bonus Claimed! 0.05 TON has been added to your balance');
+      }
+    }
+    
+    // Function to watch an ad
+    function watchAd() {
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Watch Ad',
+          message: 'Would you like to watch a video ad to earn 0.001 TON?',
+          buttons: [
+            {id: 'cancel', type: 'cancel', text: 'Cancel'},
+            {id: 'watch', type: 'default', text: 'Watch Ad'}
+          ]
+        }, function(buttonId) {
+          if (buttonId === 'watch') {
+            // Simulate ad watching
+            Telegram.WebApp.showPopup({
+              title: 'Ad Playing',
+              message: 'Please watch the ad to completion...',
+              buttons: [{type: 'close'}]
+            });
+            
+            // After 5 seconds, simulate ad completion
+            setTimeout(() => {
+              // Update balance (would typically come from backend)
+              const currentBalance = parseFloat(document.getElementById('balance').textContent);
+              document.getElementById('balance').textContent = (currentBalance + 0.001).toFixed(6);
+              
+              // Update ads watched count
+              const adsWatched = parseInt(document.getElementById('ads-watched').textContent);
+              document.getElementById('ads-watched').textContent = adsWatched + 1;
+              
+              Telegram.WebApp.showPopup({
+                title: 'Ad Completed',
+                message: 'You earned 0.001 TON!',
+                buttons: [{type: 'ok'}]
+              });
+            }, 5000);
+          }
+        });
+      } else {
+        alert('Ad functionality requires Telegram WebApp');
+      }
+    }
+    
+    // Function to launch a game
+    function launchGame(gameId) {
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: `Play ${gameId.charAt(0).toUpperCase() + gameId.slice(1)}`,
+          message: `Earn TON coins by playing this game!`,
+          buttons: [
+            {id: 'cancel', type: 'cancel', text: 'Cancel'},
+            {id: 'play', type: 'default', text: 'Play Now'}
+          ]
+        }, function(buttonId) {
+          if (buttonId === 'play') {
+            // Redirect to game page
+            window.location.href = `/games/${gameId}`;
+          }
+        });
+      } else {
+        window.location.href = `/games/${gameId}`;
+      }
+    }
+    
+    // Function to show withdrawal form
+    function showWithdrawalForm() {
+      document.getElementById('withdrawal-form').style.display = 'block';
+    }
+    
+    // Function to hide withdrawal form
+    function hideWithdrawalForm() {
+      document.getElementById('withdrawal-form').style.display = 'none';
+    }
+    
+    // Function to process withdrawal
+    function processWithdrawal() {
+      const address = document.getElementById('withdraw-address').value;
+      const amount = parseFloat(document.getElementById('withdraw-amount').value);
+      
+      if (!address) {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Error',
+            message: 'Please enter a wallet address',
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert('Please enter a wallet address');
+        }
+        return;
+      }
+      
+      if (!amount || amount < 0.1) {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Error',
+            message: 'Minimum withdrawal is 0.1 TON',
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert('Minimum withdrawal is 0.1 TON');
+        }
+        return;
+      }
+      
+      const currentBalance = parseFloat(document.getElementById('balance').textContent);
+      if (amount > currentBalance) {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Error',
+            message: 'Insufficient balance',
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert('Insufficient balance');
+        }
+        return;
+      }
+      
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Confirm Withdrawal',
+          message: `Send ${amount} TON to ${address}?`,
+          buttons: [
+            {id: 'cancel', type: 'cancel', text: 'Cancel'},
+            {id: 'confirm', type: 'default', text: 'Confirm'}
+          ]
+        }, function(buttonId) {
+          if (buttonId === 'confirm') {
+            // Process withdrawal (would typically call backend API)
+            document.getElementById('balance').textContent = (currentBalance - amount).toFixed(6);
+            hideWithdrawalForm();
+            
+            Telegram.WebApp.showPopup({
+              title: 'Withdrawal Processing',
+              message: 'Your withdrawal is being processed. It may take up to 24 hours.',
+              buttons: [{type: 'ok'}]
+            });
+          }
+        });
+      } else {
+        // Fallback for non-Telegram environment
+        if (confirm(`Send ${amount} TON to ${address}?`)) {
+          document.getElementById('balance').textContent = (currentBalance - amount).toFixed(6);
+          hideWithdrawalForm();
+          alert('Withdrawal request submitted. It may take up to 24 hours to process.');
+        }
+      }
+    }
+    
+    // Function to connect wallet
+    function connectWallet() {
+      if (typeof window.ton === 'undefined') {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Wallet Not Available',
+            message: 'Please install a TON wallet extension',
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert('Please install a TON wallet extension');
+        }
+        return;
+      }
+      
+      window.ton.send("ton_requestWallets").then(wallets => {
+        if (wallets.length > 0) {
+          const address = wallets[0].address;
+          if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.showPopup({
+              title: 'Wallet Connected',
+              message: `Connected to wallet: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`,
+              buttons: [{type: 'ok'}]
+            });
+          } else {
+            alert(`Connected to wallet: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`);
+          }
+        }
+      });
+    }
+    
+    // Function to update OTC conversion preview
+    function updateConversionPreview() {
+      const amount = parseFloat(document.getElementById('otc-amount').value) || 0;
+      const currency = document.querySelector('.currency-option.active').getAttribute('data-currency');
+      
+      if (amount > 0) {
+        const rates = {
+          'USDT': 6.75,
+          'USD': 6.80,
+          'KES': 950,
+          'EUR': 6.20
+        };
+        
+        const converted = (amount * rates[currency]).toFixed(2);
+        const fee = Math.max(amount * 0.03, 1).toFixed(2);
+        
+        document.getElementById('conversion-text').textContent = 
+          `${amount} TON = ${converted} ${currency}`;
+        document.getElementById('fee-text').textContent = `Fee: 3% ($${fee})`;
+        document.getElementById('conversion-preview').style.display = 'block';
+      } else {
+        document.getElementById('conversion-preview').style.display = 'none';
+      }
+    }
+    
+    // Function to load user data
+    function loadUserData() {
+      // This would typically fetch from your backend API
+      // For now, we'll use mock data
+      setTimeout(() => {
+        document.getElementById('balance').textContent = '0.254300';
+        document.getElementById('gc-balance').textContent = '12500';
+        document.getElementById('ton-equivalent').textContent = '6.25';
+        document.getElementById('profile-balance').textContent = '0.254300';
+        document.getElementById('profile-total-earned').textContent = '1.856400';
+        document.getElementById('click-count').textContent = '12';
+        document.getElementById('total-earned').textContent = '1.856400';
+        document.getElementById('games-played').textContent = '8';
+        document.getElementById('ads-watched').textContent = '5';
+        document.getElementById('referrals-count').textContent = '2';
+        document.getElementById('ref-count').textContent = '2';
+        document.getElementById('ref-earnings').textContent = '0.124500';
+        document.getElementById('daily-streak').textContent = '3/7';
+        document.getElementById('high-score').textContent = '650/1000';
+        document.getElementById('milestone-3').textContent = '2/3';
+      }, 1000);
+    }
+    
+    // Function to logout
+    function logout() {
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.showPopup({
+          title: 'Logout',
+          message: 'Are you sure you want to logout?',
+          buttons: [
+            {id: 'cancel', type: 'cancel', text: 'Cancel'},
+            {id: 'logout', type: 'destructive', text: 'Logout'}
+          ]
+        }, function(buttonId) {
+          if (buttonId === 'logout') {
+            // Clear local data
+            localStorage.clear();
+            // Close the WebApp
+            Telegram.WebApp.close();
+          }
+        });
+      } else {
+        if (confirm('Are you sure you want to logout?')) {
+          localStorage.clear();
+          window.location.reload();
+        }
+      }
+    }
+  </script>
 </body>
 </html>
