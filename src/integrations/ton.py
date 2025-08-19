@@ -7,7 +7,7 @@ from pytoniq import LiteClient, WalletV4R2, Address
 from pytoniq_core import begin_cell
 from src.utils.validators import validate_ton_address
 from config import config
-from src.database.mongo import db, update_game_coins
+from src.database.mongo import db, update_game_coins, client
 from src.utils.security import secure_mask
 
 logger = logging.getLogger(__name__)

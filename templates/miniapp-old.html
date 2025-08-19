@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 CryptoGameMiner</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/miniapp.css') }}">
+  <style>
+    /* Enhanced styling with glowing balls and animations */
+    body {
+      background: #000;
+      color: #fff;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    /* Glowing balls background */
+    .background-balls {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+    
+    .ball {
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.3;
+      filter: blur(40px);
+      animation: float 15s infinite ease-in-out;
+    }
+    
+    .ball:nth-child(1) {
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, #ffd700, transparent);
+      top: 20%;
+      left: 10%;
+      animation-delay: 0s;
+    }
+    
+    .ball:nth-child(2) {
+      width: 250px;
+      height: 250px;
+      background: radial-gradient(circle, #ff6b6b, transparent);
+      top: 60%;
+      left: 80%;
+      animation-delay: -5s;
+    }
+    
+    .ball:nth-child(3) {
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, #4ecdc4, transparent);
+      top: 40%;
+      left: 60%;
+      animation-delay: -10s;
+    }
+    
+    .ball:nth-child(4) {
+      width: 350px;
+      height: 350px;
+      background: radial-gradient(circle, #6a0572, transparent);
+      top: 70%;
+      left: 20%;
+      animation-delay: -7s;
+    }
+    
+    @keyframes float {
+      0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      25% {
+        transform: translate(20px, 15px) rotate(5deg);
+      }
+      50% {
+        transform: translate(-15px, 20px) rotate(-5deg);
+      }
+      75% {
+        transform: translate(-20px, -15px) rotate(5deg);
+      }
+    }
+    
+    /* Yellow buttons as requested */
+    .btn-primary {
+      background: linear-gradient(135deg, #ffd700, #ffb700);
+      color: #000;
+      border: none;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    }
+    
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #ffb700, #ff9900);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+    }
+    
+    /* Shop floating button */
+    .shop-floating-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffd700, #ffb700);
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+      z-index: 1000;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    /* Navigation bar at bottom */
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(20, 20, 20, 0.9);
+      backdrop-filter: blur(10px);
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 999;
+    }
+    
+    .nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 0.8rem;
+      padding: 5px 10px;
+      border-radius: 8px;
+      transition: all 0.3s;
+    }
+    
+    .nav-btn.active {
+      color: #ffd700;
+      background: rgba(255, 215, 0, 0.1);
+    }
+    
+    .nav-icon {
+      font-size: 1.5rem;
+      margin-bottom: 4px;
+    }
+    
+    /* Page container with padding for nav */
+    .page-container {
+      padding-bottom: 70px;
+      min-height: 100vh;
+    }
+    
+    /* Header with profile */
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: rgba(20, 20, 20, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .profile-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .balance-display {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 15px;
+      border-radius: 20px;
+      font-weight: bold;
+      color: #ffd700;
+    }
+    
+    /* Home page sections */
+    .home-section {
+      background: rgba(30, 30, 30, 0.6);
+      border-radius: 15px;
+      padding: 20px;
+      margin: 15px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .section-title {
+      color: #ffd700;
+      margin-bottom: 15px;
+      font-size: 1.2rem;
+    }
+    
+    .click-area {
+      background: rgba(255, 215, 0, 0.1);
+      border: 2px solid #ffd700;
+      border-radius: 15px;
+      height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin: 15px 0;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .click-area:active {
+      transform: scale(0.95);
+    }
+    
+    /* Game grid */
+    .game-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .game-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .game-card:hover {
+      transform: translateY(-5px);
+      background: rgba(255, 215, 0, 0.1);
+      border-color: #ffd700;
+    }
+    
+    .game-icon {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    
+    /* OTC Desk specific styles */
+    .currency-selector {
+      display: flex;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    
+    .currency-option {
+      flex: 1;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      text-align: center;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    
+    .currency-option.active {
+      background: rgba(255, 215, 0, 0.1);
+      border-color: #ffd700;
+    }
+    
+    /* Referral milestones */
+    .milestone {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .milestone.reached {
+      background: rgba(76, 175, 80, 0.1);
+      border-left: 4px solid #4CAF50;
+    }
+  </style>
+</head>
+<body>
+  <!-- Glowing balls background -->
+  <div class="background-balls">
+    <div class="ball"></div>
+    <div class="ball"></div>
+    <div class="ball"></div>
+    <div class="ball"></div>
+  </div>
+
+  <!-- Floating Shop Button -->
+  <div class="shop-floating-btn" onclick="showPage('shop')">🛒</div>
+
+  <div class="page-container">
+    <!-- Header with Profile -->
+    <header class="app-header">
+      <button class="profile-btn" onclick="showProfileMenu()">
+        <span class="nav-icon">👤</span>
+        <span id="profile-username">Guest</span>
+      </button>
+      <div class="balance-display">
+        <span id="balance">0.000000</span> TON
+      </div>
+    </header>
+
+    <!-- HOME Page -->
+    <div id="home-page" class="page active">
+      <!-- Daily Bonus Popup (shown on first load) -->
+      <div class="home-section" id="daily-bonus-popup" style="display: none;">
+        <h2 class="section-title">🎁 Daily Bonus</h2>
+        <p>Claim your daily reward of <strong>0.05 TON</strong>!</p>
+        <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="claimDailyBonus()">
+          Claim Bonus
+        </button>
+      </div>
+
+      <!-- Click & Earn Section -->
+      <div class="home-section">
+        <h2 class="section-title">⚡ Click & Earn</h2>
+        <div class="click-area" onclick="handleClickEarn()">
+          <div class="click-text">TAP TO EARN</div>
+        </div>
+        <p style="text-align: center;">
+          Clicks today: <span id="click-count" style="color: #ffd700; font-weight: bold;">0</span>/100
+        </p>
+      </div>
+
+      <!-- Featured Games -->
+      <div class="home-section">
+        <h2 class="section-title">🎮 Featured Games</h2>
+        <div class="game-grid">
+          <div class="game-card" data-game-id="trivia">
+            <div class="game-icon">❓</div>
+            <div class="game-name">Crypto Trivia</div>
+          </div>
+          <div class="game-card" data-game-id="spin">
+            <div class="game-icon">🎡</div>
+            <div class="game-name">Lucky Spin</div>
+          </div>
+          <div class="game-card" data-game-id="clicker">
+            <div class="game-icon">🖱️</div>
+            <div class="game-name">TON Clicker</div>
+          </div>
+          <div class="game-card" data-game-id="trex">
+            <div class="game-icon">🦖</div>
+            <div class="game-name">T-Rex Runner</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ad Space -->
+      <div class="home-section">
+        <div class="ad-slot" id="home-ad-slot">
+          <!-- Ad content will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- WATCH Page -->
+    <div id="watch-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">📺 Watch & Earn</h2>
+        <p>Watch video ads and earn TON coins instantly!</p>
+        <button class="btn btn-primary" style="width: 100%; margin: 15px 0;" onclick="watchAd()">
+          ▶️ Watch Ad & Earn TON
+        </button>
+        <div style="padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
+          <small style="color: #ffcc00;">💡 Tip: Weekend ads give 20% bonus!</small>
+        </div>
+      </div>
+
+      <!-- Ad Video Container -->
+      <div class="home-section">
+        <div id="video-ad-container" style="width: 100%; height: 200px; background: #222; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <div style="text-align: center; color: #666;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📺</div>
+            <div>Ad will play here</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WALLET Page -->
+    <div id="wallet-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">💰 Your Wallet</h2>
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="font-size: 1.5rem; color: #4CAF50;">
+            <span id="gc-balance">0</span> GC
+          </div>
+          <div style="color: #888; margin-top: 8px;">
+            ≈ <span id="ton-equivalent">0.00</span> TON
+          </div>
+          <div style="color: #666; margin-top: 4px; font-size: 0.8rem;">
+            200,000 GC = 100 TON
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px;">
+          <button class="btn btn-primary" onclick="showWithdrawalForm()">
+            📤 Withdraw
+          </button>
+          <button class="btn btn-primary" onclick="connectWallet()">
+            🔗 Connect Wallet
+          </button>
+        </div>
+      </div>
+
+      <!-- Withdrawal Form -->
+      <div class="home-section" id="withdrawal-form" style="display: none;">
+        <h3 style="margin-bottom: 16px; color: #ffd700;">Withdraw TON</h3>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">TON Wallet Address</label>
+          <input type="text" id="withdraw-address" placeholder="EQxxxxx..." style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Amount (TON)</label>
+          <input type="number" id="withdraw-amount" placeholder="0.000000" step="0.000001" min="0.1" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
+          <small style="color: #888;">Minimum withdrawal: 0.1 TON</small>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" style="background: rgba(255,255,255,0.1); flex: 1;" onclick="hideWithdrawalForm()">Cancel</button>
+          <button class="btn btn-primary" style="flex: 1;" onclick="processWithdrawal()">Withdraw</button>
+        </div>
+      </div>
+
+      <!-- Stats Section -->
+      <div class="home-section">
+        <h2 class="section-title">📊 Stats</h2>
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="stat-value" id="total-earned">0.000000</div>
+            <div class="stat-label">Total Earned</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="games-played">0</div>
+            <div class="stat-label">Games Played</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ads-watched">0</div>
+            <div class="stat-label">Ads Watched</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="referrals-count">0</div>
+            <div class="stat-label">Referrals</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAMES Page -->
+    <div id="games-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">🎮 All Games</h2>
+        <p style="margin-bottom: 20px; color: #ccc;">
+          Play games, earn TON coins, and climb the leaderboards!
+        </p>
+        
+        <div class="game-grid">
+          <div class="game-card" data-game-id="trivia">
+            <div class="game-icon">❓</div>
+            <div class="game-name">Crypto Trivia</div>
+            <small style="color: #888;">Test your knowledge</small>
+          </div>
+          
+          <div class="game-card" data-game-id="spin">
+            <div class="game-icon">🎡</div>
+            <div class="game-name">Lucky Spin</div>
+            <small style="color: #888;">Spin to win big</small>
+          </div>
+          
+          <div class="game-card" data-game-id="clicker">
+            <div class="game-icon">🖱️</div>
+            <div class="game-name">TON Clicker</div>
+            <small style="color: #888;">Click for rewards</small>
+          </div>
+          
+          <div class="game-card" data-game-id="trex">
+            <div class="game-icon">🦖</div>
+            <div class="game-name">T-Rex Runner</div>
+            <small style="color: #888;">Endless runner</small>
+          </div>
+          
+          <div class="game-card" data-game-id="edge-surf">
+            <div class="game-icon">🏄</div>
+            <div class="game-name">Edge Surf</div>
+            <small style="color: #888;">Surf the web</small>
+          </div>
+          
+          <div class="game-card" style="opacity: 0.6;">
+            <div class="game-icon">🎲</div>
+            <div class="game-name">More Games</div>
+            <small style="color: #888;">Coming soon</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUESTS Page -->
+    <div id="quests-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">📝 Daily Quests</h2>
+        <p style="margin-bottom: 16px; color: #ccc;">
+          Complete daily tasks to earn bonus rewards!
+        </p>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">✅ Claim Daily Bonus</div>
+            <small style="color: #888;">Reward: 0.05 TON</small>
+          </div>
+          <button class="btn btn-primary" id="quest-bonus-btn">Claim</button>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">📺 Watch 3 Ads</div>
+            <small style="color: #888;">Progress: <span id="quest-ads">0</span>/3 | Reward: 0.009 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('watch')">Watch</button>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">🎮 Play 2 Games</div>
+            <small style="color: #888;">Progress: <span id="quest-games">0</span>/2 | Reward: 0.006 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('games')">Play</button>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">👥 Invite 1 Friend</div>
+            <small style="color: #888;">Progress: <span id="quest-invite">0</span>/1 | Reward: 0.05 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('referrals')">Invite</button>
+        </div>
+      </div>
+
+      <div class="home-section">
+        <h2 class="section-title">🏆 Weekly Challenges</h2>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">🔥 7-Day Streak</div>
+            <small style="color: #888;">Login daily for a week | Reward: 0.5 TON</small>
+          </div>
+          <div style="color: #ffd700; font-weight: bold;" id="daily-streak">0/7</div>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">💯 Score 1000+ Points</div>
+            <small style="color: #888;">In any game | Reward: 0.1 TON</small>
+          </div>
+          <div style="color: #888;" id="high-score">0/1000</div>
+        </div>
+        
+        <div class="milestone">
+          <div>
+            <div style="font-weight: 600;">📱 Share App</div>
+            <small style="color: #888;">Share with 5 friends | Reward: 0.25 TON</small>
+          </div>
+          <button class="btn" style="background: rgba(255,255,255,0.1);" id="share-app-btn">Share</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- OTC_DESK Page -->
+    <div id="otc-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">💱 OTC Exchange</h2>
+        <p style="margin-bottom: 20px; color: #ccc;">
+          Trade your TON for fiat currencies instantly!
+        </p>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Amount (TON)</label>
+          <input type="number" id="otc-amount" placeholder="0.000000" step="0.000001" min="0.1" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.05); color: white; border: 2px solid rgba(255,255,255,0.1);" />
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Currency</label>
+          <div class="currency-selector">
+            <div class="currency-option active" data-currency="USDT">USDT</div>
+            <div class="currency-option" data-currency="USD">USD</div>
+            <div class="currency-option" data-currency="KES">KES</div>
+            <div class="currency-option" data-currency="EUR">EUR</div>
+          </div>
+        </div>
+        
+        <div id="conversion-preview" style="background: rgba(255,204,0,0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; display: none;">
+          <div style="color: #ffd700; font-weight: 600;">Conversion Preview:</div>
+          <div id="conversion-text"></div>
+          <small style="color: #888;" id="fee-text">Fee: 3% (min $1.00)</small>
+        </div>
+        
+        <button class="btn btn-primary" id="swap-ton-btn" style="width: 100%;">
+          💱 Swap TON for Cash
+        </button>
+      </div>
+
+      <div class="home-section">
+        <h2 class="section-title">💹 Current Rates</h2>
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="stat-value" id="rate-usd">$6.80</div>
+            <div class="stat-label">1 TON = USD</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="rate-kes">950</div>
+            <div class="stat-label">1 TON = KES</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="rate-eur">€6.20</div>
+            <div class="stat-label">1 TON = EUR</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="rate-usdt">6.75</div>
+            <div class="stat-label">1 TON = USDT</div>
+          </div>
+        </div>
+        <small style="color: #888; display: block; text-align: center; margin-top: 12px;">
+          ⏰ Rates updated every 5 minutes
+        </small>
+      </div>
+    </div>
+
+    <!-- REFERRALS Page -->
+    <div id="referrals-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">👥 Invite & Earn</h2>
+        <p style="margin: 12px 0;">Earn 20% of your friends' earnings forever!</p>
+        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; margin: 15px 0; word-break: break-all;" id="ref-link">
+          https://t.me/CryptoGameMinerBot?start=ref-xyz123
+        </div>
+        <button class="btn btn-primary" id="copy-ref-btn" style="width: 100%;">
+          📋 Copy Invite Link
+        </button>
+      </div>
+
+      <div class="home-section">
+        <h2 class="section-title">📊 Your Referral Stats</h2>
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="stat-value" id="ref-count">0</div>
+            <div class="stat-label">Friends Invited</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ref-earnings">0.000000</div>
+            <div class="stat-label">Total Earned (TON)</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ref-active">0</div>
+            <div class="stat-label">Active This Week</div>
+          </div>
+          <div class="game-card">
+            <div class="stat-value" id="ref-level">1</div>
+            <div class="stat-label">Referrer Level</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-section">
+        <h2 class="section-title">🎯 Referral Milestones</h2>
+        
+        <div class="milestone">
+          <span>🥉 3 referrals → Bonus 0.01 TON</span>
+          <span style="color: #4CAF50;" id="milestone-3">0/3</span>
+        </div>
+        <div class="milestone">
+          <span>🥈 10 referrals → Bonus 0.05 TON</span>
+          <span style="color: #888;" id="milestone-10">0/10</span>
+        </div>
+        <div class="milestone">
+          <span>🥇 50 referrals → Bonus 0.25 TON</span>
+          <span style="color: #888;" id="milestone-50">0/50</span>
+        </div>
+        <div class="milestone">
+          <span>💎 100 referrals → Bonus 1.0 TON</span>
+          <span style="color: #888;" id="milestone-100">0/100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP Page -->
+    <div id="shop-page" class="page">
+      <div class="home-section">
+        <h2 class="section-title">🛒 Game Shop</h2>
+        <p style="margin-bottom: 20px; color: #ccc;">
+          Buy boosters to enhance your gaming experience!
+        </p>
+        
+        <div class="game-grid">
+          <div class="game-card">
+            <div class="game-icon">🚀</div>
+            <div class="game-name">2x Earnings Booster</div>
+            <small style="color: #888;">Double earnings for 1 hour</small>
+            <div style="color: #ff6b6b; font-weight: bold; margin-top: 10px;">2000 GC</div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" data-item="global_booster">Buy</button>
+          </div>
+          
+          <div class="game-card">
+            <div class="game-icon">⏱️</div>
+            <div class="game-name">Trivia Time Extender</div>
+            <small style="color: #888;">+10 seconds per question</small>
+            <div style="color: #ff6b6b; font-weight: bold; margin-top: 10px;">500 GC</div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" data-item="trivia_extra_time">Buy</button>
+          </div>
+          
+          <div class="game-card">
+            <div class="game-icon">🎡</div>
+            <div class="game-name">Extra Spin</div>
+            <small style="color: #888;">Get an extra spin</small>
+            <div style="color: #ff6b6b; font-weight: bold; margin-top: 10px;">300 GC</div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" data-item="spin_extra_spin">Buy</button>
+          </div>
+          
+          <div class="game-card">
+            <div class="game-icon">🤖</div>
+            <div class="game-name">Auto-Clicker</div>
+            <small style="color: #888;">Clicks every 5 seconds</small>
+            <div style="color: #ff6b6b; font-weight: bold; margin-top: 10px;">1000 GC</div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" data-item="clicker_auto_upgrade">Buy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROFILE Menu (initially hidden) -->
+    <div id="profile-menu" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 1000; padding: 20px; overflow-y: auto;">
+      <div style="display: flex; justify-content: flex-end;">
+        <button style="background: none; border: none; color: white; font-size: 24px;" onclick="hideProfileMenu()">✕</button>
+      </div>
+      
+      <div style="text-align: center; margin: 20px 0;">
+        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ffd700, #ffb700); border-radius: 50%; margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+          👤
+        </div>
+        <h3 id="profile-name">Guest</h3>
+        <p style="color: #888;" id="member-since">Member since today</p>
+      </div>
+      
+      <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span>Current Balance:</span>
+          <span style="color: #4CAF50; font-weight: bold;"><span id="profile-balance">0.000000</span> TON</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span>Total Earned:</span>
+          <span style="color: #ffd700; font-weight: bold;"><span id="profile-total-earned">0.000000</span> TON</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span>Account Level:</span>
+          <span style="color: #888;" id="account-level">Beginner</span>
+        </div>
+      </div>
+
+      <div style="margin: 20px 0;">
+        <h3 style="color: #ffd700; margin-bottom: 15px;">🏆 Achievements</h3>
+        <div class="game-grid">
+          <div class="game-card">🎯 First Click</div>
+          <div class="game-card">📺 Ad Watcher</div>
+          <div class="game-card" style="opacity: 0.5;">🎮 Game Master</div>
+          <div class="game-card" style="opacity: 0.5;">💰 Big Earner</div>
+          <div class="game-card" style="opacity: 0.5;">👥 Influencer</div>
+          <div class="game-card" style="opacity: 0.5;">⭐ VIP Member</div>
+        </div>
+      </div>
+
+      <div style="margin: 20px 0;">
+        <h3 style="color: #ffd700; margin-bottom: 15px;">⚙️ Settings & Info</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn" style="background: rgba(255,255,255,0.1); text-align: left; justify-content: flex-start;" onclick="showHelp()">
+            ❓ Help & Support
+          </button>
+          <button class="btn" style="background: rgba(255,255,255,0.1); text-align: left; justify-content: flex-start;" onclick="showAbout()">
+            📜 About CryptoGameMiner
+          </button>
+          <button class="btn" style="background: rgba(255,255,255,0.1); text-align: left; justify-content: flex-start;" onclick="showTerms()">
+            📄 Terms of Service
+          </button>
+          <button class="btn" style="background: rgba(255,255,255,0.1); text-align: left; justify-content: flex-start;" onclick="showPrivacy()">
+            🔒 Privacy Policy
+          </button>
+          <button class="btn" style="background: rgba(255,255,255,0.1); text-align: left; justify-content: flex-start;" onclick="logout()">
+            🚪 Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Bar -->
+  <nav class="nav-bar">
+    <button class="nav-btn active" data-page="home">
+      <span class="nav-icon">🏠</span>
+      <span>Home</span>
+    </button>
+    <button class="nav-btn" data-page="watch">
+      <span class="nav-icon">📺</span>
+      <span>Watch</span>
+    </button>
+    <button class="nav-btn" data-page="wallet">
+      <span class="nav-icon">💰</span>
+      <span>Wallet</span>
+    </button>
+    <button class="nav-btn" data-page="games">
+      <span class="nav-icon">🎮</span>
+      <span>Games</span>
+    </button>
+    <button class="nav-btn" data-page="quests">
+      <span class="nav-icon">📝</span>
+      <span>Quests</span>
+    </button>
+    <button class="nav-btn" data-page="otc">
+      <span class="nav-icon">💱</span>
+      <span>Trade</span>
+    </button>
+    <button class="nav-btn" data-page="referrals">
+      <span class="nav-icon">👥</span>
+      <span>Invite</span>
+    </button>
+  </nav>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/miniapp.js') }}"></script>
+  <script>
+    // Initialize the app when Telegram WebApp is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize Telegram WebApp
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        
+        // Set up the user data
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        if (user) {
+          document.getElementById('profile-username').textContent = user.username || `User${user.id}`;
+          document.getElementById('profile-name').textContent = user.username || `User${user.id}`;
+        }
+        
+        // Show daily bonus popup if not claimed today
+        const lastBonusDate = localStorage.getItem('lastBonusDate');
+        const today = new Date().toDateString();
+        if (lastBonusDate !== today) {
+          document.getElementById('daily-bonus-popup').style.display = 'block';
+        }
+        
+        // Set up navigation
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const pageId = this.getAttribute('data-page');
+            showPage(pageId);
+            
+            // Update active state
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+          });
+        });
+        
+        // Set up game cards
+        document.querySelectorAll('.game-card').forEach(card => {
+          card.addEventListener('click', function() {
+            const gameId = this.getAttribute('data-game-id');
+            launchGame(gameId);
+          });
+        });
+        
+        // Set up currency selector
+        document.querySelectorAll('.currency-option').forEach(option => {
+          option.addEventListener('click', function() {
+            document.querySelectorAll('.currency-option').forEach(o => o.classList.remove('active'));
+            this.classList.add('active');
+            updateConversionPreview();
+          });
+        });
+        
+        // Set up OTC amount input
+        document.getElementById('otc-amount').addEventListener('input', updateConversionPreview);
+        
+        // Set up shop item buttons
+        document.querySelectorAll('[data-item]').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item');
+            purchaseItem(itemId);
+          });
+        });
+        
+        // Set up copy referral link button
+        document.getElementById('copy-ref-btn').addEventListener('click', function() {
+          const refLink = document.getElementById('ref-link').textContent;
+          navigator.clipboard.writeText(refLink).then(() => {
+            Telegram.WebApp.showPopup({
+              title: 'Copied!',
+              message: 'Referral link copied to clipboard',
+              buttons: [{type: 'ok'}]
+            });
+          });
+        });
+        
+        // Load initial data
+        loadUserData();
+      } else {
+        // Fallback for non-Telegram environments
+        document.body.innerHTML = `
+          <div style="text-align:center;padding:50px 20px;">
+            <h1>Please open in Telegram</h1>
+            <p>This application must be opened within the Telegram messenger</p>
+            <button style="margin-top:20px;padding:10px 20px;background:#0088cc;color:white;border:none;border-radius:8px;"
+                    onclick="window.location.href='https://t.me/Got3dBot'">
+              Open in Telegram
+            </button>
+          </div>
+        `;
+      }
+    });
+    
+    // Function to show a specific page
+    function showPage(pageId) {
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+      });
+      document.getElementById(`${pageId}-page`).classList.add('active');
+    }
+    
+    // Function to show profile menu
+    function showProfileMenu() {
+      document.getElementById('profile-menu').style.display = 'block';
+    }
+    
+    // Function to hide profile menu
+    function hideProfileMenu() {
+      document.getElementById('profile-menu').style.display = 'none';
+    }
+    
+    // Function to load user data
+    function loadUserData() {
+      // This would typically fetch from your backend API
+      // For now, we'll use mock data
+      setTimeout(() => {
+        document.getElementById('balance').textContent = '0.254300';
+        document.getElementById('gc-balance').textContent = '12500';
+        document.getElementById('ton-equivalent').textContent = '6.25';
+        document.getElementById('profile-balance').textContent = '0.254300';
+        document.getElementById('profile-total-earned').textContent = '1.856400';
+        document.getElementById('click-count').textContent = '12';
+        document.getElementById('total-earned').textContent = '1.856400';
+        document.getElementById('games-played').textContent = '8';
+        document.getElementById('ads-watched').textContent = '5';
+        document.getElementById('referrals-count').textContent = '2';
+        document.getElementById('ref-count').textContent = '2';
+        document.getElementById('ref-earnings').textContent = '0.124500';
+        document.getElementById('daily-streak').textContent = '3/7';
+        document.getElementById('high-score').textContent = '650/1000';
+        document.getElementById('milestone-3').textContent = '2/3';
+      }, 1000);
+    }
+    
+    // Function to handle click earning
+    function handleClickEarn() {
+      const clickCount = parseInt(document.getElementById('click-count').textContent);
+      if (clickCount >= 100) {
+        Telegram.WebApp.showPopup({
+          title: 'Limit Reached',
+          message: 'You have reached the daily click limit. Try again tomorrow!',
+          buttons: [{type: 'ok'}]
+        });
+        return;
+      }
+      
+      // Update click count
+      document.getElementById('click-count').textContent = clickCount + 1;
+      
+      // Add visual feedback
+      const clickArea = document.querySelector('.click-area');
+      clickArea.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        clickArea.style.transform = 'scale(1)';
+      }, 100);
+      
+      // Show earned amount (would typically come from backend)
+      const earnedElement = document.createElement('div');
+      earnedElement.textContent = '+0.0001 TON';
+      earnedElement.style.position = 'absolute';
+      earnedElement.style.color = '#ffd700';
+      earnedElement.style.fontWeight = 'bold';
+      earnedElement.style.animation = 'floatUp 1s forwards';
+      clickArea.appendChild(earnedElement);
+      
+      setTimeout(() => {
+        earnedElement.remove();
+      }, 1000);
+      
+      // Update balance (would typically come from backend)
+      const currentBalance = parseFloat(document.getElementById('balance').textContent);
+      document.getElementById('balance').textContent = (currentBalance + 0.0001).toFixed(6);
+    }
+    
+    // Function to claim daily bonus
+    function claimDailyBonus() {
+      // Record that bonus was claimed today
+      localStorage.setItem('lastBonusDate', new Date().toDateString());
+      
+      // Hide the popup
+      document.getElementById('daily-bonus-popup').style.display = 'none';
+      
+      // Update balance (would typically come from backend)
+      const currentBalance = parseFloat(document.getElementById('balance').textContent);
+      document.getElementById('balance').textContent = (currentBalance + 0.05).toFixed(6);
+      
+      Telegram.WebApp.showPopup({
+        title: 'Bonus Claimed!',
+        message: '0.05 TON has been added to your balance',
+        buttons: [{type: 'ok'}]
+      });
+    }
+    
+    // Function to watch an ad
+    function watchAd() {
+      Telegram.WebApp.showPopup({
+        title: 'Watch Ad',
+        message: 'Would you like to watch a video ad to earn 0.001 TON?',
+        buttons: [
+          {id: 'cancel', type: 'cancel', text: 'Cancel'},
+          {id: 'watch', type: 'default', text: 'Watch Ad'}
+        ]
+      }, function(buttonId) {
+        if (buttonId === 'watch') {
+          // Simulate ad watching
+          Telegram.WebApp.showPopup({
+            title: 'Ad Playing',
+            message: 'Please watch the ad to completion...',
+            buttons: [{type: 'close'}]
+          });
+          
+          // After 5 seconds, simulate ad completion
+          setTimeout(() => {
+            // Update balance (would typically come from backend)
+            const currentBalance = parseFloat(document.getElementById('balance').textContent);
+            document.getElementById('balance').textContent = (currentBalance + 0.001).toFixed(6);
+            
+            // Update ads watched count
+            const adsWatched = parseInt(document.getElementById('ads-watched').textContent);
+            document.getElementById('ads-watched').textContent = adsWatched + 1;
+            
+            Telegram.WebApp.showPopup({
+              title: 'Ad Completed',
+              message: 'You earned 0.001 TON!',
+              buttons: [{type: 'ok'}]
+            });
+          }, 5000);
+        }
+      });
+    }
+    
+    // Function to launch a game
+    function launchGame(gameId) {
+      Telegram.WebApp.showPopup({
+        title: `Play ${gameId.charAt(0).toUpperCase() + gameId.slice(1)}`,
+        message: `Earn TON coins by playing this game!`,
+        buttons: [
+          {id: 'cancel', type: 'cancel', text: 'Cancel'},
+          {id: 'play', type: 'default', text: 'Play Now'}
+        ]
+      }, function(buttonId) {
+        if (buttonId === 'play') {
+          // Redirect to game page
+          window.location.href = `/games/${gameId}`;
+        }
+      });
+    }
+    
+    // Function to show withdrawal form
+    function showWithdrawalForm() {
+      document.getElementById('withdrawal-form').style.display = 'block';
+    }
+    
+    // Function to hide withdrawal form
+    function hideWithdrawalForm() {
+      document.getElementById('withdrawal-form').style.display = 'none';
+    }
+    
+    // Function to process withdrawal
+    function processWithdrawal() {
+      const address = document.getElementById('withdraw-address').value;
+      const amount = parseFloat(document.getElementById('withdraw-amount').value);
+      
+      if (!address) {
+        Telegram.WebApp.showPopup({
+          title: 'Error',
+          message: 'Please enter a wallet address',
+          buttons: [{type: 'ok'}]
+        });
+        return;
+      }
+      
+      if (!amount || amount < 0.1) {
+        Telegram.WebApp.showPopup({
+          title: 'Error',
+          message: 'Minimum withdrawal is 0.1 TON',
+          buttons: [{type: 'ok'}]
+        });
+        return;
+      }
+      
+      const currentBalance = parseFloat(document.getElementById('balance').textContent);
+      if (amount > currentBalance) {
+        Telegram.WebApp.showPopup({
+          title: 'Error',
+          message: 'Insufficient balance',
+          buttons: [{type: 'ok'}]
+        });
+        return;
+      }
+      
+      Telegram.WebApp.showPopup({
+        title: 'Confirm Withdrawal',
+        message: `Send ${amount} TON to ${address}?`,
+        buttons: [
+          {id: 'cancel', type: 'cancel', text: 'Cancel'},
+          {id: 'confirm', type: 'default', text: 'Confirm'}
+        ]
+      }, function(buttonId) {
+        if (buttonId === 'confirm') {
+          // Process withdrawal (would typically call backend API)
+          document.getElementById('balance').textContent = (currentBalance - amount).toFixed(6);
+          hideWithdrawalForm();
+          
+          Telegram.WebApp.showPopup({
+            title: 'Withdrawal Processing',
+            message: 'Your withdrawal is being processed. It may take up to 24 hours.',
+            buttons: [{type: 'ok'}]
+          });
+        }
+      });
+    }
+    
+    // Function to connect wallet
+    function connectWallet() {
+      if (typeof window.ton === 'undefined') {
+        Telegram.WebApp.showPopup({
+          title: 'Wallet Not Available',
+          message: 'Please install a TON wallet extension',
+          buttons: [{type: 'ok'}]
+        });
+        return;
+      }
+      
+      window.ton.send("ton_requestWallets").then(wallets => {
+        if (wallets.length > 0) {
+          const address = wallets[0].address;
+          Telegram.WebApp.showPopup({
+            title: 'Wallet Connected',
+            message: `Connected to wallet: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`,
+            buttons: [{type: 'ok'}]
+          });
+        }
+      });
+    }
+    
+    // Function to update OTC conversion preview
+    function updateConversionPreview() {
+      const amount = parseFloat(document.getElementById('otc-amount').value) || 0;
+      const currency = document.querySelector('.currency-option.active').getAttribute('data-currency');
+      
+      if (amount > 0) {
+        const rates = {
+          'USDT': 6.75,
+          'USD': 6.80,
+          'KES': 950,
+          'EUR': 6.20
+        };
+        
+        const converted = (amount * rates[currency]).toFixed(2);
+        const fee = Math.max(amount * 0.03, 1).toFixed(2);
+        
+        document.getElementById('conversion-text').textContent = 
+          `${amount} TON = ${converted} ${currency}`;
+        document.getElementById('fee-text').textContent = `Fee: 3% ($${fee})`;
+        document.getElementById('conversion-preview').style.display = 'block';
+      } else {
+        document.getElementById('conversion-preview').style.display = 'none';
+      }
+    }
+    
+    // Function to purchase an item
+    function purchaseItem(itemId) {
+      const items = {
+        'global_booster': { name: '2x Earnings Booster', price: 2000 },
+        'trivia_extra_time': { name: 'Trivia Time Extender', price: 500 },
+        'spin_extra_spin': { name: 'Extra Spin', price: 300 },
+        'clicker_auto_upgrade': { name: 'Auto-Clicker', price: 1000 }
+      };
+      
+      const item = items[itemId];
+      const gcBalance = parseInt(document.getElementById('gc-balance').textContent);
+      
+      if (gcBalance < item.price) {
+        Telegram.WebApp.showPopup({
+          title: 'Insufficient GC',
+          message: `You need ${item.price} GC to buy this item. You have ${gcBalance} GC.`,
+          buttons: [{type: 'ok'}]
+        });
+        return;
+      }
+      
+      Telegram.WebApp.showPopup({
+        title: 'Confirm Purchase',
+        message: `Buy ${item.name} for ${item.price} GC?`,
+        buttons: [
+          {id: 'cancel', type: 'cancel', text: 'Cancel'},
+          {id: 'buy', type: 'default', text: 'Buy Now'}
+        ]
+      }, function(buttonId) {
+        if (buttonId === 'buy') {
+          // Process purchase (would typically call backend API)
+          document.getElementById('gc-balance').textContent = gcBalance - item.price;
+          
+          Telegram.WebApp.showPopup({
+            title: 'Purchase Complete',
+            message: `You bought ${item.name}!`,
+            buttons: [{type: 'ok'}]
+          });
+        }
+      });
+    }
+    
+    // Add CSS for floatUp animation
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes floatUp {
+        0% { transform: translateY(0); opacity: 1; }
+        100% { transform: translateY(-30px); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  </script>
+</body>0
+</html>

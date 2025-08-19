@@ -1,253 +1,334 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TON Game Miner</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>CryptoGamer - TON Game Miner</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/css/main.css">
-  <style>
-    .shop-container, .games-container {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    
-    .shop-header, .games-header {
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    
-    .coins-display {
-      background: linear-gradient(135deg, #ffd700, #ffb700);
-      color: #8b4513;
-      padding: 10px 15px;
-      border-radius: 20px;
-      font-weight: bold;
-      display: inline-block;
-      margin: 10px 0;
-    }
-    
-    .shop-items, .game-cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 20px;
-    }
-    
-    .shop-item, .game-card {
-      background: white;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      transition: transform 0.3s;
-      cursor: pointer;
-    }
-    
-    .shop-item:hover, .game-card:hover {
-      transform: translateY(-5px);
-    }
-    
-    .item-header, .game-header {
-      background: #4e54c8;
-      color: white;
-      padding: 15px;
-      text-align: center;
-    }
-    
-    .item-body, .game-body {
-      padding: 15px;
-    }
-    
-    .item-price {
-      font-weight: bold;
-      color: #e74c3c;
-      margin: 10px 0;
-    }
-    
-    .btn-buy {
-      background: #27ae60;
-      color: white;
-      border: none;
-      padding: 8px 15px;
-      border-radius: 5px;
-      cursor: pointer;
-      width: 100%;
-      font-weight: bold;
-    }
-    
-    .game-icon {
-      font-size: 3rem;
-      text-align: center;
-      margin: 10px 0;
-    }
-    
-    .game-reward {
-      background: #2ecc71;
-      color: white;
-      padding: 5px 10px;
-      border-radius: 20px;
-      font-size: 0.9rem;
-    }
-    
-    #shop-page, #games-page {
-      display: none;
-    }
-  </style>
+  <link rel="stylesheet" href="/static/css/miniapp.css">
 </head>
 <body>
-  <div id="global-spinner" style="display:none;">Loading...</div>
-  
-  <!-- Navigation -->
-  <div class="nav-bar">
-    <button class="nav-btn" data-page="home">🏠 Home</button>
-    <button class="nav-btn" data-page="shop">🛒 Shop</button>
-    <button class="nav-btn" data-page="games">🎮 Games</button>
-    <button class="nav-btn" data-page="wallet">💼 Wallet</button>
-    <button class="nav-btn" data-page="profile">👤 Profile</button>
+  <!-- Background animation elements -->
+  <div class="bg-animation">
+    <div class="ball ball-1"></div>
+    <div class="ball ball-2"></div>
+    <div class="ball ball-3"></div>
+    <div class="ball ball-4"></div>
   </div>
 
-  <!-- Home Page -->
-  <div id="home-page" class="page active">
-    <div class="container">
-      <h1>Welcome to TON Game Miner!</h1>
-      <div class="balance-display" id="balance">Loading balance...</div>
-      <button id="bonus-btn">🎁 Claim Daily Bonus</button>
+  <!-- Header with profile -->
+  <header class="app-header">
+    <div class="profile-section">
+      <div class="profile-toggle" id="profile-toggle">
+        <img src="/static/images/default-avatar.png" alt="Profile" class="profile-avatar">
+        <span class="username" id="username">Loading...</span>
+      </div>
+      <div class="balance-display">
+        <span id="gc-balance">0 GC</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Profile Menu (initially hidden) -->
+  <div class="profile-menu" id="profile-menu">
+    <div class="menu-header">
+      <h3>User Profile</h3>
+      <button class="close-menu" id="close-menu">&times;</button>
+    </div>
+    <div class="menu-content">
+      <div class="user-info">
+        <img src="/static/images/default-avatar.png" alt="Profile" class="menu-avatar">
+        <div class="user-details">
+          <span class="menu-username" id="menu-username">Username</span>
+          <span class="menu-balance" id="menu-balance">0 GC</span>
+        </div>
+      </div>
+      <div class="menu-items">
+        <a href="#" class="menu-item" data-page="achievements">
+          <span class="icon">🏆</span>
+          <span>Achievements</span>
+        </a>
+        <a href="#" class="menu-item" data-page="support">
+          <span class="icon">❓</span>
+          <span>Help & Support</span>
+        </a>
+        <a href="#" class="menu-item" data-page="invite">
+          <span class="icon">👥</span>
+          <span>Invite Friends</span>
+        </a>
+        <a href="#" class="menu-item" data-page="about">
+          <span class="icon">ℹ️</span>
+          <span>About CryptoGamer</span>
+        </a>
+        <a href="#" class="menu-item" data-page="terms">
+          <span class="icon">📄</span>
+          <span>Terms of Service</span>
+        </a>
+        <a href="#" class="menu-item" data-page="privacy">
+          <span class="icon">🔒</span>
+          <span>Privacy Policy</span>
+        </a>
+      </div>
     </div>
   </div>
 
-  <!-- Shop Page -->
-  <div id="shop-page" class="page">
-    <div class="shop-container">
-      <div class="shop-header">
-        <h1>🎮 Game Shop</h1>
-        <div class="coins-display" id="gc-balance">Loading GC balance...</div>
-        <p>Buy items to enhance your gaming experience!</p>
+  <!-- Main content area -->
+  <main class="main-content">
+    <!-- Home Page -->
+    <section id="home-page" class="page active">
+      <div class="daily-bonus-popup" id="daily-bonus-popup">
+        <div class="bonus-content">
+          <h3>Daily Bonus!</h3>
+          <p>Claim your 100 GC daily reward</p>
+          <button class="claim-bonus" id="claim-bonus">Claim Now</button>
+        </div>
       </div>
       
-      <div class="shop-items">
-        <!-- Global Boosters -->
-        <div class="shop-item" data-item="global_booster">
-          <div class="item-header">
-            <h3>2x Earnings Booster</h3>
-          </div>
-          <div class="game-icon">🚀</div>
-          <div class="item-body">
-            <p>Double your earnings in all games for 1 hour</p>
-            <div class="item-price">Price: 2000 GC</div>
-            <button class="btn-buy">Buy Now</button>
-          </div>
+      <div class="click-game-preview">
+        <h3>Click & Earn</h3>
+        <div class="click-counter">
+          <span id="click-count">0</span>
+          <span>Clicks</span>
         </div>
-        
-        <!-- Trivia Items -->
-        <div class="shop-item" data-item="trivia_extra_time">
-          <div class="item-header">
-            <h3>Trivia Time Extender</h3>
-          </div>
-          <div class="game-icon">⏱️</div>
-          <div class="item-body">
-            <p>Adds 10 seconds per question in Trivia</p>
-            <div class="item-price">Price: 500 GC</div>
-            <button class="btn-buy">Buy Now</button>
-          </div>
-        </div>
-        
-        <!-- Spin Wheel Items -->
-        <div class="shop-item" data-item="spin_extra_spin">
-          <div class="item-header">
-            <h3>Extra Spin</h3>
-          </div>
-          <div class="game-icon">🎡</div>
-          <div class="item-body">
-            <p>Get an extra spin in the Spin Wheel game</p>
-            <div class="item-price">Price: 300 GC</div>
-            <button class="btn-buy">Buy Now</button>
-          </div>
-        </div>
-        
-        <!-- Clicker Items -->
-        <div class="shop-item" data-item="clicker_auto_upgrade">
-          <div class="item-header">
-            <h3>Auto-Clicker</h3>
-          </div>
-          <div class="game-icon">🤖</div>
-          <div class="item-body">
-            <p>Automatically click for you every 5 seconds</p>
-            <div class="item-price">Price: 1000 GC</div>
-            <button class="btn-buy">Buy Now</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Games Page -->
-  <div id="games-page" class="page">
-    <div class="games-container">
-      <div class="games-header">
-        <h1>🎮 Available Games</h1>
-        <p>Play games to earn Game Coins (GC) which can be converted to TON!</p>
+        <button class="click-button" id="click-button">Click Me!</button>
+        <p>Earn 1 GC per 10 clicks</p>
       </div>
       
-      <div class="game-cards">
-        <!-- TON Clicker -->
-        <div class="game-card" data-game-id="clicker">
-          <div class="game-header">
-            <h3>TON Clicker</h3>
+      <div class="ad-space" id="home-ad">
+        <!-- Ad content will be loaded here -->
+      </div>
+    </section>
+
+    <!-- Watch Page -->
+    <section id="watch-page" class="page">
+      <div class="page-header">
+        <h2>Watch & Earn</h2>
+        <p>Watch videos to earn Game Coins</p>
+      </div>
+      <div class="videos-container">
+        <div class="video-item">
+          <div class="video-thumbnail">
+            <span>▶️</span>
           </div>
-          <div class="game-icon">🖱️</div>
-          <div class="game-body">
-            <p>Click to earn coins and upgrades</p>
-            <div class="game-reward">Reward: 5 GC per 100 points</div>
-          </div>
-        </div>
-        
-        <!-- Lucky Spin -->
-        <div class="game-card" data-game-id="spin">
-          <div class="game-header">
-            <h3>Lucky Spin</h3>
-          </div>
-          <div class="game-icon">🎡</div>
-          <div class="game-body">
-            <p>Spin the wheel to win prizes</p>
-            <div class="game-reward">Reward: 8 GC per spin</div>
+          <div class="video-info">
+            <h4>Video Ad 1</h4>
+            <p>Earn 50 GC</p>
+            <button class="watch-btn">Watch Now</button>
           </div>
         </div>
-        
-        <!-- T-Rex Runner -->
-        <div class="game-card" data-game-id="trex">
-          <div class="game-header">
-            <h3>T-Rex Runner</h3>
+        <!-- More video items -->
+      </div>
+    </section>
+
+    <!-- Wallet Page -->
+    <section id="wallet-page" class="page">
+      <div class="page-header">
+        <h2>Wallet</h2>
+        <p>Manage your TON wallet</p>
+      </div>
+      <div class="wallet-status">
+        <div id="wallet-connected" class="hidden">
+          <p>Wallet Connected</p>
+          <p id="wallet-address">EQDrjaMAd1uyVtVb1hECV3a6F5Kc_ZLrjV7lLp7DZqNJiA1D</p>
+          <button id="disconnect-wallet">Disconnect</button>
+        </div>
+        <div id="wallet-disconnected">
+          <p>Connect your TON wallet to withdraw earnings</p>
+          <button id="connect-wallet">Connect Wallet</button>
+        </div>
+      </div>
+      <div class="withdrawal-info">
+        <h3>Withdrawal Information</h3>
+        <p>Minimum withdrawal: 200,000 GC (100 TON)</p>
+        <div class="progress-bar">
+          <div class="progress" id="withdrawal-progress" style="width: 35%"></div>
+        </div>
+        <p id="progress-text">70,000 / 200,000 GC</p>
+        <button id="request-withdrawal" disabled>Request Withdrawal</button>
+      </div>
+    </section>
+
+    <!-- Games Page -->
+    <section id="games-page" class="page">
+      <div class="page-header">
+        <h2>Games</h2>
+        <p>Play games to earn Game Coins</p>
+      </div>
+      <div class="games-grid" id="games-container">
+        <!-- Games will be loaded here -->
+      </div>
+    </section>
+
+    <!-- Quests Page -->
+    <section id="quests-page" class="page">
+      <div class="page-header">
+        <h2>Quests & Missions</h2>
+        <p>Complete tasks to earn rewards</p>
+      </div>
+      <div class="quests-tabs">
+        <button class="tab-btn active" data-tab="quests">Quests</button>
+        <button class="tab-btn" data-tab="missions">Missions</button>
+      </div>
+      <div class="tab-content">
+        <div id="quests-tab" class="tab-pane active">
+          <div class="quest-item">
+            <h4>Daily Login</h4>
+            <p>Log in for 7 consecutive days</p>
+            <div class="quest-progress">
+              <span>4/7 days</span>
+              <button class="claim-btn" disabled>Claim</button>
+            </div>
           </div>
-          <div class="game-icon">🦖</div>
-          <div class="game-body">
-            <p>Jump over obstacles in this endless runner</p>
-            <div class="game-reward">Reward: 12 GC per 100 points</div>
+          <div class="quest-item">
+            <h4>Invite Friends</h4>
+            <p>Invite 3 friends to join</p>
+            <div class="quest-progress">
+              <span>1/3 friends</span>
+              <button class="claim-btn" disabled>Claim</button>
+            </div>
           </div>
         </div>
-        
-        <!-- Crypto Trivia -->
-        <div class="game-card" data-game-id="trivia">
-          <div class="game-header">
-            <h3>Crypto Trivia</h3>
+        <div id="missions-tab" class="tab-pane">
+          <div class="mission-item">
+            <h4>Social Media Share</h4>
+            <p>Share our page on social media</p>
+            <div class="mission-reward">100 GC</div>
+            <button class="mission-btn">Start Mission</button>
           </div>
-          <div class="game-icon">❓</div>
-          <div class="game-body">
-            <p>Test your crypto knowledge</p>
-            <div class="game-reward">Reward: 10 GC per correct answer</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- OTC Desk Page -->
+    <section id="otc-page" class="page">
+      <div class="page-header">
+        <h2>OTC Desk</h2>
+        <p>Swap TON for cash</p>
+      </div>
+      <div class="otc-options">
+        <div class="otc-card">
+          <h3>Swap TON for Cash</h3>
+          <div class="currency-selector">
+            <label for="currency">Select Currency:</label>
+            <select id="currency">
+              <option value="ksh">Kenyan Shilling (KSH)</option>
+              <option value="usdt">USDT</option>
+            </select>
           </div>
+          <div class="amount-input">
+            <label for="ton-amount">TON Amount:</label>
+            <input type="number" id="ton-amount" placeholder="Enter amount">
+          </div>
+          <div class="conversion-rate">
+            <p>1 TON = 200 KSH</p>
+          </div>
+          <button id="swap-ton">Swap TON for Cash</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Referrals Page -->
+    <section id="referrals-page" class="page">
+      <div class="page-header">
+        <h2>Referrals</h2>
+        <p>Earn by inviting friends</p>
+      </div>
+      <div class="referral-stats">
+        <div class="stat-item">
+          <h4>Total Referrals</h4>
+          <span class="stat-value">5</span>
+        </div>
+        <div class="stat-item">
+          <h4>Earned from Referrals</h4>
+          <span class="stat-value">0.05 TON</span>
+        </div>
+      </div>
+      <div class="referral-tiers">
+        <h3>Referral Tiers</h3>
+        <div class="tier">
+          <span class="tier-label">3 friends</span>
+          <span class="tier-reward">0.01 TON</span>
+          <div class="tier-progress">
+            <div class="progress" style="width: 60%"></div>
+          </div>
+        </div>
+        <div class="tier">
+          <span class="tier-label">10 friends</span>
+          <span class="tier-reward">0.03 TON</span>
+          <div class="tier-progress">
+            <div class="progress" style="width: 10%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="referral-link">
+        <h4>Your Referral Link</h4>
+        <div class="link-container">
+          <input type="text" id="referral-link" readonly value="https://t.me/Got3dBot?start=ref123">
+          <button id="copy-link">Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shop Icon (floating) -->
+    <div class="shop-icon" id="shop-icon">
+      <span>🛒</span>
+    </div>
+  </main>
+
+  <!-- Navigation Bar -->
+  <nav class="bottom-nav">
+    <a href="#home" class="nav-item active" data-page="home">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </a>
+    <a href="#watch" class="nav-item" data-page="watch">
+      <span class="nav-icon">📺</span>
+      <span class="nav-label">Watch</span>
+    </a>
+    <a href="#wallet" class="nav-item" data-page="wallet">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">Wallet</span>
+    </a>
+    <a href="#games" class="nav-item" data-page="games">
+      <span class="nav-icon">🎮</span>
+      <span class="nav-label">Games</span>
+    </a>
+    <a href="#quests" class="nav-item" data-page="quests">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Quests</span>
+    </a>
+    <a href="#otc" class="nav-item" data-page="otc">
+      <span class="nav-icon">💱</span>
+      <span class="nav-label">OTC Desk</span>
+    </a>
+    <a href="#referrals" class="nav-item" data-page="referrals">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Referrals</span>
+    </a>
+  </nav>
+
+  <!-- Shop Modal -->
+  <div class="shop-modal" id="shop-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Game Shop</h3>
+        <button class="close-modal" id="close-shop">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shop-items">
+          <div class="shop-item">
+            <div class="item-icon">🚀</div>
+            <h4>2x Earnings Booster</h4>
+            <p>Double your earnings for 1 hour</p>
+            <div class="item-price">0.5 TON</div>
+            <button class="buy-btn">Buy Now</button>
+          </div>
+          <!-- More shop items -->
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Game iframe container -->
-  <div id="game-iframe-page" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:1000;">
-    <button id="close-game-btn" style="position:absolute; top:10px; right:10px; z-index:1001;">✕ Close</button>
-    <iframe id="game-iframe" style="width:100%; height:100%; border:none;"></iframe>
-  </div>
-
-  <script src="/js/main.js"></script>
-  <script src="/js/miniapp.js"></script>
-  <script src="/js/event_handlers.js"></script>
+  <script src="/static/js/miniapp.js"></script>
 </body>
 </html>
