@@ -147,7 +147,7 @@ def serve_static(path):
     return send_from_directory(static_dir, path)
 
 # Game Routes
-@app.route('/games/<game_name>')
+@app.route('/games/<game_name>', endpoint='serve_game_main')
 def serve_game(game_name):
     """Serve game HTML file with exponential backoff retries"""
     valid_games = {
@@ -167,7 +167,7 @@ def serve_game(game_name):
 def game_static(game_name, filename):
     return send_from_directory(f'static/{game_name}', filename)
 
-@app.route('/games/static/<path:path>')
+@app.route('/games/static/<path:path>', methods=['GET'], endpoint='serve_game_assets')
 def serve_game_assets(path):
     """Serve game static assets"""
     try:

@@ -29,7 +29,7 @@ def is_premium_user(user_id):
         bool: True if premium user, False otherwise
     """
     try:
-        from src.database.firebase import db
+        from src.database.mongo import db
         
         # Check cache first
         if str(user_id) in PREMIUM_USER_IDS:
@@ -66,7 +66,7 @@ def get_ad_streak(user_id):
         int: Current streak length in days
     """
     try:
-        from src.database.firebase import db
+        from src.database.mongo import db
         from datetime import datetime, timedelta
         
         # Get ad view records

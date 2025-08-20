@@ -5,7 +5,7 @@ import hashlib
 import urllib.parse
 from datetime import datetime, timedelta
 from flask import request
-from config import Config
+from config import config
 from src.database.mongo import get_user_activity, get_withdrawal_history
 
 logger = logging.getLogger(__name__)
@@ -82,9 +82,9 @@ def get_user_id(request) -> int:
     try:
         # 1. Check Telegram WebApp initData
         init_data = request.headers.get('X-Telegram-InitData') or request.args.get('initData')
-        if init_data and Config.TELEGRAM_BOT_TOKEN:
+        if init_data and config.TELEGRAM_BOT_TOKEN:
             # Parse user ID from validated initData
-            if validate_telegram_hash(init_data, Config.TELEGRAM_BOT_TOKEN):
+            if validate_telegram_hash(init_data, config.TELEGRAM_BOT_TOKEN):
                 parsed = urllib.parse.parse_qs(init_data)
                 user_data = parsed.get('user', ['{}'])[0]
                 # Extract user ID from JSON-like string
@@ -165,7 +165,7 @@ def is_abnormal_activity(user_id: int) -> bool:
             
         # 1. Multiple withdrawals check
         recent_withdrawals = [a for a in recent_activity if a.get('type') == 'withdrawal']
-        if len(recent_withdrawals) > Config.MAX_WITHDRAWALS_PER_DAY:
+        if len(recent_withdrawals) > config.MAX_WITHDRAWALS_PER_DAY:
             logger.warning(f"Abnormal activity: Too many withdrawals ({len(recent_withdrawals)}) for user {user_id}")
             return True
             
@@ -216,8 +216,8 @@ def secure_mask(value, show_first=6, show_last=4, min_length=10):
 # Fraud Detection System
 class FraudDetectionSystem:
     def __init__(self):
-        self.suspicion_threshold = Config.FRAUD_SUSPICION_THRESHOLD
-        self.ban_threshold = Config.FRAUD_BAN_THRESHOLD
+        self.suspicion_threshold = config.FRAUD_SUSPICION_THRESHOLD
+        self.ban_threshold = config.FRAUD_BAN_THRESHOLD
         self.activity_windows = {
             'short': 5 * 60,  # 5 minutes
             'medium': 60 * 60,  # 1 hour
@@ -271,7 +271,7 @@ class FraudDetectionSystem:
                 score += 0.7
             
             # Too many actions in short time
-            if len(click_timestamps) > Config.MAX_CLICKS_PER_MINUTE * 5:
+            if len(click_timestamps) > config.MAX_CLICKS_PER_MINUTE * 5:
                 score += 0.8
             
             # Burst detection (multiple clicks in <10ms)
@@ -334,7 +334,7 @@ class FraudDetectionSystem:
             recent_withdrawals = [w for w in withdrawals 
                                  if now - w['created_at'].timestamp() < self.activity_windows['long']]
             
-            if len(recent_withdrawals) > Config.MAX_WITHDRAWALS_PER_DAY:
+            if len(recent_withdrawals) > config.MAX_WITHDRAWALS_PER_DAY:
                 score += 0.8
             
             # 3. Destination clustering

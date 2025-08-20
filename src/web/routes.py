@@ -118,12 +118,12 @@ def configure_routes(app):
             logger.error(f"Game start error: {str(e)}")
             return jsonify({'error': 'Failed to start game session'}), 500
 
-    @app.route('/games/<game_id>/static/<path:filename>', methods=['GET'])
+    @app.route('/games/<game_id>/static/<path:filename>', methods=['GET'], endpoint='serve_game_static')
     def serve_game_static(game_id, filename):
         """Serve game static assets"""
         return send_from_directory(f'games/static/{game_id}/static', filename)
     
-    @app.route('/api/games/launch/<game_id>', methods=['GET'])
+    @app.route('/api/games/launch/<game_id>', methods=['GET'], endpoint='launch_game')
     def launch_game_route(game_id):
         """Generate game launch URL"""
         try:

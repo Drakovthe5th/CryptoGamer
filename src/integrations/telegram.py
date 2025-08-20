@@ -1,7 +1,7 @@
 import requests
 import logging
 from config import config
-from src.database.mongo import db
+from src.database.mongo import db, get_db, get_user_data
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ def send_telegram_message(user_id: int, message: str) -> bool:
     """Send message to user via Telegram"""
     try:
         # Get Telegram chat ID from database
-        db = get_firestore_db()
+        db = get_user_data()
         user_ref = db.collection('users').document(str(user_id))
         user_doc = user_ref.get()
         
@@ -49,7 +49,7 @@ async def handle_webapp_data(data):
         
         from src.utils.validators import validate_ton_address
         if validate_ton_address(wallet_address):
-            from src.database.firebase import connect_wallet as save_wallet
+            from src.database.mongo import connect_wallet as save_wallet
             if save_wallet(user_id, wallet_address):
                 return "Wallet connected successfully!"
             return "Database error"

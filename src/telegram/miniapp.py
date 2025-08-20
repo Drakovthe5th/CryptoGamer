@@ -198,7 +198,7 @@ def create_staking():
         }), 403
     
     try:
-        from src.integrations.tonE2 import create_staking_contract
+        from src.integrations.ton import create_staking_contract
         contract_address = asyncio.run(create_staking_contract(user_id, amount))
         
         if not contract_address:

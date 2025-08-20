@@ -112,7 +112,7 @@ async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if balance < Config.MIN_WITHDRAWAL:
         await update.message.reply_text(
             f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} TON\n"
-            f"Your balance: {to_ton(balance):.6f} TON"
+            f"Your balance: {game_coins_to_ton(balance):.6f} TON"
         )
         return
     
@@ -200,7 +200,7 @@ async def faucet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(
         f"💧 You claimed {reward:.6f} TON!\n"
-        f"💰 New balance: {to_ton(new_balance):.6f} TON"
+        f"💰 New balance: {game_coins_to_ton(new_balance):.6f} TON"
     )
 
 async def set_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE):
