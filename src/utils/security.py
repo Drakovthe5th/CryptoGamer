@@ -82,9 +82,9 @@ def get_user_id(request) -> int:
     try:
         # 1. Check Telegram WebApp initData
         init_data = request.headers.get('X-Telegram-InitData') or request.args.get('initData')
-        if init_data and config.TELEGRAM_BOT_TOKEN:
+        if init_data and config.TELEGRAM_TOKEN:
             # Parse user ID from validated initData
-            if validate_telegram_hash(init_data, config.TELEGRAM_BOT_TOKEN):
+            if validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 parsed = urllib.parse.parse_qs(init_data)
                 user_data = parsed.get('user', ['{}'])[0]
                 # Extract user ID from JSON-like string

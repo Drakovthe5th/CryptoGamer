@@ -152,7 +152,7 @@ def check_security():
             if not init_data:
                 return jsonify({'error': 'Telegram authentication required'}), 401
             
-            if not validate_telegram_hash(init_data, config.TELEGRAM_BOT_TOKEN):
+            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
                 return jsonify({'error': 'Invalid Telegram authentication'}), 401
                 
             # Security token validation

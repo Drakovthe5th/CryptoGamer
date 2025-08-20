@@ -108,7 +108,7 @@ def validate_telegram_init_data(init_data: str) -> bool:
         # Calculate secret key
         secret_key = hmac.new(
             b"WebAppData", 
-            config.TELEGRAM_BOT_TOKEN.encode(), 
+            config.TELEGRAM_TOKEN.encode(), 
             hashlib.sha256
         ).digest()
         

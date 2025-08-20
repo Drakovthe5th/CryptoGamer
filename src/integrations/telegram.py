@@ -24,7 +24,7 @@ def send_telegram_message(user_id: int, message: str) -> bool:
             logger.warning(f"No Telegram chat ID for user {user_id}")
             return False
             
-        url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
+        url = f"https://api.telegram.org/bot{config.TELEGRAM_TOKEN}/sendMessage"
         payload = {
             "chat_id": chat_id,
             "text": message,

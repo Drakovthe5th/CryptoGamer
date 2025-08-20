@@ -242,7 +242,7 @@ async def run_bot():
 
         # Initialize Telegram application
         telegram_application = Application.builder() \
-            .token(config.TELEGRAM_BOT_TOKEN) \
+            .token(config.TELEGRAM_TOKEN) \
             .build()
         setup_handlers(telegram_application)
         logger.info("✅ Telegram handlers configured")
