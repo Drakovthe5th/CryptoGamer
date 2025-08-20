@@ -359,6 +359,67 @@ function handleClick() {
   }
 }
 
+// Add to your existing JavaScript
+function loadShopItems() {
+  fetch('/api/shop/items')
+    .then(response => response.json())
+    .then(items => {
+      const shopContainer = document.querySelector('.shop-items-mini');
+      shopContainer.innerHTML = '';
+      
+      items.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'shop-item-mini';
+        itemElement.innerHTML = `
+          <div class="item-header-mini">${item.name}</div>
+          <div class="item-icon-mini">${getItemIcon(item.id)}</div>
+          <div class="item-price-mini">${item.price} GC</div>
+          <button class="btn-buy-mini" data-item="${item.id}">Buy</button>
+        `;
+        
+        itemElement.querySelector('.btn-buy-mini').addEventListener('click', () => {
+          purchaseItem(item.id);
+        });
+        
+        shopContainer.appendChild(itemElement);
+      });
+    })
+    .catch(error => {
+      console.error('Failed to load shop items:', error);
+    });
+}
+
+function getItemIcon(itemId) {
+  const icons = {
+    'global_booster': '🚀',
+    'trivia_extra_time': '⏱️',
+    'spin_extra_spin': '🎡',
+    'clicker_auto_upgrade': '🤖'
+  };
+  return icons[itemId] || '🎁';
+}
+
+// Call this function when the shop page is shown
+document.addEventListener('DOMContentLoaded', () => {
+  // Add event listener for shop page
+  const shopPage = document.getElementById('shop-page');
+  if (shopPage) {
+    // Load shop items when page is shown
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          if (shopPage.classList.contains('active')) {
+            loadShopItems();
+            updateShopBalance();
+          }
+        }
+      });
+    });
+    
+    observer.observe(shopPage, { attributes: true });
+  }
+});
+
 // Switch tabs
 function switchTab(tabId) {
   tabPanes.forEach(pane => {

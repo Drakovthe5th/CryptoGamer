@@ -1,4 +1,4 @@
-from functools import wraps
+from functools import wraps, lru_cache
 from flask import request, jsonify
 import re
 import logging

@@ -31,7 +31,7 @@
   </div>
 
   <!-- Floating Shop Button -->
-  <a href="/shop.html" class="shop-floating-btn">🛒</a>
+  <a href="/games/static/shop.html" class="shop-floating-btn">🛒</a>
 
   <!-- Header with profile -->
   <header class="app-header">
@@ -518,6 +518,24 @@
         </div>
       </div>
     </section>
+
+    <!-- Shop Page -->
+    <section id="shop-page" class="page">
+      <div class="page-header">
+        <h2>🛒 Game Shop</h2>
+        <p>Enhance your gaming experience with powerful items!</p>
+      </div>
+      
+      <div class="home-section">
+        <div style="text-align: center; margin: 20px 0;">
+          <div class="coins-display" id="miniapp-gc-balance">Loading GC balance...</div>
+        </div>
+        
+        <div class="shop-items-mini">
+          <!-- Shop items would be loaded here dynamically -->
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Navigation Bar -->
@@ -549,6 +567,11 @@
     <a href="#referrals" class="nav-item" data-page="referrals">
         <span class="nav-icon">👥</span>
         <span class="nav-label">Invite</span>
+    </a>
+
+    <a href="/games/static/shop.html" class="nav-item" data-page="shop">
+      <span class="nav-icon">🛒</span>
+      <span class="nav-label">Shop</span>
     </a>
 </nav>
 
