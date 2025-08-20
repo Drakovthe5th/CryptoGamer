@@ -637,18 +637,6 @@ def configure_routes(app):
         finally:
             loop.close()
 
-    @app.route('/health')
-    def health_check():
-        return jsonify({
-            'status': 'ok',
-            'services': {
-                'database': db is not None,  # Check if db is initialized
-                'ton_wallet': ton_wallet is not None,
-                'version': '1.0.0'
-            },
-            'database': check_db_connection()
-        })
-    
     @app.route('/api/wallet/health')
     async def wallet_health():
         """Wallet health check for production monitoring"""
