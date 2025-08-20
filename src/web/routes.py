@@ -201,28 +201,6 @@ def configure_routes(app):
             return jsonify({"error": "Unauthorized"}), 401
         return jsonify(success=True), 200
 
-    # Mini-app API routes
-    @app.route('/api/user/data', methods=['GET'])
-    def get_user_data_api():
-        try:
-            init_data = request.headers.get('X-Telegram-InitData') 
-            user_id = request.headers.get('X-Telegram-User-ID')
-            
-            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
-                return jsonify({'error': 'Invalid Telegram hash'}), 401
-
-            user_data = get_user_data(int(user_id))
-            if not user_data:
-                return jsonify({'error': 'User not found'}), 404
-
-            return jsonify({
-                'balance': user_data.get('balance', 0),
-                'min_withdrawal': config.MIN_WITHDRAWAL,
-                'currency': 'TON'
-            })
-        except Exception as e:
-            logger.error(f"User data error: {str(e)}")
-            return jsonify({'error': str(e)}), 500
         
     @app.route('/api/game/<game_name>/complete', methods=['POST'])
     def complete_game(game_name):
