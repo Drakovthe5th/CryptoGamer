@@ -179,6 +179,7 @@ def game_action(game_name):
         logger.error(f"Error handling action in game {game_name}: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+
 @games_bp.route('/<game_name>/api/end', methods=['POST'])
 def end_game(game_name):
     """End game session with retry logic"""
@@ -202,7 +203,20 @@ def end_game(game_name):
     
     try:
         result = try_end()
-        logger.info(f"Game ended, reward: {result.get('reward', 0)}")
+        if isinstance(result, dict) and result.get('error'):
+            logger.warning(f"Game end error: {result['error']}")
+            return jsonify(result), 400
+
+        # Update user's game coins
+        gc_reward = result.get('gc_reward', 0)
+        from src.database.mongo import update_game_coins
+        success, new_balance = update_game_coins(user_id, gc_reward)
+        if success:
+            result['total_gc'] = new_balance
+        else:
+            logger.error(f"Failed to update game coins for user {user_id}")
+
+        logger.info(f"Game ended, GC reward: {gc_reward}")
         return jsonify({'success': True, **result})
     except Exception as e:
         logger.error(f"Error ending game {game_name}: {str(e)}")

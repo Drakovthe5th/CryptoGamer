@@ -6,6 +6,8 @@ from typing import Dict, Any, Optional, List
 from config import config
 
 logger = logging.getLogger(__name__)
+TON_TO_GC_RATE = 2000  # 2000 Game Coins = 1 TON
+MAX_DAILY_GC = 20000  # Maximum game coins per day
 
 class BaseGame:
     """Base class for all games with common functionality"""
@@ -144,9 +146,8 @@ class BaseGame:
                 logger.warning(f"Invalid game session for user {user_id} in {self.name}")
                 return {"error": "Invalid game session"}
             
-            # Calculate reward
+            # Calculate reward in game coins
             reward = self._calculate_reward(player["score"], duration)
-            # CONVERT TO GAME COINS WITH MULTIPLIER
             gc_reward = int(reward * TON_TO_GC_RATE * self.gc_multiplier)
             
             # Check if new high score
@@ -154,20 +155,6 @@ class BaseGame:
             if is_new_high_score:
                 self._update_high_score(user_id, player["score"])
 
-            # UPDATE USER'S GAME COINS
-            user = get_user(user_id)
-            if user:
-                # Apply daily limit
-                available_daily = MAX_DAILY_GC - user.daily_gc_earned
-                if gc_reward > available_daily:
-                    gc_reward = available_daily
-                
-                user.game_coins += gc_reward
-                user.daily_gc_earned += gc_reward
-                user.save()
-            else:
-                logger.error(f"User not found: {user_id}")
-            
             # Log game completion
             logger.info(f"Game {self.name} completed by user {user_id}: score={player['score']}, GC reward={gc_reward}")
             
@@ -177,7 +164,6 @@ class BaseGame:
                 "duration": round(duration, 2),
                 "gc_reward": gc_reward,
                 "multiplier": self.gc_multiplier,
-                "total_gc": user.game_coins if user else 0,
                 "new_high_score": is_new_high_score,
                 "game_stats": {
                     "actions_performed": player["actions_count"],

@@ -147,33 +147,25 @@ def serve_static(path):
     return send_from_directory(static_dir, path)
 
 # Game Routes
-@app.route('/games/<path:game_path>')
-def serve_games(game_path):
-    """Serve game files"""
-    try:
-        game_name = game_path.split('/')[0] if '/' in game_path else game_path
+@app.route('/games/<game_name>')
+def serve_game(game_name):
+    """Serve game HTML file with exponential backoff retries"""
+    valid_games = {
+        'clicker': 'clicker/index.html',
+        'spin': 'spin/index.html', 
+        'edge-surf': 'edge-surf/index.html',
+        'trex': 'trex/index.html',
+        'trivia': 'trivia/index.html'
+    }
+    
+    if game_name not in valid_games:
+        return jsonify({"error": "Game not found"}), 404
         
-        valid_games = {
-            'clicker': 'clicker/index.html',
-            'spin': 'spin/index.html', 
-            'edge-surf': 'edge-surf/index.html',
-            'trex': 'trex/index.html',
-            'trivia': 'trivia/index.html'
-        }
-        
-        if game_name not in valid_games:
-            return jsonify({'error': 'Game not found'}), 404
-            
-        # Serve index for game root
-        if game_path == game_name:
-            return send_from_directory('static', valid_games[game_name])
-            
-        # Serve other game assets
-        return send_from_directory('static', game_path)
-        
-    except Exception as e:
-        logger.error(f"Game serving error: {e}")
-        return jsonify({'error': 'Game file not found'}), 404
+    return send_from_directory('static', valid_games[game_name])
+    
+@app.route('/games/<game_name>/<path:filename>')
+def game_static(game_name, filename):
+    return send_from_directory(f'static/{game_name}', filename)
 
 @app.route('/games/static/<path:path>')
 def serve_game_assets(path):

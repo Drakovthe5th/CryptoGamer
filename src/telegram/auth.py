@@ -2,6 +2,7 @@ import hashlib
 import hmac
 from urllib.parse import parse_qsl
 from flask import current_app
+from src.database.mongo import get_user_data
 from config import config
 
 def validate_telegram_data(init_data: str, bot_token: str) -> bool:
@@ -54,6 +55,23 @@ def validate_telegram_data(init_data: str, bot_token: str) -> bool:
     except Exception as e:
         current_app.logger.error(f"Telegram validation failed: {str(e)}")
         return False
+    
+def get_or_create_user(user_id, username=None):
+    """Get user data or create new user if doesn't exist"""
+    user = get_user_data(user_id)
+    if not user:
+        # New user - create with welcome bonus
+        user = create_new_user(user_id, username)
+        
+        # Show welcome message
+        if Telegram.WebApp:
+            Telegram.WebApp.showPopup({
+                'title': 'Welcome to CryptoGamer!',
+                'message': 'You received 2000 GC as a welcome bonus!',
+                'buttons': [{'type': 'ok'}]
+            })
+    
+    return user
 
 # Maintain backward compatibility with existing imports
 validate_init_data = validate_telegram_data

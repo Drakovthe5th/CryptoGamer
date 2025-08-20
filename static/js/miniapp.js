@@ -1,26 +1,49 @@
 // Initialize Telegram WebApp
-if (window.Telegram && Telegram.WebApp) {
-  Telegram.WebApp.ready();
-  Telegram.WebApp.expand();
-  window.telegramInitData = Telegram.WebApp.initDataUnsafe;
-  window.securityToken = "{{ security_token }}";
-  window.userId = "{{ user_id }}";
-  window.userData = {
-    username: telegramInitData.user?.username || 'User',
-    gameCoins: 70000
-  };
-} else {
-  document.body.innerHTML = `
-    <div style="text-align:center;padding:50px 20px;">
-      <h1>Please open in Telegram</h1>
-      <p>This application must be opened within the Telegram messenger</p>
-      <button style="margin-top:20px;padding:10px 20px;background:#0088cc;color:white;border:none;border-radius:8px;"
-              onclick="window.location.href='https://t.me/Got3dBot'">
-        Open in Telegram
-      </button>
-    </div>
-  `;
-}
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.Telegram && Telegram.WebApp) {
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
+
+      // Get user data or create new user
+    const initData = Telegram.WebApp.initDataUnsafe;
+    const user_id = initData.user?.id;
+    const username = initData.user?.username;
+
+    if (user_id) {
+      fetch('/api/user/init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ user_id, username })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.is_new_user) {
+          // Show welcome message
+          Telegram.WebApp.showPopup({
+            title: 'Welcome to CryptoGamer!',
+            message: 'You received 2000 GC as a welcome bonus!',
+            buttons: [{type: 'ok'}]
+          });
+        }});
+  } else {
+    document.body.innerHTML = `
+      <div style="text-align:center;padding:50px 20px;">
+        <h1>Please open in Telegram</h1>
+        <p>This application must be opened within the Telegram messenger</p>
+        <button style="margin-top:20px;padding:10px 20px;background:#0088cc;color:white;border:none;border-radius:8px;"
+                onclick="window.location.href='https://t.me/Got3dBot'">
+          Open in Telegram
+        </button>
+      </div>
+    `;
+  }
+  initUserData(data);
+  checkWalletConnection();
+  loadGames();
+}});
 
 // DOM elements
 const profileToggle = document.getElementById('profile-toggle');
@@ -84,11 +107,20 @@ function checkWalletConnection() {
 
 // Connect TON Wallet
 function connectTONWallet() {
-  Telegram.WebApp.sendData(JSON.stringify({
-    action: 'connect_wallet',
-    user_id: window.userId,
-    security_token: window.securityToken
-  }));
+    if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.openLink('https://t.me/wallet?startattach=wallet');
+        
+        // Listen for wallet connection
+        Telegram.WebApp.onEvent('walletDataReceived', (data) => {
+            if (data && data.address) {
+                localStorage.setItem('ton_wallet_address', data.address);
+                updateWalletDisplay(data.address);
+                Telegram.WebApp.showAlert(`Wallet connected: ${data.address}`);
+            }
+        });
+    }
+
+
   
   // Listen for wallet connection response
   window.addEventListener('message', (event) => {
@@ -101,6 +133,13 @@ function connectTONWallet() {
       Telegram.WebApp.showAlert(`Wallet connected: ${address}`);
     }
   });
+}
+
+function updateWalletDisplay(address) {
+    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    document.getElementById('wallet-address').textContent = shortAddress;
+    document.getElementById('wallet-connected').classList.remove('hidden');
+    document.getElementById('wallet-disconnected').classList.add('hidden');
 }
 
 // Disconnect wallet
@@ -130,6 +169,23 @@ function switchPage(pageId) {
   });
 }
 
+
+// Update loadUserData to show GC
+function loadUserData() {
+    fetch('/api/user/data', {
+        headers: {
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.game_coins !== undefined) {
+            document.getElementById('gc-balance').textContent = data.game_coins;
+            document.getElementById('ton-equivalent').textContent = (data.game_coins / 2000).toFixed(6);
+        }
+    });
+}
+
 // Load games with authentication
 async function loadGames() {
   try {
@@ -153,6 +209,37 @@ async function loadGames() {
     console.error('Failed to load games:', error);
     Telegram.WebApp.showAlert('Failed to load games. Please try again later.');
   }
+}
+
+// Add OTC payment handling
+function handleOTCSwap() {
+    const amount = document.getElementById('otc-amount').value;
+    const currency = document.querySelector('.currency-option.active').dataset.currency;
+    
+    let paymentPrompt = '';
+    if (currency === 'KES') {
+        paymentPrompt = 'Enter your phone number:';
+    } else if (currency === 'USD' || currency === 'EUR') {
+        paymentPrompt = 'Enter your PayPal email:';
+    } else if (currency === 'USDT') {
+        paymentPrompt = 'Enter your USDT wallet address:';
+    }
+    
+    Telegram.WebApp.showPopup({
+        title: `Confirm ${currency} Exchange`,
+        message: paymentPrompt,
+        buttons: [
+            {type: 'cancel', text: 'Cancel'},
+            {type: 'default', text: 'Confirm'}
+        ]
+    }, (btnId) => {
+        if (btnId === 'confirm') {
+            const paymentDetails = prompt(paymentPrompt);
+            if (paymentDetails) {
+                processExchange(amount, currency, paymentDetails);
+            }
+        }
+    });
 }
 
 // Render games in grid

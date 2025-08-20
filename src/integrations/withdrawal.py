@@ -199,3 +199,12 @@ def start_withdrawal_processor():
     processor_thread = threading.Thread(target=processor.run, daemon=True)
     processor_thread.start()
     return processor
+
+# Check participation before allowing withdrawal
+def check_withdrawal_eligibility(user_id):
+    """Check if user meets 75% participation requirement"""
+    user = get_user_data(user_id)
+    max_possible_score = 100  # This should be calculated based on available activities
+    current_score = user.get('participation_score', 0)
+    
+    return (current_score / max_possible_score) >= 0.75

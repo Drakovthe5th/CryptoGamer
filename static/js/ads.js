@@ -87,9 +87,32 @@ function completeAd() {
     
 }
 
+// Monetag ad implementation
+function loadMonetagAd() {
+    const script = document.createElement('script');
+    script.src = '//libtl.com/sdk.js';
+    script.setAttribute('data-zone', '9644715');
+    script.setAttribute('data-sdk', 'show_9644715');
+    document.head.appendChild(script);
+}
+
+// A-ADS implementation
+function loadAAds() {
+    const aadsDiv = document.createElement('div');
+    aadsDiv.innerHTML = `
+        <div id="frame" style="width: 100%;">
+            <iframe data-aa='2405512' src='//acceptable.a-ads.com/2405512' style='border:0px; padding:0; width:100%; height:100%; overflow:hidden; background-color: transparent;'></iframe>
+            <a style="display: block; text-align: right; font-size: 12px" id="frame-link" href="https://aads.com/campaigns/new/?source_id=2405512&source_type=ad_unit&partner=2405512">Advertise here</a>
+        </div>
+    `;
+    document.getElementById('ad-container').appendChild(aadsDiv);
+}
+
 // Initialize ads
 document.addEventListener('DOMContentLoaded', () => {
     loadAd();
+    loadMonetagAd();
+    loadAAds();
     
     // Activate A-ADS after page load
     setTimeout(() => {

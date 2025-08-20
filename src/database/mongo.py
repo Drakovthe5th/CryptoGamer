@@ -51,21 +51,28 @@ def create_user(user_id, username):
     if not db.users.find_one({"user_id": user_id}):
         db.users.insert_one({
             "user_id": user_id,
-            "username": username,
+            "username": username or f'User{user_id}',
             "balance": 0.0,
-            "game_coins": 0,
+            "game_coins": 2000,  # Welcome bonus of 2000 GC
             "daily_coins_earned": 0,
             "daily_resets": {},
+            'daily_bonus_claimed': False,
             "wallet_address": None,
             "membership_tier": "BASIC",
             "created_at": SERVER_TIMESTAMP,
             "last_active": SERVER_TIMESTAMP,
+            'clicks_today': 0,
             "completed_quests": [],
             "active_quests": [],
             "xp": 0,
             "level": 1,
+            'referrals': 0,
+            'ref_earnings': 0.0,
             "leaderboard_points": 0.0,
             "inventory": [],
+            'participation_score': 0,
+            'game_stats': {},
+            'welcome_bonus_received': True,
             "payment_methods": {}
         })
 

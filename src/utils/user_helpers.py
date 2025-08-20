@@ -102,6 +102,21 @@ def get_ad_streak(user_id):
         logger.error(f"Ad streak error for {user_id}: {str(e)}")
         return 0
 
+def update_participation_score(user_id, activity_type):
+    """Update user's participation score based on activity"""
+    activity_weights = {
+        'game_played': 10,
+        'ad_watched': 5,
+        'daily_bonus': 15,
+        'referral': 20,
+        'quest_completed': 8
+    }
+    
+    weight = activity_weights.get(activity_type, 5)
+    db.users.update_one(
+        {'user_id': user_id},
+        {'$inc': {'participation_score': weight}}
+    )
 
 # Cache results to reduce API calls (max 256 entries, 1 hour TTL)
 @lru_cache(maxsize=256)

@@ -57,6 +57,26 @@ def configure_routes(app):
     def miniapp_route():
         return render_template('miniapp.html')
     
+    @app.route('/api/user/init', methods=['POST'])
+    def init_user():
+        """Initialize user - create if doesn't exist"""
+        data = request.get_json()
+        user_id = data.get('user_id')
+        username = data.get('username')
+        
+        if not user_id:
+            return jsonify({'error': 'User ID required'}), 400
+            
+        user = get_or_create_user(user_id, username)
+        is_new_user = user.get('welcome_bonus_received', False)
+        
+        return jsonify({
+            'user_id': user_id,
+            'game_coins': user.get('game_coins', 0),
+            'balance': user.get('balance', 0),
+            'is_new_user': is_new_user
+        })
+    
     @app.route('/api/games/list', methods=['GET'])
     def get_games_list_route():
         """Get list of available games"""
@@ -128,7 +148,7 @@ def configure_routes(app):
             
             # Generate secure token
             token = generate_security_token(user_id)
-            game_url = f"https://yourserver.com/games/{game_id}?user_id={user_id}&token={token}"
+            game_url = f"https://crptgameminer.onrender.com/games/{game_id}?user_id={user_id}&token={token}"
             
             return jsonify({
                 "success": True,
@@ -297,41 +317,37 @@ def configure_routes(app):
             logger.error(f"Ad reward error: {str(e)}")
             return jsonify({'error': str(e)}), 500
         
-    @app.route('/api/quests/claim_bonus', methods=['POST'])
-    def claim_daily_bonus():
-        try:
-            data = request.get_json()
-            user_id = int(data['user_id'])
-            user_data = get_user_data(user_id)
-            
-            # Check if bonus already claimed today
-            last_claimed = user_data.get('last_bonus_claimed')
-            today = datetime.utcnow().date()
-            
-            if last_claimed and last_claimed.date() == today:
-                return jsonify({
-                    'success': False,
-                    'error': 'Bonus already claimed today'
-                }), 400
-            
-            # Award bonus
-            bonus_amount = 0.05
-            new_balance = update_balance(user_id, bonus_amount)
-            
-            # Update last claimed time
-            users_ref = db.collection('users').document(str(user_id))
-            users_ref.update({
-                'last_bonus_claimed': datetime.utcnow(),
-                'balance': new_balance
-            })
-            
-            return jsonify({
-                'success': True,
-                'new_balance': new_balance
-            })
-            
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+@app.route('/api/quests/claim_bonus', methods=['POST'])
+def claim_daily_bonus():
+    data = request.get_json()
+    user_id = data['user_id']
+    
+    # Check if bonus already claimed today
+    user_data = get_user_data(user_id)
+    last_claimed = user_data.get('last_bonus_claimed')
+    today = datetime.utcnow().date()
+    
+    if last_claimed and last_claimed.date() == today:
+        return jsonify({'error': 'Bonus already claimed today'}), 400
+    
+    # Award daily bonus (1000 GC)
+    bonus_amount = 1000
+    success, new_balance = update_game_coins(user_id, bonus_amount)
+    
+    if success:
+        # Update last claimed time
+        update_user_data(user_id, {
+            'last_bonus_claimed': datetime.utcnow(),
+            'daily_bonus_claimed': True
+        })
+        
+        return jsonify({
+            'success': True,
+            'bonus': bonus_amount,
+            'new_balance': new_balance
+        })
+    else:
+        return jsonify({'error': 'Failed to claim bonus'}), 500
         
     @app.route('/api/quests/record_click', methods=['POST'])
     def record_click():
