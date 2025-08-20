@@ -346,6 +346,61 @@ def start_quest_scheduler():
     logger.info("Quest scheduler started")
     return scheduler_thread
 
+
+def claim_daily_bonus(user_id):
+    """Claim daily bonus for a user"""
+    user_data = get_user_data(user_id)
+    if not user_data:
+        return False, 0.0
+
+    last_claimed = user_data.get('last_bonus_claimed')
+    today = datetime.utcnow().date()
+
+    if last_claimed and last_claimed.date() == today:
+        return False, user_data.get('balance', 0.0)
+
+    bonus_amount = 0.05  # TON
+    new_balance = update_balance(user_id, bonus_amount)
+
+    db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            'last_bonus_claimed': datetime.utcnow(),
+            'daily_bonus_claimed': True
+        }}
+    )
+
+    return True, new_balance
+
+def record_click(user_id):
+    """Record a click and update balance"""
+    user_data = get_user_data(user_id)
+    if not user_data:
+        return 0, 0.0
+
+    today = datetime.utcnow().date()
+    last_click_date = user_data.get('last_click_date')
+    clicks_today = user_data.get('clicks_today', 0)
+
+    if not last_click_date or last_click_date.date() != today:
+        clicks_today = 0
+
+    if clicks_today >= 100:
+        return clicks_today, user_data.get('balance', 0.0)
+
+    click_reward = 0.0001  # TON
+    new_balance = update_balance(user_id, click_reward)
+
+    db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            'clicks_today': clicks_today + 1,
+            'last_click_date': datetime.utcnow()
+        }}
+    )
+
+    return clicks_today + 1, new_balance
+
 # Global quest system instance
 quest_system = QuestSystem()
 
