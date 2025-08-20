@@ -7,9 +7,9 @@ MD 6.2KB
 we have  a few issues after testing the production deployment of our CyptoGamer project and a few implementations we want to add:
  
 --> the games when clicked open a page that shows 'page not found'
---> our rewards are supposed to be in game-coins(gc) which can later be converted to ton
+
 --> our "connect wallet" button fails. it is supposed to open the telegram wallet of the user urging them to connect their wallet so that things like in-game purchases are possible form the shop.
---> let the game cards' length/horizontal length be shorter so that 2 games are comfortably fitted in one row in order to maximize space for ads. also do this in the games page.
+--> let the game cards' length/horizontal length be shorter so that 2 games are comfortably fitted in one row in order to maximize space for ads. also do this in the games page.?
 --> the adbanner slot is quite short vertically...adjust it in a way that we can be able to place atleast about 2 ads on the home page
 --> switch the withdraw to request withdrawal
 --> Display balance in terms of gc coins instead of ton...show the equivical of gc to ton in theprofile and wallet section.

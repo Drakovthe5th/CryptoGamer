@@ -1,13 +1,16 @@
 import hmac
-import datetime
+from datetime import datetime, timedelta
 import time
 from functools import wraps
+from urllib.parse import parse_qs, unquote
+from functools import lru_cache
 import asyncio
-from flask import request, jsonify, render_template, send_from_directory
+from flask import request, jsonify, render_template, send_from_directory, json
 from src.database.mongo import update_game_coins, record_reset, connect_wallet,update_balance
-from src.database.mongo import get_games_list, record_game_start, get_user_data
+from src.database.mongo import get_games_list, record_game_start, get_user_data, create_user
 from src.database.mongo import db, check_db_connection
 from src.utils.security import validate_telegram_hash
+from src.utils.validators import validate_telegram_init_data, validate_user_data, validate_json_input
 from src.features.ads import ad_manager
 from src.database.mongo import track_ad_reward
 from src.features.monetization.purchases import process_purchase
@@ -67,7 +70,7 @@ def configure_routes(app):
         if not user_id:
             return jsonify({'error': 'User ID required'}), 400
             
-        user = get_or_create_user(user_id, username)
+        user = create_user(user_id, username)
         is_new_user = user.get('welcome_bonus_received', False)
         
         return jsonify({
@@ -413,16 +416,25 @@ def configure_routes(app):
             logger.error(f"Game reset error: {str(e)}")
             return jsonify({'error': 'Failed to reset game'}), 500
 
-    @app.route('/api/connect-wallet', methods=['POST'])
-    def connect_wallet():
-        user_id = get_user_id(request)
-        wallet_address = request.json['address']
-        
-        if not validate_ton_address(wallet_address):
-            return jsonify({"error": "Invalid wallet address"}), 400
+    @app.route('/api/wallet/connect', methods=['POST'])
+    def connect_wallet_endpoint():
+        try:
+            user_id = get_user_id(request)
+            if not user_id:
+                return jsonify({"error": "Unauthorized"}), 401
+                
+            data = request.get_json()
+            wallet_address = data.get('address')
             
-        connect_wallet(user_id, wallet_address)
-        return jsonify({"success": True})
+            if not wallet_address:
+                return jsonify({"error": "Wallet address required"}), 400
+                
+            # Save wallet address to database
+            connect_wallet(user_id, wallet_address)
+            
+            return jsonify({"success": True, "message": "Wallet connected successfully"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 
     @app.route('/api/purchase', methods=['POST'])
@@ -652,23 +664,53 @@ def configure_routes(app):
         
 # HELPER FUNCTION
 def get_user_id(request):
-    """Extract user ID from Telegram headers"""
+    """Extract and validate user ID from Telegram WebApp init data"""
     init_data = request.headers.get('X-Telegram-InitData')
+    
+    # Return early if no init data
     if not init_data:
+        logger.warning("No Telegram init data found in headers")
         return None
     
-    # Parse init_data to get user ID (simplified)
-    # In real implementation, validate hash and extract user
     try:
-        from urllib.parse import parse_qs
-        data = parse_qs(init_data)
-        user = data.get('user', [{}])[0]
-        if isinstance(user, str):
-            import json
-            user = json.loads(user)
-        return user.get('id')
-    except:
+        # Validate the init data hash first
+        if not validate_telegram_init_data(init_data):
+            logger.warning("Invalid Telegram init data hash")
+            return None
+        
+        # Parse the init data
+        parsed_data = parse_qs(init_data)
+        
+        # Extract user data
+        user_str = parsed_data.get('user', [None])[0]
+        if not user_str:
+            logger.warning("No user data found in init data")
+            return None
+        
+        # Parse user JSON
+        user_data = json.loads(user_str)
+        
+        # Extract and validate user ID
+        user_id = user_data.get('id')
+        if not user_id or not isinstance(user_id, int):
+            logger.warning(f"Invalid user ID format: {user_id}")
+            return None
+        
+        # Additional security checks
+        if not validate_user_data(user_data):
+            logger.warning(f"User data validation failed for user {user_id}")
+            return None
+        
+        logger.info(f"Successfully extracted user ID: {user_id}")
+        return user_id
+        
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as e:
+        logger.error(f"Error parsing Telegram init data: {str(e)}")
         return None
+    except Exception as e:
+        logger.error(f"Unexpected error in get_user_id: {str(e)}")
+        return None
+
     
 def generate_security_token(user_id):
     """Generate secure session token"""

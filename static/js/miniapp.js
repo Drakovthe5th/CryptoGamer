@@ -108,31 +108,59 @@ function checkWalletConnection() {
 // Connect TON Wallet
 function connectTONWallet() {
     if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.openLink('https://t.me/wallet?startattach=wallet');
+        // Use the correct Telegram method to connect wallet
+        Telegram.WebApp.sendData(JSON.stringify({
+            type: 'connect_wallet',
+            timestamp: Date.now()
+        }));
         
-        // Listen for wallet connection
+        // Listen for wallet connection response from Telegram
         Telegram.WebApp.onEvent('walletDataReceived', (data) => {
-            if (data && data.address) {
-                localStorage.setItem('ton_wallet_address', data.address);
-                updateWalletDisplay(data.address);
-                Telegram.WebApp.showAlert(`Wallet connected: ${data.address}`);
+            try {
+                const walletData = JSON.parse(data);
+                if (walletData && walletData.address) {
+                    localStorage.setItem('ton_wallet_address', walletData.address);
+                    updateWalletDisplay(walletData.address);
+                    Telegram.WebApp.showAlert(`Wallet connected: ${walletData.address}`);
+                    
+                    // Send wallet address to server
+                    fetch('/api/wallet/connect', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Telegram-Hash': window.Telegram.WebApp.initData
+                        },
+                        body: JSON.stringify({ address: walletData.address })
+                    }).catch(err => console.error('Error saving wallet:', err));
+                }
+            } catch (e) {
+                console.error('Error parsing wallet data:', e);
             }
         });
     }
+}
 
-
-  
-  // Listen for wallet connection response
-  window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'wallet_connected') {
-      const address = event.data.address;
-      localStorage.setItem('ton_wallet_address', address);
-      walletAddress.textContent = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-      walletConnected.classList.remove('hidden');
-      walletDisconnected.classList.add('hidden');
-      Telegram.WebApp.showAlert(`Wallet connected: ${address}`);
+// Handle Telegram wallet connection response
+function handleWalletConnection(data) {
+    try {
+        const walletData = JSON.parse(data);
+        if (walletData && walletData.address) {
+            localStorage.setItem('ton_wallet_address', walletData.address);
+            updateWalletDisplay(walletData.address);
+            
+            // Send wallet address to server
+            fetch('/api/wallet/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-Hash': window.Telegram.WebApp.initData
+                },
+                body: JSON.stringify({ address: walletData.address })
+            }).catch(err => console.error('Error saving wallet:', err));
+        }
+    } catch (e) {
+        console.error('Error parsing wallet data:', e);
     }
-  });
 }
 
 function updateWalletDisplay(address) {
