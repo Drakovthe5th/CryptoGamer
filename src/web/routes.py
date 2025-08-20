@@ -118,21 +118,6 @@ def configure_routes(app):
             logger.error(f"Game start error: {str(e)}")
             return jsonify({'error': 'Failed to start game session'}), 500
 
-    @app.route('/games/<game_id>', methods=['GET'])
-    def serve_game(game_id):
-        """Serve game interface"""
-        try:
-            # Validate game exists
-            games = get_games_list()
-            if not any(g['id'] == game_id for g in games):
-                return "Game not found", 404
-            
-            # Serve game HTML
-            return send_from_directory(f'games/static/{game_id}', 'index.html')
-        except Exception as e:
-            logger.error(f"Game serve error: {str(e)}")
-            return "Error loading game", 500
-
     @app.route('/games/<game_id>/static/<path:filename>', methods=['GET'])
     def serve_game_static(game_id, filename):
         """Serve game static assets"""
