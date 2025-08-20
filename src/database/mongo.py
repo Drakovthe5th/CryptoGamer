@@ -224,6 +224,19 @@ def save_game_session(user_id: int, game_id: str, score: int, reward: float, ses
         logger.error(f"Error saving game session: {str(e)}")
         return False
 
+def save_user_data(user_id: int, user_data: dict):
+    """Save user data to database"""
+    try:
+        db.users.update_one(
+            {"user_id": user_id},
+            {"$set": user_data},
+            upsert=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user data: {str(e)}")
+        return False
+
 # Activity operations
 def get_user_activity(user_id: int, limit=100) -> list:
     return list(db.user_activities.find(
