@@ -317,37 +317,37 @@ def configure_routes(app):
             logger.error(f"Ad reward error: {str(e)}")
             return jsonify({'error': str(e)}), 500
         
-@app.route('/api/quests/claim_bonus', methods=['POST'])
-def claim_daily_bonus():
-    data = request.get_json()
-    user_id = data['user_id']
-    
-    # Check if bonus already claimed today
-    user_data = get_user_data(user_id)
-    last_claimed = user_data.get('last_bonus_claimed')
-    today = datetime.utcnow().date()
-    
-    if last_claimed and last_claimed.date() == today:
-        return jsonify({'error': 'Bonus already claimed today'}), 400
-    
-    # Award daily bonus (1000 GC)
-    bonus_amount = 1000
-    success, new_balance = update_game_coins(user_id, bonus_amount)
-    
-    if success:
-        # Update last claimed time
-        update_user_data(user_id, {
-            'last_bonus_claimed': datetime.utcnow(),
-            'daily_bonus_claimed': True
-        })
+    @app.route('/api/quests/claim_bonus', methods=['POST'])
+    def claim_daily_bonus():
+        data = request.get_json()
+        user_id = data['user_id']
         
-        return jsonify({
-            'success': True,
-            'bonus': bonus_amount,
-            'new_balance': new_balance
-        })
-    else:
-        return jsonify({'error': 'Failed to claim bonus'}), 500
+        # Check if bonus already claimed today
+        user_data = get_user_data(user_id)
+        last_claimed = user_data.get('last_bonus_claimed')
+        today = datetime.utcnow().date()
+        
+        if last_claimed and last_claimed.date() == today:
+            return jsonify({'error': 'Bonus already claimed today'}), 400
+        
+        # Award daily bonus (1000 GC)
+        bonus_amount = 1000
+        success, new_balance = update_game_coins(user_id, bonus_amount)
+        
+        if success:
+            # Update last claimed time
+            update_balance(user_id, {
+                'last_bonus_claimed': datetime.utcnow(),
+                'daily_bonus_claimed': True
+            })
+            
+            return jsonify({
+                'success': True,
+                'bonus': bonus_amount,
+                'new_balance': new_balance
+            })
+        else:
+            return jsonify({'error': 'Failed to claim bonus'}), 500
         
     @app.route('/api/quests/record_click', methods=['POST'])
     def record_click():
