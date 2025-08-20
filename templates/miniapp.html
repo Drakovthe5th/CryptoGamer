@@ -19,6 +19,76 @@
     .click-area { background: rgba(255, 215, 0, 0.1); border: 2px solid #ffd700; border-radius: 15px; height: 150px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; margin: 15px 0; cursor: pointer; transition: all 0.3s; }
     .click-area:active { transform: scale(0.95); }
     @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
+    
+    /* New styles for fixes */
+    .quest-button { 
+      background: rgba(255, 215, 0, 0.2); 
+      border: 1px solid #ffd700; 
+      border-radius: 8px; 
+      padding: 8px 12px; 
+      color: #ffd700; 
+      cursor: pointer; 
+      transition: all 0.3s; 
+    }
+    .quest-button:hover { 
+      background: rgba(255, 215, 0, 0.3); 
+    }
+    .quest-button:disabled { 
+      opacity: 0.5; 
+      cursor: not-allowed; 
+    }
+    .currency-dropdown {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      color: white;
+      border: 2px solid rgba(255,255,255,0.1);
+      margin-bottom: 16px;
+    }
+    .loading { 
+      opacity: 0.7; 
+      pointer-events: none; 
+    }
+        /* Add these styles for shop navigation */
+    .shop-container {
+      padding: 15px;
+    }
+    .shop-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .shop-item-info {
+      flex: 1;
+    }
+    .shop-item-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .shop-item-price {
+      color: #ffd700;
+    }
+    .shop-item-button {
+      background: rgba(255, 215, 0, 0.2);
+      border: 1px solid #ffd700;
+      border-radius: 5px;
+      padding: 8px 12px;
+      color: white;
+      cursor: pointer;
+    }
+    .shop-item-button:hover {
+      background: rgba(255, 215, 0, 0.3);
+    }
+    .balance-loading {
+      opacity: 0.7;
+      font-style: italic;
+    }
+
   </style>
 </head>
 <body>
@@ -177,36 +247,11 @@
         </button>
         <div style="padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
           <small style="color: #ffcc00;">💡 Tip: Weekend ads give 20% bonus!</small>
-
-        <div id="watch-page" class="page">
-        <div class="ad-slot" id="watch-ad-1"></div>
-
-        <button class="btn btn-primary" style="width: 100%; margin: 15px 0;" onclick="watchAd()">
-          ▶️ Watch Ad & Earn TON
-        </button>
-        <div style="padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
         </div>
 
-        <div id="watch-page" class="page">
-        <div class="ad-slot" id="watch-ad-2"></div>
-
-        <button class="btn btn-primary" style="width: 100%; margin: 15px 0;" onclick="watchAd()">
-          ▶️ Watch Ad & Earn TON
-        </button>
-        <div style="padding: 12px; background: rgba(255,204,0,0.1); border-radius: 8px;">
-
-        <div id="watch-page" class="page">
-        <div class="ad-slot" id="watch-ad-3"></div>
-      </div>
-
-      <!-- Ad Video Container -->
-      <div class="home-section">
-        <div id="video-ad-container" style="width: 100%; height: 200px; background: #222; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-          <div style="text-align: center; color: #666;">
-            <div style="font-size: 2rem; margin-bottom: 8px;">📺</div>
-            <div>Ad will play here</div>
-          </div>
-        </div>
+        <div class="ad-slot" id="watch-ad-1" style="height: 200px; margin: 15px 0;"></div>
+        <div class="ad-slot" id="watch-ad-2" style="height: 200px; margin: 15px 0;"></div>
+        <div class="ad-slot" id="watch-ad-3" style="height: 200px; margin: 15px 0;"></div>
       </div>
     </section>
 
@@ -219,10 +264,10 @@
       <div class="home-section">
         <div style="text-align: center; margin: 20px 0;">
           <div style="font-size: 1.5rem; color: #4CAF50;">
-            <span id="gc-balance">0</span> GC
+            <span id="wallet-gc-balance">0</span> GC
           </div>
           <div style="color: #888; margin-top: 8px;">
-            ≈ <span id="ton-equivalent">0.00</span> TON
+            ≈ <span id="wallet-ton-equivalent">0.00</span> TON
           </div>
           <div style="color: #666; margin-top: 4px; font-size: 0.8rem;">
             200,000 GC = 100 TON
@@ -345,7 +390,7 @@
             <div style="font-weight: 600;">✅ Claim Daily Bonus</div>
             <small style="color: #888;">Reward: 0.05 TON</small>
           </div>
-          <button class="btn btn-primary" id="quest-bonus-btn">Claim</button>
+          <button class="quest-button" id="quest-bonus-btn">Claim</button>
         </div>
         
         <div class="milestone">
@@ -353,7 +398,7 @@
             <div style="font-weight: 600;">📺 Watch 3 Ads</div>
             <small style="color: #888;">Progress: <span id="quest-ads">0</span>/3 | Reward: 0.009 TON</small>
           </div>
-          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('watch')">Watch</button>
+          <button class="quest-button" onclick="showPage('watch')">Watch</button>
         </div>
         
         <div class="milestone">
@@ -361,7 +406,7 @@
             <div style="font-weight: 600;">🎮 Play 2 Games</div>
             <small style="color: #888;">Progress: <span id="quest-games">0</span>/2 | Reward: 0.006 TON</small>
           </div>
-          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('games')">Play</button>
+          <button class="quest-button" onclick="showPage('games')">Play</button>
         </div>
         
         <div class="milestone">
@@ -369,7 +414,7 @@
             <div style="font-weight: 600;">👥 Invite 1 Friend</div>
             <small style="color: #888;">Progress: <span id="quest-invite">0</span>/1 | Reward: 0.05 TON</small>
           </div>
-          <button class="btn" style="background: rgba(255,255,255,0.1);" onclick="showPage('referrals')">Invite</button>
+          <button class="quest-button" onclick="showPage('referrals')">Invite</button>
         </div>
       </div>
 
@@ -397,7 +442,7 @@
             <div style="font-weight: 600;">📱 Share App</div>
             <small style="color: #888;">Share with 5 friends | Reward: 0.25 TON</small>
           </div>
-          <button class="btn" style="background: rgba(255,255,255,0.1);" id="share-app-btn">Share</button>
+          <button class="quest-button" id="share-app-btn">Share</button>
         </div>
       </div>
     </section>
@@ -417,12 +462,12 @@
         
         <div style="margin-bottom: 16px;">
           <label style="display: block; margin-bottom: 8px; font-weight: 600;">Currency</label>
-          <div class="currency-selector">
-            <div class="currency-option active" data-currency="USDT">USDT</div>
-            <div class="currency-option" data-currency="USD">USD</div>
-            <div class="currency-option" data-currency="KES">KES</div>
-            <div class="currency-option" data-currency="EUR">EUR</div>
-          </div>
+          <select class="currency-dropdown" id="otc-currency">
+            <option value="USDT">USDT</option>
+            <option value="USD">USD</option>
+            <option value="KES">KES</option>
+            <option value="EUR">EUR</option>
+          </select>
         </div>
         
         <div id="conversion-preview" style="background: rgba(255,204,0,0.1); padding: 12px; border-radius: 8px; margin-bottom: 16px; display: none;">
@@ -519,20 +564,54 @@
       </div>
     </section>
 
-    <!-- Shop Page -->
+
+  <!-- Shop Page Section -->
     <section id="shop-page" class="page">
       <div class="page-header">
         <h2>🛒 Game Shop</h2>
         <p>Enhance your gaming experience with powerful items!</p>
       </div>
       
-      <div class="home-section">
+      <div class="shop-container">
         <div style="text-align: center; margin: 20px 0;">
-          <div class="coins-display" id="miniapp-gc-balance">Loading GC balance...</div>
+          <div class="coins-display" id="miniapp-gc-balance">
+            <span class="balance-loading" id="balance-loading">Loading balance...</span>
+            <span id="balance-value" style="display: none;"></span>
+          </div>
         </div>
         
         <div class="shop-items-mini">
-          <!-- Shop items would be loaded here dynamically -->
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">2x Earnings Booster</div>
+              <div class="shop-item-price">2000 GC</div>
+            </div>
+            <button class="shop-item-button" onclick="purchaseItem('global_booster', 2000)">Buy</button>
+          </div>
+          
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">Trivia Time Extender</div>
+              <div class="shop-item-price">500 GC</div>
+            </div>
+            <button class="shop-item-button" onclick="purchaseItem('trivia_extra_time', 500)">Buy</button>
+          </div>
+          
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">Extra Spin</div>
+              <div class="shop-item-price">300 GC</div>
+            </div>
+            <button class="shop-item-button" onclick="purchaseItem('spin_extra_spin', 300)">Buy</button>
+          </div>
+          
+          <div class="shop-item">
+            <div class="shop-item-info">
+              <div class="shop-item-name">Auto-Clicker</div>
+              <div class="shop-item-price">1000 GC</div>
+            </div>
+            <button class="shop-item-button" onclick="purchaseItem('clicker_auto_upgrade', 1000)">Buy</button>
+          </div>
         </div>
       </div>
     </section>
@@ -584,13 +663,43 @@
   <script src="/static/js/staking.js"></script>
   
   <script>
-    // Additional JavaScript to handle missing functionality
+    // Global variables
+    let userData = null;
+    let telegramUser = null;
+
+    // Initialize the app
     document.addEventListener('DOMContentLoaded', function() {
+      // Initialize Telegram WebApp
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        telegramUser = Telegram.WebApp.initDataUnsafe.user;
+        
+        // Set username if available
+        if (telegramUser) {
+          document.getElementById('username').textContent = telegramUser.username || `User${telegramUser.id}`;
+          document.getElementById('menu-username').textContent = telegramUser.username || `User${telegramUser.id}`;
+        }
+        
+        // Load user data
+        loadUserData();
+      } else {
+        // Fallback for non-Telegram environment
+        document.getElementById('username').textContent = 'Guest User';
+        loadUserData();
+      }
+      
       // Set up navigation
       document.querySelectorAll('.nav-item').forEach(item => {
-        item.addEventListener('click', function() {
+        item.addEventListener('click', function(e) {
+          e.preventDefault();
           const pageId = this.getAttribute('data-page');
-          showPage(pageId);
+          if (pageId === 'shop') {
+            // For shop, we'll open the external page
+            window.location.href = '/games/static/shop.html';
+          } else {
+            showPage(pageId);
+          }
           
           // Update active state
           document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -602,16 +711,9 @@
       document.querySelectorAll('.game-card').forEach(card => {
         card.addEventListener('click', function() {
           const gameId = this.getAttribute('data-game-id');
-          launchGame(gameId);
-        });
-      });
-      
-      // Set up currency selector
-      document.querySelectorAll('.currency-option').forEach(option => {
-        option.addEventListener('click', function() {
-          document.querySelectorAll('.currency-option').forEach(o => o.classList.remove('active'));
-          this.classList.add('active');
-          updateConversionPreview();
+          if (gameId) {
+            launchGame(gameId);
+          }
         });
       });
       
@@ -619,6 +721,12 @@
       const otcAmountInput = document.getElementById('otc-amount');
       if (otcAmountInput) {
         otcAmountInput.addEventListener('input', updateConversionPreview);
+      }
+      
+      // Set up OTC currency dropdown
+      const otcCurrencySelect = document.getElementById('otc-currency');
+      if (otcCurrencySelect) {
+        otcCurrencySelect.addEventListener('change', updateConversionPreview);
       }
       
       // Set up copy referral link button
@@ -640,8 +748,26 @@
         });
       }
       
-      // Load initial data
-      loadUserData();
+      // Set up claim bonus button
+      const claimBonusBtn = document.getElementById('claim-bonus');
+      if (claimBonusBtn) {
+        claimBonusBtn.addEventListener('click', claimDailyBonus);
+      }
+      
+      // Set up quest bonus button
+      const questBonusBtn = document.getElementById('quest-bonus-btn');
+      if (questBonusBtn) {
+        questBonusBtn.addEventListener('click', claimDailyBonusFromQuests);
+      }
+      
+      // Set up swap TON button
+      const swapTonBtn = document.getElementById('swap-ton-btn');
+      if (swapTonBtn) {
+        swapTonBtn.addEventListener('click', swapTonForCash);
+      }
+      
+      // Check if user has already claimed bonus today
+      checkBonusStatus();
     });
     
     // Function to show a specific page
@@ -649,11 +775,79 @@
       document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
       });
-      document.getElementById(`${pageId}-page`).classList.add('active');
+      const pageElement = document.getElementById(`${pageId}-page`);
+      if (pageElement) {
+        pageElement.classList.add('active');
+      }
+    }
+    
+    // Function to load user data from backend
+    async function loadUserData() {
+      try {
+        const userId = telegramUser ? telegramUser.id : 'demo';
+        const response = await fetch('/api/user/data', {
+          method: 'GET',
+          headers: {
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          }
+        });
+        
+        if (response.ok) {
+          userData = await response.json();
+          updateUIWithUserData(userData);
+        } else {
+          console.error('Failed to load user data');
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      }
+    }
+    
+    // Function to update UI with user data
+    function updateUIWithUserData(data) {
+      if (data.success) {
+        // Update balances
+        currentBalance = data.game_coins || 0;
+        
+        document.getElementById('gc-balance').textContent = currentBalance;
+        document.getElementById('ton-equivalent').textContent = (currentBalance / 2000).toFixed(6);
+        document.getElementById('wallet-gc-balance').textContent = currentBalance;
+        document.getElementById('wallet-ton-equivalent').textContent = (currentBalance / 2000).toFixed(2);
+        document.getElementById('profile-balance').textContent = (currentBalance / 2000).toFixed(6);
+        document.getElementById('menu-balance').textContent = (currentBalance / 2000).toFixed(6) + ' TON';
+        
+        // Update shop balance display
+        document.getElementById('balance-loading').style.display = 'none';
+        document.getElementById('balance-value').style.display = 'inline';
+        document.getElementById('balance-value').textContent = `${currentBalance} GC`;
+        
+        // Update stats
+        document.getElementById('click-count').textContent = data.clicks_today || 0;
+        document.getElementById('total-earned').textContent = (data.total_earned || 0).toFixed(6);
+        document.getElementById('games-played').textContent = data.games_played || 0;
+        document.getElementById('ads-watched').textContent = data.ads_watched || 0;
+        document.getElementById('referrals-count').textContent = data.referrals || 0;
+        
+        // Update referral stats
+        document.getElementById('ref-count').textContent = data.referrals || 0;
+        document.getElementById('ref-earnings').textContent = (data.ref_earnings || 0).toFixed(6);
+        
+        // Update quest progress
+        document.getElementById('quest-ads').textContent = data.ads_today || 0;
+        document.getElementById('quest-games').textContent = data.games_today || 0;
+        document.getElementById('quest-invite').textContent = data.referrals_today || 0;
+        
+        // Check if bonus was already claimed today
+        if (data.bonus_claimed) {
+          document.getElementById('daily-bonus-popup').style.display = 'none';
+          document.getElementById('quest-bonus-btn').disabled = true;
+          document.getElementById('quest-bonus-btn').textContent = 'Claimed';
+        }
+      }
     }
     
     // Function to handle click earning
-    function handleClickEarn() {
+    async function handleClickEarn() {
       const clickCount = parseInt(document.getElementById('click-count').textContent);
       if (clickCount >= 100) {
         if (window.Telegram && Telegram.WebApp) {
@@ -668,117 +862,283 @@
         return;
       }
       
-      // Update click count
-      document.getElementById('click-count').textContent = clickCount + 1;
+      try {
+        const response = await fetch('/api/quests/record_click', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          },
+          body: JSON.stringify({ user_id: telegramUser ? telegramUser.id : 'demo' })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          // Update click count
+          document.getElementById('click-count').textContent = result.clicks;
+          
+          // Update balance
+          document.getElementById('gc-balance').textContent = result.game_coins;
+          document.getElementById('ton-equivalent').textContent = (result.game_coins / 2000).toFixed(6);
+          document.getElementById('wallet-gc-balance').textContent = result.game_coins;
+          document.getElementById('wallet-ton-equivalent').textContent = (result.game_coins / 2000).toFixed(2);
+          document.getElementById('profile-balance').textContent = (result.game_coins / 2000).toFixed(6);
+          
+          // Add visual feedback
+          const clickArea = document.querySelector('.click-area');
+          clickArea.style.transform = 'scale(0.95)';
+          setTimeout(() => {
+            clickArea.style.transform = 'scale(1)';
+          }, 100);
+          
+          // Show earned amount
+          const earnedElement = document.createElement('div');
+          earnedElement.textContent = '+0.0001 TON';
+          earnedElement.style.position = 'absolute';
+          earnedElement.style.color = '#ffd700';
+          earnedElement.style.fontWeight = 'bold';
+          earnedElement.style.animation = 'floatUp 1s forwards';
+          clickArea.appendChild(earnedElement);
+          
+          setTimeout(() => {
+            earnedElement.remove();
+          }, 1000);
+        } else {
+          console.error('Failed to record click');
+        }
+      } catch (error) {
+        console.error('Error recording click:', error);
+      }
+    }
+
+        // Function to purchase an item
+    async function purchaseItem(itemId, price) {
+      if (currentBalance < price) {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Insufficient Funds',
+            message: `You need ${price} GC to purchase this item`,
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert(`You need ${price} GC to purchase this item`);
+        }
+        return;
+      }
       
-      // Add visual feedback
-      const clickArea = document.querySelector('.click-area');
-      clickArea.style.transform = 'scale(0.95)';
-      setTimeout(() => {
-        clickArea.style.transform = 'scale(1)';
-      }, 100);
-      
-      // Show earned amount (would typically come from backend)
-      const earnedElement = document.createElement('div');
-      earnedElement.textContent = '+0.0001 TON';
-      earnedElement.style.position = 'absolute';
-      earnedElement.style.color = '#ffd700';
-      earnedElement.style.fontWeight = 'bold';
-      earnedElement.style.animation = 'floatUp 1s forwards';
-      clickArea.appendChild(earnedElement);
-      
-      setTimeout(() => {
-        earnedElement.remove();
-      }, 1000);
-      
-      // Update balance (would typically come from backend)
-      const currentBalance = parseFloat(document.getElementById('balance').textContent);
-      document.getElementById('balance').textContent = (currentBalance + 0.0001).toFixed(6);
+      try {
+        const response = await fetch('/api/shop/purchase', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          },
+          body: JSON.stringify({
+            user_id: telegramUser ? telegramUser.id : 'demo',
+            item_id: itemId,
+            price: price
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            // Update balance
+            currentBalance = result.new_gc_balance;
+            document.getElementById('gc-balance').textContent = currentBalance;
+            document.getElementById('balance-value').textContent = `${currentBalance} GC`;
+            
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Purchase Successful',
+                message: `You've purchased ${result.item_name}!`,
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert(`You've purchased ${result.item_name}!`);
+            }
+            
+            // Reload user data to ensure everything is in sync
+            loadUserData();
+          } else {
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Purchase Failed',
+                message: result.error || 'Purchase failed',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert(result.error || 'Purchase failed');
+            }
+          }
+        } else {
+          console.error('Failed to purchase item');
+        }
+      } catch (error) {
+        console.error('Error purchasing item:', error);
+      }
     }
     
     // Function to claim daily bonus
-    function claimDailyBonus() {
-      // Record that bonus was claimed today
-      localStorage.setItem('lastBonusDate', new Date().toDateString());
-      
-      // Hide the popup
-      document.getElementById('daily-bonus-popup').style.display = 'none';
-      
-      // Update balance (would typically come from backend)
-      const currentBalance = parseFloat(document.getElementById('balance').textContent);
-      document.getElementById('balance').textContent = (currentBalance + 0.05).toFixed(6);
-      
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.showPopup({
-          title: 'Bonus Claimed!',
-          message: '0.05 TON has been added to your balance',
-          buttons: [{type: 'ok'}]
+    async function claimDailyBonus() {
+      try {
+        const response = await fetch('/api/quests/claim_bonus', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          },
+          body: JSON.stringify({ user_id: telegramUser ? telegramUser.id : 'demo' })
         });
-      } else {
-        alert('Bonus Claimed! 0.05 TON has been added to your balance');
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          if (result.success) {
+            // Hide the popup
+            document.getElementById('daily-bonus-popup').style.display = 'none';
+            
+            // Update balance
+            document.getElementById('gc-balance').textContent = result.game_coins;
+            document.getElementById('ton-equivalent').textContent = (result.game_coins / 2000).toFixed(6);
+            document.getElementById('wallet-gc-balance').textContent = result.game_coins;
+            document.getElementById('wallet-ton-equivalent').textContent = (result.game_coins / 2000).toFixed(2);
+            document.getElementById('profile-balance').textContent = (result.game_coins / 2000).toFixed(6);
+            
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Bonus Claimed!',
+                message: '0.05 TON has been added to your balance',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert('Bonus Claimed! 0.05 TON has been added to your balance');
+            }
+          } else {
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Already Claimed',
+                message: 'You have already claimed your bonus today',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert('You have already claimed your bonus today');
+            }
+          }
+        } else {
+          console.error('Failed to claim bonus');
+        }
+      } catch (error) {
+        console.error('Error claiming bonus:', error);
+      }
+    }
+    
+    // Function to claim daily bonus from quests page
+    async function claimDailyBonusFromQuests() {
+      await claimDailyBonus();
+      
+      // Update quest button
+      document.getElementById('quest-bonus-btn').disabled = true;
+      document.getElementById('quest-bonus-btn').textContent = 'Claimed';
+    }
+    
+    // Function to check bonus status
+    async function checkBonusStatus() {
+      try {
+        const response = await fetch('/api/user/data', {
+          method: 'GET',
+          headers: {
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.bonus_claimed) {
+            document.getElementById('daily-bonus-popup').style.display = 'none';
+            document.getElementById('quest-bonus-btn').disabled = true;
+            document.getElementById('quest-bonus-btn').textContent = 'Claimed';
+          }
+        }
+      } catch (error) {
+        console.error('Error checking bonus status:', error);
       }
     }
     
     // Function to watch an ad
-    function watchAd() {
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.showPopup({
-          title: 'Watch Ad',
-          message: 'Would you like to watch a video ad to earn 0.001 TON?',
-          buttons: [
-            {id: 'cancel', type: 'cancel', text: 'Cancel'},
-            {id: 'watch', type: 'default', text: 'Watch Ad'}
-          ]
-        }, function(buttonId) {
-          if (buttonId === 'watch') {
-            // Simulate ad watching
-            Telegram.WebApp.showPopup({
-              title: 'Ad Playing',
-              message: 'Please watch the ad to completion...',
-              buttons: [{type: 'close'}]
-            });
+    async function watchAd() {
+      try {
+        const response = await fetch('/api/ads/reward', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          },
+          body: JSON.stringify({ 
+            user_id: telegramUser ? telegramUser.id : 'demo',
+            ad_id: 'miniapp_ad_' + Date.now()
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          if (result.success) {
+            // Update balance
+            document.getElementById('gc-balance').textContent = result.game_coins;
+            document.getElementById('ton-equivalent').textContent = (result.game_coins / 2000).toFixed(6);
+            document.getElementById('wallet-gc-balance').textContent = result.game_coins;
+            document.getElementById('wallet-ton-equivalent').textContent = (result.game_coins / 2000).toFixed(2);
+            document.getElementById('profile-balance').textContent = (result.game_coins / 2000).toFixed(6);
             
-            // After 5 seconds, simulate ad completion
-            setTimeout(() => {
-              // Update balance (would typically come from backend)
-              const currentBalance = parseFloat(document.getElementById('balance').textContent);
-              document.getElementById('balance').textContent = (currentBalance + 0.001).toFixed(6);
-              
-              // Update ads watched count
-              const adsWatched = parseInt(document.getElementById('ads-watched').textContent);
-              document.getElementById('ads-watched').textContent = adsWatched + 1;
-              
+            // Update ads watched count
+            const adsWatched = parseInt(document.getElementById('ads-watched').textContent);
+            document.getElementById('ads-watched').textContent = adsWatched + 1;
+            
+            // Update quest progress
+            const questAds = parseInt(document.getElementById('quest-ads').textContent);
+            document.getElementById('quest-ads').textContent = questAds + 1;
+            
+            if (window.Telegram && Telegram.WebApp) {
               Telegram.WebApp.showPopup({
                 title: 'Ad Completed',
-                message: 'You earned 0.001 TON!',
+                message: `You earned ${result.reward} TON!`,
                 buttons: [{type: 'ok'}]
               });
-            }, 5000);
+            } else {
+              alert(`Ad Completed! You earned ${result.reward} TON!`);
+            }
           }
-        });
-      } else {
-        alert('Ad functionality requires Telegram WebApp');
+        } else {
+          console.error('Failed to process ad reward');
+        }
+      } catch (error) {
+        console.error('Error watching ad:', error);
       }
     }
     
     // Function to launch a game
-    function launchGame(gameId) {
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.showPopup({
-          title: `Play ${gameId.charAt(0).toUpperCase() + gameId.slice(1)}`,
-          message: `Earn TON coins by playing this game!`,
-          buttons: [
-            {id: 'cancel', type: 'cancel', text: 'Cancel'},
-            {id: 'play', type: 'default', text: 'Play Now'}
-          ]
-        }, function(buttonId) {
-          if (buttonId === 'play') {
-            // Redirect to game page
-            window.location.href = `/games/${gameId}`;
+    async function launchGame(gameId) {
+      try {
+        const response = await fetch(`/api/games/launch/${gameId}?user_id=${telegramUser ? telegramUser.id : 'demo'}`, {
+          headers: {
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
           }
         });
-      } else {
-        window.location.href = `/games/${gameId}`;
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            window.location.href = result.url;
+          } else {
+            console.error('Failed to launch game:', result.error);
+          }
+        } else {
+          console.error('Failed to launch game');
+        }
+      } catch (error) {
+        console.error('Error launching game:', error);
       }
     }
     
@@ -793,7 +1153,7 @@
     }
     
     // Function to process withdrawal
-    function processWithdrawal() {
+    async function processWithdrawal() {
       const address = document.getElementById('withdraw-address').value;
       const amount = parseFloat(document.getElementById('withdraw-amount').value);
       
@@ -823,86 +1183,82 @@
         return;
       }
       
-      const currentBalance = parseFloat(document.getElementById('balance').textContent);
-      if (amount > currentBalance) {
-        if (window.Telegram && Telegram.WebApp) {
-          Telegram.WebApp.showPopup({
-            title: 'Error',
-            message: 'Insufficient balance',
-            buttons: [{type: 'ok'}]
-          });
-        } else {
-          alert('Insufficient balance');
-        }
-        return;
-      }
-      
-      if (window.Telegram && Telegram.WebApp) {
-        Telegram.WebApp.showPopup({
-          title: 'Confirm Withdrawal',
-          message: `Send ${amount} TON to ${address}?`,
-          buttons: [
-            {id: 'cancel', type: 'cancel', text: 'Cancel'},
-            {id: 'confirm', type: 'default', text: 'Confirm'}
-          ]
-        }, function(buttonId) {
-          if (buttonId === 'confirm') {
-            // Process withdrawal (would typically call backend API)
-            document.getElementById('balance').textContent = (currentBalance - amount).toFixed(6);
+      try {
+        const response = await fetch('/api/withdraw/gc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          },
+          body: JSON.stringify({
+            user_id: telegramUser ? telegramUser.id : 'demo',
+            amount: amount * 2000, // Convert TON to GC
+            address: address
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          if (result.success) {
+            // Update balance
+            document.getElementById('gc-balance').textContent = result.new_gc_balance;
+            document.getElementById('ton-equivalent').textContent = (result.new_gc_balance / 2000).toFixed(6);
+            document.getElementById('wallet-gc-balance').textContent = result.new_gc_balance;
+            document.getElementById('wallet-ton-equivalent').textContent = (result.new_gc_balance / 2000).toFixed(2);
+            document.getElementById('profile-balance').textContent = (result.new_gc_balance / 2000).toFixed(6);
+            
             hideWithdrawalForm();
             
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Withdrawal Processing',
+                message: 'Your withdrawal is being processed. It may take up to 24 hours.',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert('Withdrawal request submitted. It may take up to 24 hours to process.');
+            }
+          } else {
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Error',
+                message: result.error || 'Withdrawal failed',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert(result.error || 'Withdrawal failed');
+            }
+          }
+        } else {
+          console.error('Failed to process withdrawal');
+        }
+      } catch (error) {
+        console.error('Error processing withdrawal:', error);
+      }
+    }
+    
+    // Function to connect wallet using Telegram's native wallet
+    function connectWallet() {
+      if (window.Telegram && Telegram.WebApp) {
+        Telegram.WebApp.openInvoice('invoice_url_here', function(status) {
+          if (status === 'paid') {
             Telegram.WebApp.showPopup({
-              title: 'Withdrawal Processing',
-              message: 'Your withdrawal is being processed. It may take up to 24 hours.',
+              title: 'Wallet Connected',
+              message: 'Your Telegram wallet has been successfully connected!',
               buttons: [{type: 'ok'}]
             });
           }
         });
       } else {
-        // Fallback for non-Telegram environment
-        if (confirm(`Send ${amount} TON to ${address}?`)) {
-          document.getElementById('balance').textContent = (currentBalance - amount).toFixed(6);
-          hideWithdrawalForm();
-          alert('Withdrawal request submitted. It may take up to 24 hours to process.');
-        }
+        alert('Please open this app in Telegram to connect your wallet');
       }
-    }
-    
-    // Function to connect wallet
-    function connectWallet() {
-      if (typeof window.ton === 'undefined') {
-        if (window.Telegram && Telegram.WebApp) {
-          Telegram.WebApp.showPopup({
-            title: 'Wallet Not Available',
-            message: 'Please install a TON wallet extension',
-            buttons: [{type: 'ok'}]
-          });
-        } else {
-          alert('Please install a TON wallet extension');
-        }
-        return;
-      }
-      
-      window.ton.send("ton_requestWallets").then(wallets => {
-        if (wallets.length > 0) {
-          const address = wallets[0].address;
-          if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.showPopup({
-              title: 'Wallet Connected',
-              message: `Connected to wallet: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`,
-              buttons: [{type: 'ok'}]
-            });
-          } else {
-            alert(`Connected to wallet: ${address.substring(0, 6)}...${address.substring(address.length - 4)}`);
-          }
-        }
-      });
     }
     
     // Function to update OTC conversion preview
     function updateConversionPreview() {
       const amount = parseFloat(document.getElementById('otc-amount').value) || 0;
-      const currency = document.querySelector('.currency-option.active').getAttribute('data-currency');
+      const currency = document.getElementById('otc-currency').value;
       
       if (amount > 0) {
         const rates = {
@@ -924,27 +1280,75 @@
       }
     }
     
-    // Function to load user data
-    function loadUserData() {
-      // This would typically fetch from your backend API
-      // For now, we'll use mock data
-      setTimeout(() => {
-        document.getElementById('balance').textContent = '0.254300';
-        document.getElementById('gc-balance').textContent = '12500';
-        document.getElementById('ton-equivalent').textContent = '6.25';
-        document.getElementById('profile-balance').textContent = '0.254300';
-        document.getElementById('profile-total-earned').textContent = '1.856400';
-        document.getElementById('click-count').textContent = '12';
-        document.getElementById('total-earned').textContent = '1.856400';
-        document.getElementById('games-played').textContent = '8';
-        document.getElementById('ads-watched').textContent = '5';
-        document.getElementById('referrals-count').textContent = '2';
-        document.getElementById('ref-count').textContent = '2';
-        document.getElementById('ref-earnings').textContent = '0.124500';
-        document.getElementById('daily-streak').textContent = '3/7';
-        document.getElementById('high-score').textContent = '650/1000';
-        document.getElementById('milestone-3').textContent = '2/3';
-      }, 1000);
+    // Function to swap TON for cash
+    async function swapTonForCash() {
+      const amount = parseFloat(document.getElementById('otc-amount').value) || 0;
+      const currency = document.getElementById('otc-currency').value;
+      
+      if (amount <= 0) {
+        if (window.Telegram && Telegram.WebApp) {
+          Telegram.WebApp.showPopup({
+            title: 'Error',
+            message: 'Please enter a valid amount',
+            buttons: [{type: 'ok'}]
+          });
+        } else {
+          alert('Please enter a valid amount');
+        }
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/otc/swap', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+          },
+          body: JSON.stringify({
+            user_id: telegramUser ? telegramUser.id : 'demo',
+            amount: amount,
+            currency: currency
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          if (result.success) {
+            // Update balance
+            document.getElementById('gc-balance').textContent = result.new_gc_balance;
+            document.getElementById('ton-equivalent').textContent = (result.new_gc_balance / 2000).toFixed(6);
+            document.getElementById('wallet-gc-balance').textContent = result.new_gc_balance;
+            document.getElementById('wallet-ton-equivalent').textContent = (result.new_gc_balance / 2000).toFixed(2);
+            document.getElementById('profile-balance').textContent = (result.new_gc_balance / 2000).toFixed(6);
+            
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Swap Successful',
+                message: `Your TON has been converted to ${currency}`,
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert(`Your TON has been converted to ${currency}`);
+            }
+          } else {
+            if (window.Telegram && Telegram.WebApp) {
+              Telegram.WebApp.showPopup({
+                title: 'Error',
+                message: result.error || 'Swap failed',
+                buttons: [{type: 'ok'}]
+              });
+            } else {
+              alert(result.error || 'Swap failed');
+            }
+          }
+        } else {
+          console.error('Failed to process swap');
+        }
+      } catch (error) {
+        console.error('Error processing swap:', error);
+      }
     }
     
     // Function to logout
