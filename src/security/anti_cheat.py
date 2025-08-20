@@ -1,3 +1,4 @@
+import time
 import statistics
 from src.database.mongo import get_user_activity
 

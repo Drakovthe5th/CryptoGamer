@@ -4,13 +4,17 @@ import datetime
 import asyncio
 import logging
 import atexit
+import base64
+import json
 from flask import Flask, request, Blueprint, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 from src.web.routes import configure_routes
 from src.database.mongo import initialize_mongodb
-from src.main import validate_production_config
+from src.utils.security import get_user_id, validate_telegram_hash, is_abnormal_activity
+from src.features.quests import claim_daily_bonus, record_click
+from src.features.ads import ad_manager
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +22,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+try:
+    from games.games import games_bp
+    logger.info("Games blueprint imported successfully")
+except ImportError as e:
+    logger.error(f"Failed to import games blueprint: {e}")
+    # Create a dummy blueprint to prevent crashes
+    games_bp = Blueprint('games', __name__)
 
 miniapp_bp = Blueprint('miniapp', __name__)
 games_bp = Blueprint('games', __name__, url_prefix='/games')
@@ -32,13 +44,10 @@ try:
     )
 except ImportError as e:
     logger.error(f"Import error: {e}")
-    # Notify admin or take corrective action
     raise
 except Exception as e:
     logger.error(f"Initialization error: {e}")
     raise
-
-from src.utils.security import get_user_id, is_abnormal_activity
 
 # Graceful import of maintenance functions
 try:
@@ -51,11 +60,9 @@ try:
         run_health_checks
     )
     MAINTENANCE_AVAILABLE = True
-    logger = logging.getLogger(__name__)
     logger.info("Maintenance module imported successfully")
 except ImportError as e:
     MAINTENANCE_AVAILABLE = False
-    logger = logging.getLogger(__name__)
     logger.warning(f"Maintenance module not available: {e}")
     
     # Fallback functions
@@ -74,10 +81,15 @@ except ImportError as e:
 
 from config import config
 from src.database.mongo import initialize_mongodb
+from src.database.mongo import get_user_data, save_user_data, update_balance, track_ad_reward
+
 # Create Flask app
 app = Flask(__name__, template_folder='templates')
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Register games blueprint
+app.register_blueprint(games_bp, url_prefix='/games')
 
 # Celery configuration
 celery = Celery(
@@ -122,8 +134,61 @@ def shutdown_production_app():
     # TON wallet shutdown handled internally
     logger.info("✅ PRODUCTION SHUTDOWN COMPLETE")
 
+# Security middleware
+@app.before_request
+def check_security():
+    """Enhanced security middleware with proper error handling"""
+    # Skip security checks for static files and health endpoints
+    if (request.path.startswith('/static') or 
+        request.path.startswith('/health') or
+        request.path == '/'):
+        return
+    
+    # Only check security for API endpoints
+    if request.path.startswith('/api'):
+        try:
+            # Telegram authentication
+            init_data = request.headers.get('X-Telegram-InitData')
+            if not init_data:
+                return jsonify({'error': 'Telegram authentication required'}), 401
+            
+            if not validate_telegram_hash(init_data, config.TELEGRAM_BOT_TOKEN):
+                return jsonify({'error': 'Invalid Telegram authentication'}), 401
+                
+            # Security token validation
+            security_token = request.headers.get('X-Security-Token')
+            if not security_token:
+                return jsonify({'error': 'Security token missing'}), 401
+                
+            try:
+                # Use base64.b64decode instead of atob (which is JavaScript)
+                security_token = security_token.replace('-', '+').replace('_', '/')
+                padding = len(security_token) % 4
+                if padding > 0:
+                    security_token += '=' * (4 - padding)
+                    
+                token_data = base64.b64decode(security_token).decode('utf-8').split(':')
+                
+                if len(token_data) != 2:
+                    return jsonify({'error': 'Invalid security token format'}), 401
+                    
+                token_time = int(token_data[1])
+                current_time = int(datetime.datetime.utcnow().timestamp())
+                
+                # 5 minutes expiry
+                if abs(current_time - token_time) > 300:
+                    return jsonify({'error': 'Security token expired'}), 401
+                    
+            except (ValueError, TypeError, base64.binascii.Error) as e:
+                logger.warning(f"Invalid security token: {e}")
+                return jsonify({'error': 'Invalid security token'}), 401
+                
+        except Exception as e:
+            logger.error(f"Security check failed: {e}")
+            return jsonify({'error': 'Security check failed'}), 500
+
 # Core Routes
-@app.route('/', endpoint='main_app')
+@app.route('/')
 def serve_main_app():
     """Serve main application"""
     return render_template('miniapp.html')
@@ -146,36 +211,6 @@ def serve_static(path):
     static_dir = os.path.join(root_dir, 'static')
     return send_from_directory(static_dir, path)
 
-# Game Routes
-@app.route('/games/<game_name>', endpoint='serve_game_main')
-def serve_game(game_name):
-    """Serve game HTML file with exponential backoff retries"""
-    valid_games = {
-        'clicker': 'clicker/index.html',
-        'spin': 'spin/index.html', 
-        'edge-surf': 'edge-surf/index.html',
-        'trex': 'trex/index.html',
-        'trivia': 'trivia/index.html'
-    }
-    
-    if game_name not in valid_games:
-        return jsonify({"error": "Game not found"}), 404
-        
-    return send_from_directory('static', valid_games[game_name])
-    
-@app.route('/games/<game_name>/<path:filename>')
-def game_static(game_name, filename):
-    return send_from_directory(f'static/{game_name}', filename)
-
-@app.route('/games/static/<path:path>', methods=['GET'], endpoint='serve_game_assets')
-def serve_game_assets(path):
-    """Serve game static assets"""
-    try:
-        return send_from_directory('static', path)
-    except Exception as e:
-        logger.error(f"Static asset error: {e}")
-        return jsonify({'error': 'Asset not found'}), 404
-
 # API Routes
 @app.route('/api/user/balance', methods=['GET'])
 def get_user_balance():
@@ -188,6 +223,175 @@ def get_user_balance():
     except Exception as e:
         logger.error(f"Balance error: {e}")
         return jsonify({'error': 'Failed to get balance'}), 500
+
+# User Data API
+@app.route('/api/user/data', methods=['GET'])
+def get_user_data_api():
+    """Get user data with enhanced error handling"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User ID missing'}), 400
+
+        user_data = get_user_data(int(user_id))
+        
+        if not user_data:
+            # Create new user if doesn't exist
+            user_data = {
+                'balance': 0,
+                'clicks_today': 0,
+                'bonus_claimed': False,
+                'username': f'Player{user_id}'
+            }
+            # Save new user data
+            save_user_data(int(user_id), user_data)
+            logger.info(f"Created new user: {user_id}")
+
+        return jsonify({
+            'success': True,
+            'balance': user_data.get('balance', 0),
+            'clicks_today': user_data.get('clicks_today', 0),
+            'bonus_claimed': user_data.get('bonus_claimed', False),
+            'username': user_data.get('username', f'Player{user_id}')
+        })
+        
+    except Exception as e:
+        logger.error(f"Get user data error: {str(e)}")
+        return jsonify({'error': 'Failed to fetch user data'}), 500
+
+# Quests API
+@app.route('/api/quests/claim_bonus', methods=['POST'])
+def claim_daily_bonus_route():
+    """Claim daily bonus with security checks"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User ID missing'}), 400
+        
+        # Check for suspicious activity
+        if is_abnormal_activity(user_id):
+            return jsonify({
+                'success': False,
+                'error': 'Account restricted due to suspicious activity'
+            }), 403
+        
+        success, new_balance = claim_daily_bonus(user_id)
+        
+        return jsonify({
+            'success': success,
+            'new_balance': new_balance,
+            'message': 'Daily bonus claimed successfully!' if success else 'Bonus already claimed today'
+        })
+        
+    except Exception as e:
+        logger.error(f"Claim bonus error: {str(e)}")
+        return jsonify({
+            'success': False, 
+            'error': 'Failed to claim bonus'
+        }), 500
+
+@app.route('/api/quests/record_click', methods=['POST'])
+def record_click_route():
+    """Record user click with anti-cheat measures"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User ID missing'}), 400
+        
+        # Check for suspicious activity
+        if is_abnormal_activity(user_id):
+            return jsonify({
+                'success': False,
+                'error': 'Account restricted due to suspicious activity'
+            }), 403
+        
+        clicks, balance = record_click(user_id)
+        
+        return jsonify({
+            'success': True,
+            'clicks': clicks,
+            'balance': balance
+        })
+        
+    except Exception as e:
+        logger.error(f"Record click error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to record click'
+        }), 500
+
+# Ads API
+@app.route('/api/ads/reward', methods=['POST'])
+def ad_reward_route():
+    """Process ad reward with validation"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Invalid request data'}), 400
+            
+        user_id = data.get('user_id')
+        ad_id = data.get('ad_id')
+        
+        if not user_id or not ad_id:
+            return jsonify({'error': 'User ID and Ad ID required'}), 400
+        
+        # Security check
+        if is_abnormal_activity(user_id):
+            return jsonify({
+                'success': False,
+                'error': 'Account restricted due to suspicious activity'
+            }), 403
+        
+        # Calculate reward with bonuses
+        now = datetime.datetime.now()
+        is_weekend = now.weekday() in [5, 6]  # Saturday, Sunday
+        base_reward = config.REWARDS['ad_view']
+        
+        if is_weekend:
+            base_reward *= config.WEEKEND_BOOST_MULTIPLIER
+        
+        # Update balance and track reward
+        new_balance = update_balance(user_id, base_reward)
+        track_ad_reward(user_id, base_reward, ad_id, is_weekend)
+        
+        return jsonify({
+            'success': True,
+            'reward': base_reward,
+            'new_balance': new_balance,
+            'weekend_boost': is_weekend
+        })
+        
+    except Exception as e:
+        logger.error(f"Ad reward error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to process ad reward'
+        }), 500
+
+# Security API
+@app.route('/api/security/check', methods=['GET'])
+def security_check_route():
+    """Check user security status"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User ID missing'}), 400
+            
+        restricted = is_abnormal_activity(user_id)
+        
+        return jsonify({
+            'success': True,
+            'restricted': restricted,
+            'message': 'Security check completed',
+            'timestamp': datetime.datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Security check error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Security check failed'
+        }), 500
 
 # Blockchain API Routes
 @app.route('/api/blockchain/stake', methods=['POST'])
@@ -395,9 +599,40 @@ def internal_error(error):
     logger.error(f"Internal server error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({
+        'error': 'Access forbidden',
+        'message': 'You do not have permission to access this resource'
+    }), 403
+
+# Health check endpoint
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    try:
+        return jsonify({
+            'status': 'healthy',
+            'service': 'CryptoGameMiner',
+            'version': '1.0.0',
+            'timestamp': datetime.datetime.utcnow().isoformat(),
+            'features': {
+                'games': config.FEATURE_GAMES,
+                'ads': config.FEATURE_ADS,
+                'otc': config.FEATURE_OTC
+            }
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.datetime.utcnow().isoformat()
+        }), 500
+
 try:
     initialize_production_app()
-    configure_routes(app)  # Add this line to register routes
+    configure_routes(app)  # Add routes from routes.py
 except Exception as e:
     logger.critical(f"❌ FAILED TO START PRODUCTION APP: {e}")
     exit(1)

@@ -2,7 +2,8 @@ import hashlib
 import hmac
 from urllib.parse import parse_qsl
 from flask import current_app
-from src.database.mongo import get_user_data
+from telegram import Telegram
+from src.database.mongo import get_user_data, create_user
 from config import config
 
 def validate_telegram_data(init_data: str, bot_token: str) -> bool:
@@ -61,7 +62,7 @@ def get_or_create_user(user_id, username=None):
     user = get_user_data(user_id)
     if not user:
         # New user - create with welcome bonus
-        user = create_new_user(user_id, username)
+        user = create_user(user_id, username)
         
         # Show welcome message
         if Telegram.WebApp:

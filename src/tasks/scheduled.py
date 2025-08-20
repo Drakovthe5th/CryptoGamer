@@ -3,6 +3,7 @@ from src.features.monetization import ad_revenue, data_insights
 from src.database.mongo import db
 import logging
 from src.database.mongo import reset_all_daily_limits
+from src.integrations import ton_mining
 from datetime import datetime
 import schedule
 import time

@@ -43,7 +43,6 @@ def games_index():
         })
     return jsonify({"games": games_list})
 
-# Use unique endpoint name to avoid conflicts
 @games_bp.route('/<game_name>', endpoint='game_serve')
 def serve_game(game_name):
     """Serve game HTML file with exponential backoff retries"""
@@ -52,18 +51,29 @@ def serve_game(game_name):
         logger.error(f"Game not found: {game_name}")
         return jsonify({"error": "Game not found"}), 404
     
+    # Map game names to actual directory names
+    game_dir_map = {
+        'clicker': 'clicker',
+        'spin': 'spin', 
+        'trivia': 'trivia',
+        'trex': 'trex',
+        'edge_surf': 'edge-surf'  # Note the hyphen
+    }
+    
+    actual_dir = game_dir_map.get(game_name.lower(), game_name.lower())
+    
     @backoff.on_exception(backoff.expo,
                           FileNotFoundError,
                           max_tries=game.max_retry_attempts,
                           jitter=backoff.full_jitter,
                           max_time=10)
     def try_serve():
-        return send_from_directory('static', f'{game_name}/index.html')
+        return send_from_directory(f'static/{actual_dir}', 'index.html')
     
     try:
         return try_serve()
     except FileNotFoundError:
-        logger.error(f"Game file not found: static/{game_name}/index.html")
+        logger.error(f"Game file not found: static/{actual_dir}/index.html")
         return jsonify({"error": "Game file not found"}), 404
 
 # Unique endpoint name for static files

@@ -3,7 +3,7 @@ import time
 import logging
 import threading
 from datetime import datetime, timedelta
-from src.database.mongo import db, update_game_coins
+from src.database.mongo import db, update_game_coins, get_user_data
 from src.integrations.tonclient import ton_client
 from src.integrations.mpesa import send_mpesa_payment
 from src.integrations.paypal import create_payout
@@ -40,7 +40,7 @@ class WithdrawalProcessor:
 
     
     def process_withdrawal(self, user_id):
-        user = get_user(user_id)
+        user = get_user_data(user_id)
         
         if not user.wallet_address:
             raise Exception("Wallet not connected")
