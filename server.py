@@ -8,7 +8,6 @@ import base64
 import json
 from flask import Flask, request, Blueprint, jsonify, render_template, send_from_directory
 from src.web.flask_app import create_app
-from src.utils.logger import setup_logging
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
