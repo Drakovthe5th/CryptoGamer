@@ -658,7 +658,7 @@ def create_render_app():
 
 if __name__ == '__main__':
     # Setup logging
-    setup_logging()
+    logger()
     
     # Create app
     app = create_render_app()
