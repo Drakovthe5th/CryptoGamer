@@ -11,17 +11,14 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 
-# Import from main.py instead of flask_app.py
-from src.main import app as main_app, initialize_production_app, shutdown_production_app
+# Correct import path - main.py is in the src directory
+from src.main import app as main_app
+from src.main import production_initialization, shutdown_app
 
 # Configure production logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('/var/log/cryptogamer/app.log') if os.path.exists('/var/log/cryptogamer') else logging.StreamHandler()
-    ]
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -60,7 +57,7 @@ from config import config
 # Use the app instance from main.py
 app = main_app
 CORS(app, origins="*")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent', logger=True, engineio_logger=True)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
 # Register games blueprint with proper error handling
 if GAMES_AVAILABLE:
@@ -86,8 +83,7 @@ else:
 celery = Celery(
     app.name, 
     broker=os.environ.get('REDIS_URL', 'redis://localhost:6379/0'),
-    backend=os.environ.get('REDIS_URL', 'redis://localhost:6379/1'),
-    broker_connection_retry_on_startup=True
+    backend=os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
 )
 
 # Production middleware
@@ -132,20 +128,14 @@ def production_status():
     """Comprehensive system status"""
     return jsonify({
         "status": "running",
-        "service": "CryptoGameMiner",
+        "service": 'CryptoGameMiner',
         "version": "1.0.0",
         "environment": config.ENV,
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "components": {
             "mongodb": MONGO_AVAILABLE,
             "ton_blockchain": TON_AVAILABLE,
-            "games_service": GAMES_AVAILABLE,
-            "maintenance": MAINTENANCE_AVAILABLE if 'MAINTENANCE_AVAILABLE' in globals() else False
-        },
-        "features": {
-            "games": config.FEATURE_GAMES,
-            "ads": config.FEATURE_ADS,
-            "otc": config.FEATURE_OTC
+            "games_service": GAMES_AVAILABLE
         }
     })
 
@@ -253,7 +243,7 @@ def production_shutdown():
     """Production-grade shutdown procedure"""
     logger.info("Initiating production shutdown sequence...")
     try:
-        shutdown_production_app()
+        shutdown_app()
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
     logger.info("Production shutdown completed")
@@ -285,16 +275,16 @@ if __name__ == '__main__':
         # Initialize production application
         app = create_production_app()
         
-        # Initialize production services
-        if not initialize_production_app():
+        # Initialize production services using the async function from main.py
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        success = loop.run_until_complete(production_initialization())
+        loop.close()
+        
+        if not success:
             logger.critical("Production initialization failed")
             sys.exit(1)
             
-        # Initialize MongoDB
-        if MONGO_AVAILABLE and not initialize_mongodb():
-            logger.critical("MongoDB initialization failed")
-            sys.exit(1)
-        
         logger.info("Production initialization completed successfully")
         
         # Start production server
@@ -308,9 +298,7 @@ if __name__ == '__main__':
         server = pywsgi.WSGIServer(
             ('0.0.0.0', port), 
             app, 
-            handler_class=WebSocketHandler,
-            log=logger,
-            error_log=logger
+            handler_class=WebSocketHandler
         )
         
         logger.info("Production server is running")
