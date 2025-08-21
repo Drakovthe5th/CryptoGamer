@@ -16,6 +16,14 @@ from src.database.mongo import initialize_mongodb
 from src.utils.security import get_user_id, validate_telegram_hash, is_abnormal_activity
 from src.features.quests import claim_daily_bonus, record_click
 from src.features.ads import ad_manager
+try:
+    from src.utils.logger import setup_logging
+except ImportError:
+    # Fallback basic logging setup
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    def setup_logging():
+        return logging.getLogger()
 
 # Configure logging
 logging.basicConfig(
@@ -658,24 +666,26 @@ def create_render_app():
 
 if __name__ == '__main__':
     # Setup logging
-    logger()
+    logger = setup_logging()
     
     # Create app
     app = create_render_app()
     
     # Initialize MongoDB
+    from src.database.mongo import initialize_mongodb
     if not initialize_mongodb():
-        print("Failed to initialize MongoDB")
+        logger.error("Failed to initialize MongoDB")
         exit(1)
     
     # Initialize TON wallet (non-blocking)
     if app.config.get('TON_ENABLED', True):
+        from src.integrations.ton import ton_wallet
         import asyncio
         asyncio.run(ton_wallet.initialize())
     else:
-        print("TON wallet disabled for Render deployment")
+        logger.info("TON wallet disabled for Render deployment")
     
     # Start server
     port = int(os.environ.get('PORT', 10000))
-    print(f"🚀 Starting production server on port {port}")
+    logger.info(f"🚀 Starting production server on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
