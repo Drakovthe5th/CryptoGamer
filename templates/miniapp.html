@@ -1,40 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>CryptoGamer - TON Game Miner</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/css/miniapp.css">
-  <link rel="stylesheet" href="/static/css/main.css">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CryptoGamer - Telegram Mini App</title>
+    
+    <!-- CRITICAL: Telegram Web App SDK - MUST BE FIRST -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <!-- PWA Meta Tags -->
-  <meta name="theme-color" content="#1a1a2e">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="CryptoGamer">
-
-  <!-- GLOBAL ASSETS from /static/ folder -->
-  <link rel="manifest" href="/static/manifest.json">
-  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
-
-  <!-- EXTERNAL CDN LINKS -->
-  <!-- Socket.IO for Real-time Communication -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
-
-  <!-- Chart.js for Statistics and Analytics -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-
-  <!-- Game CSS (dynamically enabled) -->
-  <link rel="stylesheet" href="/game-assets/clicker/style.css" id="clicker-css" disabled>
-  <link rel="stylesheet" href="/game-assets/trivia/trivia.css" id="trivia-css" disabled>
-  <link rel="stylesheet" href="/game-assets/trex/trex.css" id="trex-css" disabled>
-  <link rel="stylesheet" href="/game-assets/spin/spin.css" id="spin-css" disabled>
-  <link rel="stylesheet" href="/game-assets/edge-surf/surf.css" id="edge-surf-css" disabled>
-
-  <!-- Static Paths Configuration -->
-  <script src="/static/js/static_paths.js"></script>
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="CryptoGamer">
+    
+    <!-- Preload critical assets -->
+    <link rel="preload" href="/static/css/main.css" as="style">
+    <link rel="preload" href="/static/js/main.js" as="script">
+    
+    <!-- GLOBAL ASSETS from /static/ folder -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+    
+    <!-- GLOBAL CSS FILES (Root /static/ folder) -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/miniapp.css">
+    <link rel="stylesheet" href="/static/css/admin.css">
+    
+    <!-- EXTERNAL CDN LINKS with local fallbacks -->
+    <!-- Socket.IO for Real-time Communication -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script>
+        // Fallback for Socket.IO
+        if (typeof io === 'undefined') {
+            document.write('<script src="/static/js/socket.io.fallback.js"><\/script>');
+        }
+    </script>
+    
+    <!-- Chart.js for Statistics and Analytics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        // Fallback for Chart.js
+        if (typeof Chart === 'undefined') {
+            document.write('<script src="/static/js/chartjs.fallback.js"><\/script>');
+        }
+    </script>
+    
+    <!-- GAME-SPECIFIC CSS (from /games/static/ - Loaded Dynamically) -->
+    <!-- These are disabled by default and enabled when game loads -->
+    <link rel="preload" href="/game-assets/clicker/style.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
+    <link rel="preload" href="/game-assets/trivia/trivia.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
+    <link rel="preload" href="/game-assets/trex/trex.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
+    <link rel="preload" href="/game-assets/spin/spin.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
+    <link rel="preload" href="/game-assets/edge-surf/surf.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
+    
+    <!-- Static Paths Configuration -->
+    <script src="/static/js/static_paths.js"></script>
 
   <style>
     /* Additional styles to match miniapp-old.html functionality */
@@ -121,6 +143,19 @@
   </style>
 </head>
 <body>
+
+  <!-- Loading Screen with enhanced feedback -->
+  <div id="loading-screen" class="loading-screen">
+      <div class="loader">
+          <div class="spinner"></div>
+          <p>Loading CryptoGamer...</p>
+          <p class="loading-details" id="loading-details">Initializing</p>
+          <button id="retry-button" style="display: none; margin-top: 20px;" onclick="window.location.reload()">
+              Retry Loading
+          </button>
+      </div>
+  </div>
+
   <!-- Background animation elements -->
   <div class="bg-animation">
     <div class="ball ball-1"></div>
@@ -1406,6 +1441,33 @@
           window.location.reload();
         }
       }
+    }
+
+    <!-- Fallback scripts for missing functionality -->
+    // Create minimal versions of missing APIs if needed
+    if (typeof window.API === 'undefined') {
+        window.API = {
+            call: async function(endpoint, options = {}) {
+                try {
+                    const response = await fetch(endpoint, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Telegram-Hash': window.Telegram ? Telegram.WebApp.initData : ''
+                        },
+                        ...options
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    return await response.json();
+                } catch (error) {
+                    console.error('API call failed:', error);
+                    throw error;
+                }
+            }
+        };
     }
   </script>
 </body>

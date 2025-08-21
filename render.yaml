@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: cryptogamer-web
+    name: cryptogamer
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    startCommand: gunicorn server:app
+    healthCheckPath: /health
     envVars:
-      - key: MONGO_URI
-        value: ${MONGO_URI}  # Will use value from Render dashboard
-      - key: PORT
-        value: 10000
+      - key: PYTHON_VERSION
+        value: 3.10.13

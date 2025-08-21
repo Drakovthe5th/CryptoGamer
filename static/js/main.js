@@ -182,9 +182,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // main.js - Update the loadGame function to use StaticPaths
+// In main.js - Add enhanced error handling for Render
 async function loadGame(gameType) {
     try {
         console.log(`🎮 Loading ${gameType} game...`);
+        updateLoadingDetails(`Loading ${gameType} game...`);
         
         // Show loading state
         showGameLoading(gameType);
@@ -192,20 +194,38 @@ async function loadGame(gameType) {
         // Haptic feedback
         hapticFeedback('selection');
         
-        // Enable game-specific CSS and load JS using StaticPaths
-        if (window.StaticPaths && window.StaticPaths.loadGameAssets) {
-            window.StaticPaths.loadGameAssets(gameType);
-        } else {
-            // Fallback to manual loading
-            enableGameCSS(gameType);
-            await loadGameScript(gameType);
+        // Enable game-specific CSS and load JS using StaticPaths with retry
+        try {
+            if (window.StaticPaths && window.StaticPaths.loadGameAssets) {
+                await window.StaticPaths.loadGameAssets(gameType, 3); // 3 retries
+            } else {
+                // Fallback to manual loading with retry
+                await loadWithRetry(() => enableGameCSS(gameType), 3);
+                await loadWithRetry(() => loadGameScript(gameType), 3);
+            }
+        } catch (error) {
+            console.error(`Failed to load assets for ${gameType}:`, error);
+            showToast(`Failed to load ${gameType} assets. Please try again.`, 'error');
+            return;
         }
         
-        // Load game HTML content
-        await loadGameHTML(gameType);
+        // Load game HTML content with retry
+        try {
+            await loadWithRetry(() => loadGameHTML(gameType), 3);
+        } catch (error) {
+            console.error(`Failed to load HTML for ${gameType}:`, error);
+            showToast(`Failed to load ${gameType}. Please try again.`, 'error');
+            return;
+        }
         
         // Initialize game
-        await initializeGame(gameType);
+        try {
+            await initializeGame(gameType);
+        } catch (error) {
+            console.error(`Failed to initialize ${gameType}:`, error);
+            showToast(`Failed to initialize ${gameType}. Please try again.`, 'error');
+            return;
+        }
         
         // Update Telegram UI
         updateTelegramUI(gameType);
@@ -216,6 +236,37 @@ async function loadGame(gameType) {
         console.error(`❌ Failed to load ${gameType} game:`, error);
         showToast(`Failed to load ${gameType} game. Please try again.`, 'error');
         hapticFeedback('notification', 'error');
+    }
+}
+
+// Helper function for retry logic
+async function loadWithRetry(operation, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (attempt === maxRetries) {
+                throw error;
+            }
+            console.warn(`Attempt ${attempt} failed, retrying in ${attempt * 1000}ms...`);
+            await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+        }
+    }
+}
+
+// Update loading details for better user feedback
+function updateLoadingDetails(message) {
+    const detailsElement = document.getElementById('loading-details');
+    if (detailsElement) {
+        detailsElement.textContent = message;
+    }
+}
+
+// Show retry button when loading fails
+function showRetryButton() {
+    const retryButton = document.getElementById('retry-button');
+    if (retryButton) {
+        retryButton.style.display = 'block';
     }
 }
 

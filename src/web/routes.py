@@ -80,6 +80,21 @@ def configure_routes(app):
             'is_new_user': is_new_user
         })
     
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+
+    # Serve global assets from /static/ with caching
+    @app.route('/static/<path:filename>')
+    @lru_cache(maxsize=100)  # Cache route responses
+    def serve_global_static(filename):
+        try:
+            response = send_from_directory(os.path.join(base_dir, 'static'), filename)
+            # Add caching headers for better performance on Render
+            response.headers['Cache-Control'] = 'public, max-age=3600'  # 1 hour
+            return response
+        except Exception as e:
+            # Fallback to CDN or error page
+            return jsonify({'error': 'Asset not found', 'file': filename}), 404
+    
     @app.route('/api/games/list', methods=['GET'])
     def get_games_list_route():
         """Get list of available games"""
@@ -94,16 +109,64 @@ def configure_routes(app):
         except Exception as e:
             logger.error(f"Games list error: {str(e)}")
             return jsonify({'error': 'Failed to load games'}), 500
-        
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-
-    @app.route('/static/<path:filename>')
-    def serve_global_static(filename):
-        return send_from_directory('static', filename)
     
+    # Serve game assets from /games/static/ via /game-assets/ with retry logic
     @app.route('/game-assets/<game>/<path:filename>')
     def serve_game_assets(game, filename):
-        return send_from_directory(os.path.join(base_dir, 'games', 'static', game), filename)
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = send_from_directory(
+                    os.path.join(base_dir, 'games', 'static', game), 
+                    filename
+                )
+                response.headers['Cache-Control'] = 'public, max-age=3600'
+                return response
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    # Last attempt failed
+                    return jsonify({
+                        'error': 'Game asset not found', 
+                        'game': game, 
+                        'file': filename
+                    }), 404
+                # Wait before retrying (exponential backoff)
+                time.sleep(0.1 * (2 ** attempt))
+
+    # Serve game HTML pages with enhanced error handling
+    @app.route('/games/<game>')
+    def serve_game_page(game):
+        try:
+            response = send_from_directory(
+                os.path.join(base_dir, 'games', 'static', game), 
+                'index.html'
+            )
+            # Don't cache HTML files as heavily
+            response.headers['Cache-Control'] = 'public, max-age=300'  # 5 minutes
+            return response
+        except Exception as e:
+            # Fallback to a generic game loader
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Game Loading...</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; 
+                            border-radius: 50%; width: 50px; height: 50px; 
+                            animation: spin 1s linear infinite; margin: 20px auto; }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+            </head>
+            <body>
+                <h1>Loading Game...</h1>
+                <div class="loader"></div>
+                <p>If the game doesn't load, please try refreshing the page.</p>
+                <button onclick="window.location.reload()">Reload</button>
+            </body>
+            </html>
+            ''', 200
 
     @app.route('/api/game/start', methods=['POST'])
     def start_game_session():
