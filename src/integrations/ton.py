@@ -1,4 +1,3 @@
-
 import os
 from typing import Dict, Optional, Any 
 import urllib.parse
@@ -8,6 +7,7 @@ import logging
 from pytoniq import LiteClient, WalletV4R2
 from pytoniq_core import begin_cell, Address
 from pytoniq_core.crypto.keys import mnemonic_to_private_key
+import backoff
 from src.utils.validators import validate_ton_address
 from config import config
 from src.database.mongo import db, update_game_coins, client
@@ -258,13 +258,9 @@ class TonWallet:
 # Global wallet instance
 ton_wallet = TonWallet()
 
-# Initialize on import but don't block
-async def initialize_ton():
-    await ton_wallet.initialize()
-
-# Run initialization in background
-if not os.getenv('TESTING', False):
-    asyncio.create_task(initialize_ton())
+async def initialize_ton_wallet():
+    """Initialize the TON wallet instance"""
+    return await ton_wallet.initialize() 
 
 async def get_wallet_status():
     """Get current wallet status"""
