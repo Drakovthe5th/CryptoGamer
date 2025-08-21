@@ -132,14 +132,20 @@ class TriviaQuiz(BaseGame):
             correct = selected == question["correct"]
             
             # Update stats
-            player["questions_answered"] += 1
+            player["questions_answered"] += 1'
+
             if correct:
                 player["correct_answers"] += 1
                 
-                # Calculate reward based on difficulty
-                multiplier = self.difficulty_multiplier.get(question["difficulty"], 1.0)
-                reward = 0.001 * multiplier
-                player["score"] += reward
+                # Calculate reward based on config
+                game_rates = REWARD_RATES.get('trivia', {})
+                base_reward = game_rates.get('base', 0)
+                per_answer = game_rates.get('per_correct_answer', 0)
+                
+                reward_gc = base_reward + per_answer
+                reward_ton = reward_gc / TON_TO_GC_RATE
+                
+                player["score"] += reward_ton
             
             return {
                 "correct": correct,

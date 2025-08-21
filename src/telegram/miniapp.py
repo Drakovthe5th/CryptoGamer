@@ -84,6 +84,42 @@ def claim_daily():
         logger.error(f"Bonus claim error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
     
+@miniapp_bp.route('/quests/verify', methods=['POST'])
+@validate_json_input({
+    'quest_type': {'type': 'str', 'required': True},
+    'evidence': {'type': 'dict', 'required': True}
+})
+def verify_quest():
+    data = request.get_json()
+    quest_type = data['quest_type']
+    evidence = data['evidence']
+    user_id = evidence.get('user_id')
+    
+    if not user_id:
+        return jsonify({'error': 'User ID required'}), 400
+    
+    try:
+        # Use the quest system to verify completion
+        success, result = quest_system.check_quest_completion(
+            user_id, quest_type, evidence
+        )
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'reward': result.get('reward', 0),
+                'message': result.get('message', 'Quest completed')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('message', 'Verification failed')
+            }), 400
+            
+    except Exception as e:
+        logger.error(f"Quest verification error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+    
 def validate_game_session(user_id, session_id):
     """Validate game session exists and belongs to user"""
     session = db.get_game_session(session_id)

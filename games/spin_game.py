@@ -48,15 +48,16 @@ class SpinGame(BaseGame):
             return {"error": "Spin too fast. Wait 1 second between spins."}
         
         if action == "spin":
-            # Deduct spin cost
-            if player["score"] < self.spin_cost:
+            # Deduct spin cost in GC
+            spin_cost_gc = self.spin_cost * TON_TO_GC_RATE
+            if player["score"] < spin_cost_gc:
                 return {"error": "Insufficient balance"}
             
-            player["score"] -= self.spin_cost
+            player["score"] -= spin_cost_gc
             result = self.calculate_spin()
             
-            # Award winnings
-            player["score"] += result["value"]
+            # Award winnings in GC
+            player["score"] += result["gc_value"]
             player["spins"] += 1
             self.last_spin_time[user_id] = current_time
             
@@ -74,6 +75,8 @@ class SpinGame(BaseGame):
         for section in self.wheel_sections:
             cumulative += section["probability"]
             if rand <= cumulative:
+                # Convert TON value to GC
+                section["gc_value"] = section["value"] * TON_TO_GC_RATE
                 return section
         return self.wheel_sections[-1]  # Fallback
     

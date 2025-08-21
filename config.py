@@ -72,6 +72,7 @@ class Config:
         self.MAX_RESETS = 3  # Per game per day
         self.MIN_WITHDRAWAL_GC = 200000  # 100 TON equivalent
         self.MIN_GC_PURCHASE = 1000  # Minimum game coins for purchases
+        self.MIN_GAMEPLAY_HOURS = 500  # Minimum gameplay hours required for withdrawal
         
         # Rewards Configuration (in Game Coins)
         self.REWARDS = {
@@ -178,6 +179,133 @@ class Config:
                 'difficulty': 1,
                 'tasks': ['complete_any_3_actions'],
                 'reward_gc': 400
+            },
+                # New social media quests
+            {
+                'type': 'social',
+                'difficulty': 1,
+                'tasks': ['connect_telegram_wallet'],
+                'reward': 1000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 1,
+                'tasks': ['follow_instagram'],
+                'reward': 2000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 1,
+                'tasks': ['follow_facebook'],
+                'reward': 2000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 1,
+                'tasks': ['follow_twitter'],
+                'reward': 2000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 2,
+                'tasks': ['join_telegram_channel'],
+                'reward': 2000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 2,
+                'tasks': ['post_twitter'],
+                'reward': 3000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 2,
+                'tasks': ['retweet_post'],
+                'reward': 3000  # GC
+            },
+            {
+                'type': 'social',
+                'difficulty': 3,
+                'tasks': ['post_tiktok'],
+                'reward': 10000  # GC
+            },
+            
+            # New referral quests
+            {
+                'type': 'referral',
+                'difficulty': 1,
+                'tasks': ['invite_friend'],
+                'reward': 4000  # GC
+            },
+            {
+                'type': 'referral',
+                'difficulty': 2,
+                'tasks': ['recruit_10_users'],
+                'reward': 16000  # GC
+            },
+            {
+                'type': 'referral',
+                'difficulty': 3,
+                'tasks': ['recruit_100_users'],
+                'reward': 32000  # GC
+            },
+            
+            # New Binance quests
+            {
+                'type': 'exchange',
+                'difficulty': 2,
+                'tasks': ['signup_binance'],
+                'reward': 5000  # GC
+            },
+            {
+                'type': 'exchange',
+                'difficulty': 2,
+                'tasks': ['invite_binance_trader'],
+                'reward': 7000  # GC
+            },
+            
+            # New progression quests
+            {
+                'type': 'progression',
+                'difficulty': 2,
+                'tasks': ['reach_level_3'],
+                'reward': 10000  # GC
+            },
+            {
+                'type': 'progression',
+                'difficulty': 2,
+                'tasks': ['post_retweet_earn_repeat'],
+                'reward': 10000  # GC
+            },
+            {
+                'type': 'progression',
+                'difficulty': 3,
+                'tasks': ['earn_10000_ads'],
+                'reward': 20000  # GC
+            },
+            {
+                'type': 'progression',
+                'difficulty': 3,
+                'tasks': ['earn_100000_ads'],
+                'reward': 50000  # GC
+            },
+            {
+                'type': 'progression',
+                'difficulty': 1,
+                'tasks': ['watch_ads'],
+                'reward': 5000  # GC
+            },
+            {
+                'type': 'shop',
+                'difficulty': 2,
+                'tasks': ['boost_channel'],
+                'reward': 5000  # GC
+            },
+            {
+                'type': 'shop',
+                'difficulty': 2,
+                'tasks': ['boost_earnings'],
+                'reward': 7000  # GC
             }
         ]
         self.QUEST_REFRESH_HOUR = 4  # 4 AM UTC
@@ -303,6 +431,7 @@ class Config:
         logger.info(f"Game Coin System: Enabled (Rate: 1 TON = {self.GC_TO_TON_RATE} GC)")
         logger.info(f"Daily GC Limit: {self.MAX_DAILY_GC}")
         logger.info(f"Min Withdrawal: {self.MIN_WITHDRAWAL_GC} GC")
+        logger.info(f"Min Gameplay Hours: {self.MIN_GAMEPLAY_HOURS}")
         logger.info(f"Max Resets: {self.MAX_RESETS} per game/day")
         logger.info(f"Features - OTC: {self.FEATURE_OTC}, Ads: {self.FEATURE_ADS}, Games: {self.FEATURE_GAMES}")
         logger.info(f"MongoDB Database: {self.MONGO_DB_NAME}")

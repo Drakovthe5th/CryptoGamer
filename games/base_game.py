@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from config import config
+from config import REWARD_RATES, MAX_GAME_REWARD, MAX_DAILY_GAME_COINS
 from src.database.mongo import get_user_data, get_game_session
 
 logger = logging.getLogger(__name__)
@@ -244,21 +245,50 @@ class BaseGame:
         return f"Play {self.name} and earn TON rewards!"
     
     def _calculate_reward(self, score: int, duration: float) -> float:
-        """Calculate reward based on score and duration"""
+        """Calculate reward based on score and duration using config rates"""
         try:
-            # Base reward calculation
-            base_reward = min(
-                self.min_reward + (score * 0.00001),  # Small reward per point
-                self.max_reward
-            )
+            game_rates = REWARD_RATES.get(self.name, {})
             
-            # Duration bonus (encourage longer play but cap it)
-            duration_bonus = min(duration * 0.0001, 0.01)
+            # Calculate base reward
+            base_reward = game_rates.get('base', 0)
             
-            # Total reward
-            total_reward = base_reward + duration_bonus
+            # Add score-based reward if defined
+            if 'per_1000_points' in game_rates:
+                base_reward += (score / 1000) * game_rates['per_1000_points']
             
-            return round(min(total_reward, self.max_reward), 6)
+            # Add duration-based reward if defined
+            if 'per_minute' in game_rates:
+                base_reward += (duration / 60) * game_rates['per_minute']
+            
+            # Add distance-based reward for trex runner
+            if self.name == 'trex' and 'per_100_meters' in game_rates:
+                base_reward += (score / 100) * game_rates['per_100_meters']  # score is distance in meters
+            
+            # Cap at maximum reward for this game
+            max_reward_gc = MAX_GAME_REWARD.get(self.name, 100)
+            base_reward = min(base_reward, max_reward_gc)
+            
+            # Convert to TON
+            reward_ton = base_reward / TON_TO_GC_RATE
+            
+            # Check daily limit
+            daily_earnings = self._get_daily_earnings(user_id)
+            if daily_earnings >= MAX_DAILY_GAME_COINS:
+                logger.info(f"User {user_id} reached daily GC limit")
+                return {
+                    "status": "daily_limit_reached",
+                    "score": player["score"],
+                    "daily_earnings": daily_earnings,
+                    "max_daily": MAX_DAILY_GAME_COINS
+                }
+            
+            # Then calculate reward as before
+            reward = self._calculate_reward(player["score"], duration)
+            gc_reward = int(reward * TON_TO_GC_RATE * self.gc_multiplier)
+
+            # Update daily earnings
+            self._update_daily_earnings(user_id, gc_reward)
+            return round(reward_ton, 6)
             
         except Exception as e:
             logger.error(f"Error calculating reward: {e}")
@@ -362,3 +392,5 @@ class BaseGame:
         for item in user.inventory:
             if 'multiplier' in item.get('effect', {}):
                 self.gc_multiplier = max(self.gc_multiplier, item['effect']['multiplier'])
+
+    

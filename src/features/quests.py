@@ -296,6 +296,141 @@ class QuestSystem:
                 return True
                 
         return False
+
+    def verify_completion(self, quest, evidence):
+        """Verify quest completion with anti-cheat measures"""
+        task = quest['tasks'][0]
+        
+        # Existing verification methods
+        if "win_" in task:
+            return self.validate_game_wins(quest, evidence)
+        elif "refer_" in task:
+            return self.validate_referrals(quest, evidence)
+        elif "play_" in task:
+            return self.validate_game_plays(quest, evidence)
+        elif "complete_" in task:
+            return self.validate_generic_completion(evidence)
+        
+        # New verification methods
+        elif "connect_telegram_wallet" in task:
+            return self.validate_wallet_connection(evidence)
+        elif "follow_instagram" in task:
+            return self.validate_social_follow('instagram', evidence)
+        elif "follow_facebook" in task:
+            return self.validate_social_follow('facebook', evidence)
+        elif "follow_twitter" in task:
+            return self.validate_social_follow('twitter', evidence)
+        elif "join_telegram_channel" in task:
+            return self.validate_channel_join(evidence)
+        elif "post_twitter" in task:
+            return self.validate_social_post('twitter', evidence)
+        elif "retweet_post" in task:
+            return self.validate_retweet(evidence)
+        elif "post_tiktok" in task:
+            return self.validate_social_post('tiktok', evidence)
+        elif "signup_binance" in task:
+            return self.validate_binance_signup(evidence)
+        elif "invite_binance_trader" in task:
+            return self.validate_binance_referral(evidence)
+        elif "reach_level_3" in task:
+            return self.validate_level(3, evidence)
+        elif "post_retweet_earn_repeat" in task:
+            return self.validate_social_engagement(evidence)
+        elif "earn_10000_ads" in task:
+            return self.validate_ad_earnings(10000, evidence)
+        elif "earn_100000_ads" in task:
+            return self.validate_ad_earnings(100000, evidence)
+        elif "watch_ads" in task:
+            return self.validate_ad_watch(evidence)
+        elif "boost_channel" in task:
+            return self.validate_boost('channel', evidence)
+        elif "boost_earnings" in task:
+            return self.validate_boost('earnings', evidence)
+        
+        return False, "Invalid quest type"
+
+    # Add new validation methods
+    def validate_wallet_connection(self, evidence):
+        """Validate Telegram wallet connection"""
+        # Check if user has a connected wallet
+        user_data = get_user_data(evidence['user_id'])
+        if user_data and user_data.get('wallet_address'):
+            return True, "Validated"
+        return False, "Wallet not connected"
+
+    def validate_social_follow(self, platform, evidence):
+        """Validate social media follow"""
+        # This would typically use platform APIs
+        # For now, we'll use a simple verification code system
+        if evidence.get('verification_code') == f"follow_{platform}_{evidence['user_id']}":
+            return True, "Validated"
+        return False, "Follow not verified"
+
+    def validate_channel_join(self, evidence):
+        """Validate Telegram channel join"""
+        # Use Telegram Bot API to check channel membership
+        # For now, simple verification code
+        if evidence.get('verification_code') == f"channel_join_{evidence['user_id']}":
+            return True, "Validated"
+        return False, "Channel membership not verified"
+
+    def validate_social_post(self, platform, evidence):
+        """Validate social media post"""
+        if evidence.get('post_url') and f"{platform}.com" in evidence.get('post_url', ''):
+            return True, "Validated"
+        return False, "Post not verified"
+
+    def validate_retweet(self, evidence):
+        """Validate retweet"""
+        if evidence.get('retweet_url') and "twitter.com" in evidence.get('retweet_url', ''):
+            return True, "Validated"
+        return False, "Retweet not verified"
+
+    def validate_binance_signup(self, evidence):
+        """Validate Binance signup using referral"""
+        if evidence.get('binance_id') and evidence.get('used_referral') == 'CRYPTOGAMER':
+            return True, "Validated"
+        return False, "Binance signup not verified"
+
+    def validate_binance_referral(self, evidence):
+        """Validate Binance referral"""
+        if evidence.get('referral_count', 0) >= 1:
+            return True, "Validated"
+        return False, "Binance referral not verified"
+
+    def validate_level(self, required_level, evidence):
+        """Validate user level"""
+        user_data = get_user_data(evidence['user_id'])
+        if user_data and user_data.get('level', 0) >= required_level:
+            return True, "Validated"
+        return False, f"Level {required_level} not reached"
+
+    def validate_social_engagement(self, evidence):
+        """Validate social engagement cycle"""
+        if (evidence.get('posted') and evidence.get('retweeted') and 
+            evidence.get('earned') and evidence.get('repeated')):
+            return True, "Validated"
+        return False, "Social engagement not completed"
+
+    def validate_ad_earnings(self, required_earnings, evidence):
+        """Validate ad earnings"""
+        user_data = get_user_data(evidence['user_id'])
+        if user_data and user_data.get('ad_earnings', 0) >= required_earnings:
+            return True, "Validated"
+        return False, f"Ad earnings of {required_earnings} not reached"
+
+    def validate_ad_watch(self, evidence):
+        """Validate ad watch"""
+        if evidence.get('ads_watched', 0) >= 5:  # Watch at least 5 ads
+            return True, "Validated"
+        return False, "Not enough ads watched"
+
+    def validate_boost(self, boost_type, evidence):
+        """Validate boost purchase"""
+        user_data = get_user_data(evidence['user_id'])
+        if user_data and boost_type in user_data.get('active_boosts', []):
+            return True, "Validated"
+        return False, f"{boost_type} boost not active"
     
 def start_quest_scheduler():
     """Start background thread to refresh daily quests"""

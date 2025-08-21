@@ -359,6 +359,165 @@ function handleClick() {
   }
 }
 
+// Social media quest functions
+function openSocial(platform) {
+  const urls = {
+    'instagram': 'https://instagram.com/cryptogamer',
+    'facebook': 'https://facebook.com/cryptogamer',
+    'twitter': 'https://twitter.com/cryptogamer'
+  };
+  
+  window.open(urls[platform], '_blank');
+  
+  // Show verification input after a delay
+  setTimeout(() => {
+    Telegram.WebApp.showPopup({
+      title: `Verify ${platform} follow`,
+      message: 'Enter the verification code posted on our profile:',
+      buttons: [
+        {id: 'cancel', type: 'cancel', text: 'Cancel'},
+        {id: 'verify', type: 'default', text: 'Verify'}
+      ]
+    }, (btnId) => {
+      if (btnId === 'verify') {
+        const verificationCode = prompt('Enter verification code:');
+        if (verificationCode) {
+          verifyQuest(`follow_${platform}`, {verification_code: verificationCode});
+        }
+      }
+    });
+  }, 5000);
+}
+
+function joinChannel() {
+  window.open('https://t.me/cryptogamer_channel', '_blank');
+  
+  setTimeout(() => {
+    Telegram.WebApp.showPopup({
+      title: 'Verify channel join',
+      message: 'Enter the verification code posted in the channel:',
+      buttons: [
+        {id: 'cancel', type: 'cancel', text: 'Cancel'},
+        {id: 'verify', type: 'default', text: 'Verify'}
+      ]
+    }, (btnId) => {
+      if (btnId === 'verify') {
+        const verificationCode = prompt('Enter verification code:');
+        if (verificationCode) {
+          verifyQuest('join_telegram_channel', {verification_code: verificationCode});
+        }
+      }
+    });
+  }, 5000);
+}
+
+function postOnTwitter() {
+  const text = encodeURIComponent('Check out CryptoGamer - Earn TON coins while playing games! 🎮💰 #CryptoGamer #TON');
+  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  
+  setTimeout(() => {
+    const tweetUrl = prompt('Please paste the URL of your tweet:');
+    if (tweetUrl && tweetUrl.includes('twitter.com')) {
+      verifyQuest('post_twitter', {post_url: tweetUrl});
+    }
+  }, 10000);
+}
+
+function retweetPost() {
+  window.open('https://twitter.com/cryptogamer/status/1234567890', '_blank');
+  
+  setTimeout(() => {
+    const retweetUrl = prompt('Please paste the URL of your retweet:');
+    if (retweetUrl && retweetUrl.includes('twitter.com')) {
+      verifyQuest('retweet_post', {retweet_url: retweetUrl});
+    }
+  }, 10000);
+}
+
+function postTikTok() {
+  Telegram.WebApp.showAlert('Post a TikTok video about CryptoGamer and tag us @cryptogamer. Then return here to verify.');
+  
+  setTimeout(() => {
+    const videoUrl = prompt('Please paste the URL of your TikTok video:');
+    if (videoUrl && videoUrl.includes('tiktok.com')) {
+      verifyQuest('post_tiktok', {post_url: videoUrl});
+    }
+  }, 30000);
+}
+
+// Binance quest functions
+function openBinance() {
+  window.open('https://accounts.binance.com/register?ref=CRYPTOGAMER', '_blank');
+  
+  setTimeout(() => {
+    const binanceId = prompt('Enter your Binance ID (username or email):');
+    if (binanceId) {
+      verifyQuest('signup_binance', {
+        binance_id: binanceId,
+        used_referral: 'CRYPTOGAMER'
+      });
+    }
+  }, 60000);
+}
+
+function shareBinance() {
+  Telegram.WebApp.showAlert('Share your Binance referral link with friends. When someone signs up, come back here to verify.');
+  
+  setTimeout(() => {
+    const referralCount = prompt('How many friends signed up using your referral?');
+    if (referralCount && parseInt(referralCount) > 0) {
+      verifyQuest('invite_binance_trader', {referral_count: parseInt(referralCount)});
+    }
+  }, 30000);
+}
+
+// General quest function
+function verifyQuest(questType, evidence = {}) {
+  evidence.user_id = window.userId || window.telegramUser?.id;
+  
+  fetch('/api/quests/verify', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+    },
+    body: JSON.stringify({
+      quest_type: questType,
+      evidence: evidence
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      Telegram.WebApp.showPopup({
+        title: 'Quest Completed!',
+        message: `You earned ${data.reward} GC!`,
+        buttons: [{type: 'ok'}]
+      });
+      loadUserData(); // Refresh user data
+    } else {
+      Telegram.WebApp.showAlert(`Verification failed: ${data.error}`);
+    }
+  })
+  .catch(error => {
+    console.error('Error verifying quest:', error);
+    Telegram.WebApp.showAlert('Failed to verify quest. Please try again.');
+  });
+}
+
+function startSocialCycle() {
+  Telegram.WebApp.showAlert('Complete this social cycle: 1. Post about us 2. Retweet our post 3. Earn from engagement 4. Repeat the process. Then come back to verify.');
+  
+  setTimeout(() => {
+    verifyQuest('post_retweet_earn_repeat', {
+      posted: true,
+      retweeted: true,
+      earned: true,
+      repeated: true
+    });
+  }, 30000);
+}
+
 // Add to your existing JavaScript
 function loadShopItems() {
   fetch('/api/shop/items')
