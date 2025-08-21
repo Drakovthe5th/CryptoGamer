@@ -22,7 +22,7 @@ from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
 from src.utils.validators import validate_ton_address
 from config import config
 import logging
-
+from src.utils.logger import setup_logging
 import os
 
 logger = logging.getLogger(__name__)
@@ -82,18 +82,20 @@ def configure_routes(app):
     
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 
-    # Serve global assets from /static/ with caching
+    # Serve global assets from /static/
     @app.route('/static/<path:filename>')
-    @lru_cache(maxsize=100)  # Cache route responses
+    @lru_cache(maxsize=100)
     def serve_global_static(filename):
         try:
-            response = send_from_directory(os.path.join(base_dir, 'static'), filename)
-            # Add caching headers for better performance on Render
-            response.headers['Cache-Control'] = 'public, max-age=3600'  # 1 hour
-            return response
+            return send_from_directory(os.path.join(base_dir, 'static'), filename)
         except Exception as e:
-            # Fallback to CDN or error page
-            return jsonify({'error': 'Asset not found', 'file': filename}), 404
+            # Fallback for missing files
+            if filename == 'images/default-avatar.png':
+                return send_from_directory(os.path.join(base_dir, 'static', 'images'), 'default-avatar.png', fallback='default-avatar.png')
+            elif filename == 'favicon.ico':
+                return send_from_directory(os.path.join(base_dir, 'static'), 'favicon.ico', fallback='favicon.ico')
+            logger.warning(f"Static file not found: {filename}")
+            return jsonify({'error': 'File not found'}), 404
     
     @app.route('/api/games/list', methods=['GET'])
     def get_games_list_route():
@@ -110,63 +112,44 @@ def configure_routes(app):
             logger.error(f"Games list error: {str(e)}")
             return jsonify({'error': 'Failed to load games'}), 500
     
-    # Serve game assets from /games/static/ via /game-assets/ with retry logic
+    # Serve game assets from /games/static/ via /game-assets/
     @app.route('/game-assets/<game>/<path:filename>')
     def serve_game_assets(game, filename):
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = send_from_directory(
-                    os.path.join(base_dir, 'games', 'static', game), 
-                    filename
-                )
-                response.headers['Cache-Control'] = 'public, max-age=3600'
-                return response
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    # Last attempt failed
-                    return jsonify({
-                        'error': 'Game asset not found', 
-                        'game': game, 
-                        'file': filename
-                    }), 404
-                # Wait before retrying (exponential backoff)
-                time.sleep(0.1 * (2 ** attempt))
+        try:
+            # Map game names to directory names
+            game_dir_map = {
+                'clicker': 'clicker',
+                'spin': 'spin', 
+                'trivia': 'trivia',
+                'trex': 'trex',
+                'edge-surf': 'edge-surf',
+                'edge_surf': 'edge-surf'  # Handle both formats
+            }
+            
+            actual_dir = game_dir_map.get(game, game)
+            return send_from_directory(os.path.join(base_dir, 'games', 'static', actual_dir), filename)
+        except Exception as e:
+            logger.warning(f"Game asset not found: {game}/{filename}")
+            return jsonify({'error': 'Game asset not found'}), 404
 
-    # Serve game HTML pages with enhanced error handling
+    # Serve game HTML pages
     @app.route('/games/<game>')
     def serve_game_page(game):
         try:
-            response = send_from_directory(
-                os.path.join(base_dir, 'games', 'static', game), 
-                'index.html'
-            )
-            # Don't cache HTML files as heavily
-            response.headers['Cache-Control'] = 'public, max-age=300'  # 5 minutes
-            return response
+            game_dir_map = {
+                'clicker': 'clicker',
+                'spin': 'spin', 
+                'trivia': 'trivia',
+                'trex': 'trex',
+                'edge-surf': 'edge-surf',
+                'edge_surf': 'edge-surf'
+            }
+            
+            actual_dir = game_dir_map.get(game, game)
+            return send_from_directory(os.path.join(base_dir, 'games', 'static', actual_dir), 'index.html')
         except Exception as e:
-            # Fallback to a generic game loader
-            return '''
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Game Loading...</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3498db; 
-                            border-radius: 50%; width: 50px; height: 50px; 
-                            animation: spin 1s linear infinite; margin: 20px auto; }
-                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                </style>
-            </head>
-            <body>
-                <h1>Loading Game...</h1>
-                <div class="loader"></div>
-                <p>If the game doesn't load, please try refreshing the page.</p>
-                <button onclick="window.location.reload()">Reload</button>
-            </body>
-            </html>
-            ''', 200
+            logger.error(f"Game not found: {game}")
+            return jsonify({'error': 'Game not found'}), 404
 
     @app.route('/api/game/start', methods=['POST'])
     def start_game_session():

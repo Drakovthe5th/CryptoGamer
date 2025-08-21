@@ -3,8 +3,9 @@ import urllib.parse
 import asyncio
 import base64
 import logging
-from pytoniq import LiteClient, WalletV4R2, Address
-from pytoniq_core import begin_cell
+from pytoniq import LiteClient, WalletV4R2
+from pytoniq_core import begin_cell, Address
+from pytoniq_core.crypto.keys import mnemonic_to_private_key
 from src.utils.validators import validate_ton_address
 from config import config
 from src.database.mongo import db, update_game_coins, client
@@ -35,57 +36,52 @@ class TonWallet:
         self.status = "uninitialized"
         self.balance = 0.0
         self.address = None
-        self.network = config.TON_NETWORK
         self.initialized = False
+        self.is_initialized = False
+        self.fallback_mode = False
+        self.client = None
+        self.wallet = None
+        self.mnemonic = os.getenv('TON_MNEMONIC', '').split()
+        self.network = os.getenv('TON_NETWORK', 'mainnet')
 
-
-    async def initialize(self):  # Renamed method
-        """Initialize TON wallet connection with retry logic"""
-        max_retries = 3
-        backoff_sec = 2
-        
+    async def initialize(self, max_retries=3):
+        """Initialize TON wallet with retry logic and fallback mode"""
+        # Check if we're in a restricted environment (like Render free tier)
+        if os.getenv('RENDER', False) and not os.getenv('TON_FORCE_INIT', False):
+            logger.warning("Render environment detected, using fallback mode for TON")
+            self.fallback_mode = True
+            self.is_initialized = True
+            return True
+            
         for attempt in range(max_retries):
             try:
-                if config.TON_NETWORK == 'testnet':
-                    self.client = LiteClient.from_testnet_config()
-                else:
-                    self.client = LiteClient.from_config(MAINNET_CONFIG)
+                logger.info(f"Initializing TON wallet, attempt {attempt + 1}")
                 
+                # Initialize LiteClient
+                config_url = "https://ton.org/global-config.json"
+                self.client = LiteClient.from_config(config_url, timeout=15)
                 await self.client.connect()
                 
-                if config.TON_MNEMONIC:
-                    self.wallet = await WalletV4R2.from_mnemonic(
-                        self.client, 
-                        config.TON_MNEMONIC.split(),
-                        workchain=0
-                    )
-                elif config.TON_PRIVATE_KEY:
-                    private_key = base64.urlsafe_b64decode(config.TON_PRIVATE_KEY)
-                    self.wallet = WalletV4R2(
-                        provider=self.client, 
-                        private_key=private_key,
-                        workchain=0
-                    )
+                # Initialize wallet
+                if self.mnemonic and len(self.mnemonic) >= 24:
+                    private_key = mnemonic_to_private_key(self.mnemonic)
+                    self.wallet = await WalletV4R2.from_private_key(private_key, self.client)
+                    logger.info("TON wallet initialized successfully")
+                    self.is_initialized = True
+                    return True
                 else:
-                    logger.error("No TON_MNEMONIC or TON_PRIVATE_KEY provided")
-                    return False
-                
-                self.address = self.wallet.address.to_string()
-                self.healthy = True
-                self.status = "initialized"
-                self.initialized = True
-                logger.info(f"TON wallet initialized: {self.address}")
-                
-                # Update balance after initialization
-                self.balance = await self._get_balance()
-                return True
+                    logger.warning("No mnemonic provided, using read-only mode")
+                    self.is_initialized = True
+                    return True
+                    
             except Exception as e:
-                logger.error(f"Initialization attempt {attempt+1} failed: {str(e)}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(backoff_sec * (2 ** attempt))
-                else:
-                    logger.critical("Initialization failed after retries")
-                    return False
+                logger.error(f"TON initialization attempt {attempt + 1} failed: {str(e)}")
+                if attempt == max_retries - 1:
+                    logger.warning("All TON initialization attempts failed, using fallback mode")
+                    self.fallback_mode = True
+                    self.is_initialized = True
+                    return True
+                await asyncio.sleep(2 ** attempt)  # Exponential backoff
 
     async def _connect_with_retries(self, retries=3, timeout=10):
         """Attempt to connect to TON network with retries and timeouts"""
@@ -260,9 +256,13 @@ class TonWallet:
 # Global wallet instance
 ton_wallet = TonWallet()
 
-async def initialize_ton_wallet():
-    """Initialize the TON wallet instance"""
-    return await ton_wallet.initialize() 
+# Initialize on import but don't block
+async def initialize_ton():
+    await ton_wallet.initialize()
+
+# Run initialization in background
+if not os.getenv('TESTING', False):
+    asyncio.create_task(initialize_ton())
 
 async def get_wallet_status():
     """Get current wallet status"""

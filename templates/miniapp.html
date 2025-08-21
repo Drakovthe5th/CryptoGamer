@@ -59,6 +59,14 @@
     <script src="/static/js/static_paths.js"></script>
 
   <style>
+    :root {
+    --tg-theme-bg-color: var(--tg-theme-bg-color, #ffffff);
+    --tg-theme-text-color: var(--tg-theme-text-color, #000000);
+    --tg-theme-hint-color: var(--tg-theme-hint-color, #999999);
+    --tg-theme-link-color: var(--tg-theme-link-color, #3390ec);
+    --tg-theme-button-color: var(--tg-theme-button-color, #3390ec);
+    --tg-theme-button-text-color: var(--tg-theme-button-text-color, #ffffff);
+    }
     /* Additional styles to match miniapp-old.html functionality */
     .page { display: none; }
     .page.active { display: block; }
@@ -727,6 +735,7 @@
   <script src="/static/js/charts.js"></script>
   <script src="/static/js/staking.js"></script>
   <script src="/static/js/ads.js"></script>
+  <script src="/static/js/state-manager.js"></script>
 
   <script>
     // Global variables

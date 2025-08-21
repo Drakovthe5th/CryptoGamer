@@ -7,6 +7,8 @@ import atexit
 import base64
 import json
 from flask import Flask, request, Blueprint, jsonify, render_template, send_from_directory
+from src.web.flask_app import create_app
+from src.utils.logger import setup_logging
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
@@ -640,22 +642,41 @@ except Exception as e:
 # Register shutdown handler
 atexit.register(shutdown_production_app)
 
+def create_render_app():
+    """Create Flask app with Render-specific configuration"""
+    app = create_app()
+    
+    # Render-specific configuration
+    if os.getenv('RENDER', False):
+        app.config['DEBUG'] = False
+        app.config['PREFERRED_URL_SCHEME'] = 'https'
+        app.config['SERVER_NAME'] = 'crptgameminer.onrender.com'
+        
+        # Disable some features that might not work on Render free tier
+        app.config['TON_ENABLED'] = os.getenv('TON_FORCE_INIT', 'false').lower() == 'true'
+        
+    return app
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    debug_mode = os.environ.get('NODE_ENV') != 'production'
+    # Setup logging
+    setup_logging()
     
-    logger.info(f"🚀 Starting production server on port {port}")
-    logger.info(f"🔧 Debug mode: {'ON' if debug_mode else 'OFF'}")
+    # Create app
+    app = create_render_app()
     
-    try:
-        # Use socketio.run for WebSocket support
-        socketio.run(
-            app,
-            host='0.0.0.0',
-            port=port,
-            debug=debug_mode,
-            allow_unsafe_werkzeug=True  # Needed for production WebSocket
-        )
-    except Exception as e:
-        logger.critical(f"❌ Server startup failed: {e}")
+    # Initialize MongoDB
+    if not initialize_mongodb():
+        print("Failed to initialize MongoDB")
         exit(1)
+    
+    # Initialize TON wallet (non-blocking)
+    if app.config.get('TON_ENABLED', True):
+        import asyncio
+        asyncio.run(ton_wallet.initialize())
+    else:
+        print("TON wallet disabled for Render deployment")
+    
+    # Start server
+    port = int(os.environ.get('PORT', 10000))
+    print(f"🚀 Starting production server on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
