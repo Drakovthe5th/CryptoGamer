@@ -22,7 +22,6 @@ from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
 from src.utils.validators import validate_ton_address
 from config import config
 import logging
-from src.utils.logger import setup_logging
 import os
 
 logger = logging.getLogger(__name__)
