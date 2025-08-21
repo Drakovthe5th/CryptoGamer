@@ -12,7 +12,7 @@ from flask_socketio import SocketIO, emit, join_room
 from celery import Celery
 
 # Import from main.py instead of flask_app.py
-from main import app as main_app, initialize_production_app, shutdown_production_app
+from src.main import app as main_app, initialize_production_app, shutdown_production_app
 
 # Configure production logging
 logging.basicConfig(
