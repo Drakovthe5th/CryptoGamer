@@ -5,7 +5,6 @@ import logging
 import json
 import time
 import binascii
-from flask import Flask
 from telegram import Update
 from telegram.ext import Application
 from src.database.mongo import initialize_mongodb, db
@@ -19,10 +18,8 @@ from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler
 from src.integrations.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
-from src.utils.maintenance import start_monitoring
-from src.main import app
+from src.utils.maintenance import start_monitoring 
 from config import config
-from config import REWARD_RATES
 import atexit
 
 # Configure logging
@@ -31,7 +28,6 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
 
 telegram_application = None
 
