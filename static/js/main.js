@@ -181,6 +181,223 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+// main.js - Update the loadGame function to use StaticPaths
+async function loadGame(gameType) {
+    try {
+        console.log(`🎮 Loading ${gameType} game...`);
+        
+        // Show loading state
+        showGameLoading(gameType);
+        
+        // Haptic feedback
+        hapticFeedback('selection');
+        
+        // Enable game-specific CSS and load JS using StaticPaths
+        if (window.StaticPaths && window.StaticPaths.loadGameAssets) {
+            window.StaticPaths.loadGameAssets(gameType);
+        } else {
+            // Fallback to manual loading
+            enableGameCSS(gameType);
+            await loadGameScript(gameType);
+        }
+        
+        // Load game HTML content
+        await loadGameHTML(gameType);
+        
+        // Initialize game
+        await initializeGame(gameType);
+        
+        // Update Telegram UI
+        updateTelegramUI(gameType);
+        
+        console.log(`✅ ${gameType} game loaded successfully`);
+        
+    } catch (error) {
+        console.error(`❌ Failed to load ${gameType} game:`, error);
+        showToast(`Failed to load ${gameType} game. Please try again.`, 'error');
+        hapticFeedback('notification', 'error');
+    }
+}
+
+// Helper functions
+function enableGameCSS(gameType) {
+    // Disable all game CSS
+    document.querySelectorAll('[id$="-css"]').forEach(css => {
+        css.disabled = true;
+    });
+    
+    // Enable specific game CSS
+    const gameCSS = document.getElementById(`${gameType}-css`);
+    if (gameCSS) {
+        gameCSS.disabled = false;
+    }
+}
+
+async function loadGameScript(gameType) {
+    if (gameAssets.has(gameType)) {
+        return; // Already loaded
+    }
+    
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        
+        // Use StaticPaths if available, otherwise fallback
+        if (window.StaticPaths && window.StaticPaths.games[gameType]) {
+            script.src = window.StaticPaths.games[gameType].js;
+        } else {
+            script.src = `/game-assets/${gameType}/game.js`;
+        }
+        
+        script.onload = () => {
+            gameAssets.set(gameType, true);
+            resolve();
+        };
+        script.onerror = () => reject(new Error(`Failed to load ${gameType} script`));
+        document.head.appendChild(script);
+    });
+}
+
+async function loadGameHTML(gameType) {
+    try {
+        // Use StaticPaths if available, otherwise fallback
+        let gameHTMLUrl;
+        if (window.StaticPaths && window.StaticPaths.games.html) {
+            gameHTMLUrl = `${window.StaticPaths.games.html}${gameType}`;
+        } else {
+            gameHTMLUrl = `/games/${gameType}`;
+        }
+        
+        const response = await fetch(gameHTMLUrl);
+        if (!response.ok) {
+            throw new Error(`Game ${gameType} not found`);
+        }
+        
+        const gameHTML = await response.text();
+        const gameContent = document.getElementById('game-content');
+        gameContent.innerHTML = gameHTML;
+        
+        // Show game container
+        document.getElementById('game-container').style.display = 'block';
+        document.getElementById('app-container').style.display = 'none';
+        
+        // Update game title
+        document.getElementById('current-game-title').textContent = 
+            gameType.charAt(0).toUpperCase() + gameType.slice(1);
+        
+    } catch (error) {
+        throw new Error(`Failed to load ${gameType} HTML: ${error.message}`);
+    }
+}
+
+// Add basic API client functionality if api-client.js is missing
+if (typeof window.API === 'undefined') {
+    window.API = {
+        call: async function(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Hash': window.Telegram ? Telegram.WebApp.initData : ''
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+    };
+}
+
+// Add basic state management if state-manager.js is missing
+if (typeof window.StateManager === 'undefined') {
+    window.StateManager = {
+        state: {},
+        listeners: [],
+        
+        setState: function(newState) {
+            this.state = { ...this.state, ...newState };
+            this.notifyListeners();
+        },
+        
+        getState: function() {
+            return this.state;
+        },
+        
+        subscribe: function(listener) {
+            this.listeners.push(listener);
+            return () => {
+                this.listeners = this.listeners.filter(l => l !== listener);
+            };
+        },
+        
+        notifyListeners: function() {
+            this.listeners.forEach(listener => listener(this.state));
+        }
+    };
+}
+
+// Add basic component functionality if components.js is missing
+if (typeof window.Components === 'undefined') {
+    window.Components = {
+        showToast: function(message, type = 'info') {
+            if (window.Telegram && Telegram.WebApp) {
+                Telegram.WebApp.showPopup({
+                    title: type.charAt(0).toUpperCase() + type.slice(1),
+                    message: message,
+                    buttons: [{ type: 'ok' }]
+                });
+            } else {
+                alert(message);
+            }
+        },
+        
+        showSpinner: function() {
+            const spinner = document.getElementById('global-spinner');
+            if (spinner) {
+                spinner.style.display = 'flex';
+            }
+        },
+        
+        hideSpinner: function() {
+            const spinner = document.getElementById('global-spinner');
+            if (spinner) {
+                spinner.style.display = 'none';
+            }
+        }
+    };
+}
+
+// Rest of the main.js code remains the same
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Telegram Web App
+    const webApp = window.Telegram.WebApp;
+    webApp.expand();
+    webApp.enableClosingConfirmation();
+    
+    // Load user data
+    loadUserData();
+    
+    // Set up event listeners
+    document.querySelectorAll('button').forEach(button => {
+        button.addEventListener('click', handleButtonClick);
+    });
+    
+    // Initialize theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.body.classList.toggle('light-theme', savedTheme === 'light');
+    
+    // Initialize language
+    const savedLang = localStorage.getItem('lang') || 'en';
+    document.getElementById('lang').value = savedLang;
+});
+
 // Global spinner control
 function showSpinner() {
   document.getElementById('global-spinner').style.display = 'flex';

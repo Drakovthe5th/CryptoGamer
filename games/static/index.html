@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <title>TON Game Miner</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/css/main.css">
   <style>
     * {
       box-sizing: border-box;
@@ -337,7 +338,7 @@
         
         gameCard.innerHTML = `
           <div class="game-icon" style="background-image: ${game.icon ? 
-            `url('/games/${game.id}/static/${game.icon}')` : 'none'};">
+            `url('/game-assets/${game.id}/${game.icon}')` : 'none'};">
             ${!game.icon ? '<div class="default-icon">🎮</div>' : ''}
           </div>
           <div class="game-name">${game.name}</div>

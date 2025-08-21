@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from config import config
+from src.database.mongo import get_user_data, get_game_session
 
 logger = logging.getLogger(__name__)
 TON_TO_GC_RATE = 2000  # 2000 Game Coins = 1 TON
@@ -55,6 +56,9 @@ class BaseGame:
         
     def get_game_url(self, user_id, token):
         return f"/games/{self.name}?user_id={user_id}&token={token}"
+
+    def get_asset_url(self, asset_path):
+        return f"/game-assets/{self.name}/{asset_path}"
     
     def start_game(self, user_id: str) -> Dict[str, Any]:
         """Start a new game session for a user"""
@@ -351,7 +355,7 @@ class BaseGame:
     
     def apply_boosters(self, user_id):
         """Apply active boosters to current session"""
-        user = get_user(user_id)
+        user = get_user_data(user_id)
         if not user:
             return
             

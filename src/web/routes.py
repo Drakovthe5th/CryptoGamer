@@ -94,6 +94,16 @@ def configure_routes(app):
         except Exception as e:
             logger.error(f"Games list error: {str(e)}")
             return jsonify({'error': 'Failed to load games'}), 500
+        
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+
+    @app.route('/static/<path:filename>')
+    def serve_global_static(filename):
+        return send_from_directory('static', filename)
+    
+    @app.route('/game-assets/<game>/<path:filename>')
+    def serve_game_assets(game, filename):
+        return send_from_directory(os.path.join(base_dir, 'games', 'static', game), filename)
 
     @app.route('/api/game/start', methods=['POST'])
     def start_game_session():

@@ -29,6 +29,10 @@ for game in GAME_REGISTRY.values():
     game.max_retry_attempts = 3
     game.retry_delay = 1.5
 
+@games_bp.route('/static/<path:filename>')
+def serve_global_static(filename):
+    return send_from_directory('../static', filename)
+
 @games_bp.route('/')
 def games_index():
     """List all available games"""
@@ -42,6 +46,21 @@ def games_index():
             "max_reward": game.max_reward
         })
     return jsonify({"games": games_list})
+
+# Serve game assets from /games/static/[game]/
+@games_bp.route('/game-assets/<game>/<path:filename>')
+def serve_game_assets(game, filename):
+    return send_from_directory(f'static/{game}', filename)
+
+# Serve game HTML pages
+@games_bp.route('/games/<game>')
+def serve_game_page(game):
+    return send_from_directory(f'static/{game}', 'index.html')
+
+# Serve shop page
+@games_bp.route('/shop')
+def serve_shop():
+    return send_from_directory('static', 'shop.html')
 
 @games_bp.route('/<game_name>', endpoint='game_serve')
 def serve_game(game_name):
