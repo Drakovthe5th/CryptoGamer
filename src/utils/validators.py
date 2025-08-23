@@ -1,6 +1,5 @@
 from functools import wraps, lru_cache
 from flask import request, jsonify
-from src.telegram.config_manager import config_manager
 import re
 from config import Config
 import logging
@@ -163,6 +162,8 @@ def cached_validate_init_data(init_data: str) -> bool:
 
 def validate_caption_length(caption, user_data=None):
     """Validate caption length against user's limits"""
+    from src.telegram.config_manager import config_manager  # Add this line
+    
     if user_data is None:
         max_length = 1024  # Default
     else:
@@ -173,6 +174,8 @@ def validate_caption_length(caption, user_data=None):
 
 def validate_upload_size(file_size, user_data=None):
     """Validate file size against user's limits"""
+    from src.telegram.config_manager import config_manager  # Add this line
+    
     if user_data is None:
         max_parts = 4000  # Default
     else:
@@ -184,6 +187,8 @@ def validate_upload_size(file_size, user_data=None):
 
 def validate_bio_length(bio, user_data=None):
     """Validate bio length against user's limits"""
+    from src.telegram.config_manager import config_manager  # Add this line
+    
     if user_data is None:
         max_length = 70  # Default
     else:
