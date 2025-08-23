@@ -1,4 +1,6 @@
 import os
+import re
+from base64 import b64decode, b64encode
 from typing import Dict, Optional, Any 
 import urllib.parse
 import asyncio
@@ -343,6 +345,66 @@ def save_wallet_address(user_id: int, address: str) -> bool:
     # Validation happens in MongoDB function
     from src.database.mongo import connect_wallet
     return connect_wallet(user_id, address)
+
+def validate_wallet(wallet_address):
+    """
+    Validate TON wallet address format.
+    Supports both bounceable and non-bounceable addresses.
+    
+    Args:
+        wallet_address (str): The wallet address to validate
+        
+    Returns:
+        bool: True if valid, False otherwise
+    """
+    # Check basic format
+    if not wallet_address or not isinstance(wallet_address, str):
+        return False
+    
+    # Remove any whitespace
+    wallet_address = wallet_address.strip()
+    
+    # Check for common TON address formats
+    # 1. Base64 format (48 chars, starts with EQ, UQ, 0Q, or kQ)
+    if len(wallet_address) == 48:
+        # Check if it's a valid base64 string
+        try:
+            # Check if it contains only valid base64 characters
+            if not re.match(r'^[A-Za-z0-9+/]+={0,2}$', wallet_address):
+                return False
+            
+            # Try to decode and re-encode to verify it's valid base64
+            decoded = b64decode(wallet_address + '==')
+            re_encoded = b64encode(decoded).decode('utf-8').rstrip('=')
+            
+            # The re-encoded version should match the original (without padding)
+            if re_encoded != wallet_address:
+                return False
+            
+            # Check for known TON address prefixes
+            if wallet_address.startswith(('EQ', 'UQ', '0Q', 'kQ')):
+                return True
+                
+        except Exception:
+            return False
+    
+    # 2. Hex format (66 chars, starts with 0: or 1:)
+    elif len(wallet_address) == 66 and wallet_address.startswith(('0:', '1:')):
+        # Check if the rest is valid hex
+        hex_part = wallet_address[2:]
+        if re.match(r'^[0-9a-fA-F]+$', hex_part) and len(hex_part) == 64:
+            return True
+    
+    # 3. Friendly format (contains letters and numbers with possible separators)
+    elif ':' in wallet_address and len(wallet_address) > 10:
+        parts = wallet_address.split(':')
+        if len(parts) == 2:
+            # Check if the second part looks like a valid account ID
+            account_id = parts[1]
+            if re.match(r'^[a-zA-Z0-9_-]+$', account_id) and 5 <= len(account_id) <= 64:
+                return True
+    
+    return False
 
 def is_valid_ton_address(address: str) -> bool:
     """Validate TON wallet address"""
