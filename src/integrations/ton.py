@@ -8,7 +8,6 @@ from pytoniq import LiteClient, WalletV4R2
 from pytoniq_core import begin_cell, Address
 from pytoniq_core.crypto.keys import mnemonic_to_private_key
 import backoff
-from src.utils.validators import validate_ton_address
 from config import config
 from src.database.mongo import db, update_game_coins, client
 from src.utils.security import secure_mask
@@ -168,6 +167,8 @@ class TonWallet:
         
     async def send_ton(self, to_address: str, amount: float) -> dict:
         """Send TON to specified address with robust error handling"""
+        from src.utils.validators import validate_ton_address  # Add this line
+        
         if not self.initialized:
             return {'success': False, 'error': 'Wallet not initialized'}
             
@@ -345,6 +346,7 @@ def save_wallet_address(user_id: int, address: str) -> bool:
 
 def is_valid_ton_address(address: str) -> bool:
     """Validate TON wallet address"""
+    from src.utils.validators import validate_ton_address  # Add this line
     return validate_ton_address(address)
 
 async def initialize_on_demand():
