@@ -15,6 +15,18 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 class Config:
+
+    REWARD_RATES = {
+    'edge-surf': {'base': 30, 'per_second': 7},
+    'trex-runner': {'base': 10, 'per_100_meters': 50},
+    'clicker': {'base': 5, 'per_1000_points': 15},
+    'trivia': {'base': 20, 'per_correct_answer': 50},
+    'spin': {'base': 40}
+    }
+
+    MAX_GAME_REWARD = 1.0
+    MAX_DAILY_GAME_COINS = 20000
+
     def __init__(self):
         # Core configuration
         self.TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -80,19 +92,6 @@ class Config:
         self.MIN_WITHDRAWAL_GC = 200000  # 100 TON equivalent
         self.MIN_GC_PURCHASE = 1000  # Minimum game coins for purchases
         self.MIN_GAMEPLAY_HOURS = 500  # Minimum gameplay hours required for withdrawal
-        
-        # Rewards Configuration (in Game Coins)
-        self.REWARDS = {
-            "faucet": float(os.getenv("FAUCET_REWARD", 1000)),
-            "trivia_correct": float(os.getenv("TRIVIA_CORRECT_REWARD", 50)),
-            "trivia_incorrect": float(os.getenv("TRIVIA_INCORRECT_REWARD", 10)),
-            "spin_win": float(os.getenv("SPIN_WIN_REWARD", 200)),
-            "spin_loss": float(os.getenv("SPIN_LOSS_REWARD", 10)),
-            "ad_view": float(os.getenv("AD_VIEW_REWARD", 30)),
-            "referral": float(os.getenv("REFERRAL_REWARD", 500)),
-            "quest": float(os.getenv("QUEST_REWARD", 300)),
-            "daily_bonus": float(os.getenv("DAILY_BONUS", 500))
-        }
         
         # Membership Tiers and Benefits
         self.MEMBERSHIP_TIERS = {
