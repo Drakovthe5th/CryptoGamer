@@ -132,7 +132,7 @@ class TriviaQuiz(BaseGame):
             correct = selected == question["correct"]
             
             # Update stats
-            player["questions_answered"] += 1'
+            player["questions_answered"] += 1
 
             if correct:
                 player["correct_answers"] += 1
