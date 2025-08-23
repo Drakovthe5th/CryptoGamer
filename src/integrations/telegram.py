@@ -3,7 +3,7 @@ from telethon.sessions import StringSession
 import requests
 import logging
 from config import config
-from src.integrations.ton import validate_wallet
+from src.features.quests import validate_wallet
 
 logger = logging.getLogger(__name__)
 
