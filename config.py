@@ -11,21 +11,21 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+REWARD_RATES = {
+'edge-surf': {'base': 30, 'per_second': 7},
+'trex-runner': {'base': 10, 'per_100_meters': 50},
+'clicker': {'base': 5, 'per_1000_points': 15},
+'trivia': {'base': 20, 'per_correct_answer': 50},
+'spin': {'base': 40}
+}
+
+MAX_GAME_REWARD = 1.0
+MAX_DAILY_GAME_COINS = 20000
+
 # Load environment variables
 load_dotenv()
 
 class Config:
-
-    REWARD_RATES = {
-    'edge-surf': {'base': 30, 'per_second': 7},
-    'trex-runner': {'base': 10, 'per_100_meters': 50},
-    'clicker': {'base': 5, 'per_1000_points': 15},
-    'trivia': {'base': 20, 'per_correct_answer': 50},
-    'spin': {'base': 40}
-    }
-
-    MAX_GAME_REWARD = 1.0
-    MAX_DAILY_GAME_COINS = 20000
 
     def __init__(self):
         # Core configuration
