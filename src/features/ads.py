@@ -5,7 +5,7 @@ from datetime import datetime
 from config import config
 from src.database.mongo import db, update_balance, track_ad_reward
 from src.utils.user_helpers import is_premium_user, get_ad_streak, get_user_country, get_device_type
-from src.integrations.tonclient import telegram_client
+from src.integrations.telegram import telegram_client
 
 logger = logging.getLogger(__name__)
 
