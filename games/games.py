@@ -38,7 +38,7 @@ GAME_REGISTRY = {
     "trex": TRexRunner(),
     "edge-surf": EdgeSurf(),
     "edge_surf": EdgeSurf(),  # Alias for consistency
-    "sabotage": SabotageGame()
+    "sabotage": SabotageGame.create_for_registry()  # Use factory method
 }
 
 # Configure retry settings for all games

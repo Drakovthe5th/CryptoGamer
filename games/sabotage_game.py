@@ -29,9 +29,8 @@ class PlayerRole(Enum):
 class SabotageGame:
     @classmethod
     def create_for_registry(cls):
-        """Create a dummy instance for the game registry"""
-        instance = cls.__new__(cls)
-        # Set minimal attributes needed for registry using instance variables
+        """Create a dummy instance for the game registry with default values"""
+        instance = cls(game_id="sabotage_registry", chat_id=-1)
         instance._name = "Sabotage"
         instance._min_reward = 100
         instance._max_reward = 1000
@@ -49,12 +48,12 @@ class SabotageGame:
     def max_reward(self):
         return getattr(self, '_max_reward', 1000)
 
-    def __init__(self, game_id: str, chat_id: str, duration_minutes: int = 15):
+    def __init__(self, game_id: str = "default_game", chat_id: str = "default_chat", duration_minutes: int = 15):
         self.game_id = game_id
         self.chat_id = chat_id
         self.duration = timedelta(minutes=duration_minutes)
         self.state = GameState.LOBBY
-        self.players: Dict[str, Player] = {}
+        self.players: Dict[str, dict] = {}
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
         self.vault_gold = 0
@@ -62,7 +61,7 @@ class SabotageGame:
         self.emergency_meeting_called = False
         self.meeting_end_time: Optional[datetime] = None
         self.votes: Dict[str, str] = {}  # voter_id -> voted_player_id
-        self.bribe_offers: Dict[str, BribeOffer] = {}  # target_player_id -> BribeOffer
+        self.bribe_offers: Dict[str, dict] = {}  # target_player_id -> BribeOffer
         self.entry_fee_credits = 100  # Crew Credits required to join
         self.sabotage_action_cost = 50  # Cost to perform sabotage actions
         
@@ -73,19 +72,20 @@ class SabotageGame:
         self.MEETING_DURATION = 120  # seconds
         self.BRIBE_COST = 500  # Gold cost for a bribe from saboteur's stash
         
-        # Initialize game document in MongoDB
-        game_data = {
-            'game_id': game_id,
-            'chat_id': chat_id,
-            'state': self.state.value,
-            'vault_gold': self.vault_gold,
-            'saboteurs_stash': self.saboteurs_stash,
-            'start_time': None,
-            'end_time': None,
-            'players': {},
-            'created_at': datetime.now()
-        }
-        sabotage_games.insert_one(game_data)
+        # Only initialize game document in MongoDB if not a registry instance
+        if game_id != "sabotage_registry":
+            game_data = {
+                'game_id': game_id,
+                'chat_id': chat_id,
+                'state': self.state.value,
+                'vault_gold': self.vault_gold,
+                'saboteurs_stash': self.saboteurs_stash,
+                'start_time': None,
+                'end_time': None,
+                'players': {},
+                'created_at': datetime.now()
+            }
+            sabotage_games.insert_one(game_data)
 
     async def add_player(self, player_id: str, player_name: str):
         """Add a player to the game lobby after checking Crew Credits"""
@@ -95,9 +95,11 @@ class SabotageGame:
             raise Exception(f"Not enough Crew Credits. Need {self.entry_fee_credits} to join.")
             
         # Deduct entry fee from Crew Credits
-        update_user_data(player_id, {
-            'crew_credits': user_data.get('crew_credits', 0) - self.entry_fee_credits
-        })
+        players_collection.update_one(
+            {'player_id': player_id},
+            {'$inc': {'crew_credits': -self.entry_fee_credits}},
+            upsert=True
+        )
         
         # Then add player to game
         self.players[player_id] = {
@@ -107,7 +109,9 @@ class SabotageGame:
             'is_alive': True,
             'last_action_time': None,
             'gold_mined': 0,
-            'gold_stolen': 0
+            'gold_stolen': 0,
+            'is_mining': False,
+            'is_stealing': False
         }
         
         # Update MongoDB
