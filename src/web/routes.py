@@ -21,8 +21,8 @@ from src.integrations.ton import ton_wallet, initialize_on_demand, MAINNET_CONFI
 from src.utils.conversions import GAME_COIN_TO_TON_RATE, MAX_DAILY_GAME_COINS
 from src.utils.validators import validate_ton_address
 from src.telegram.config_manager import config_manager
-from src.features.gifts import gift_manager
-from src.features.giveaways import giveaway_manager
+from src.features.monetization.gifts import gift_manager
+from src.features.monetization.giveaways import giveaway_manager
 
 from config import config
 import logging
