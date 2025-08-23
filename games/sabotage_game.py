@@ -31,23 +31,23 @@ class SabotageGame:
     def create_for_registry(cls):
         """Create a dummy instance for the game registry"""
         instance = cls.__new__(cls)
-        # Set minimal attributes needed for registry
-        instance.name = "Sabotage"
-        instance.min_reward = 100
-        instance.max_reward = 1000
+        # Set minimal attributes needed for registry using instance variables
+        instance._name = "Sabotage"
+        instance._min_reward = 100
+        instance._max_reward = 1000
         return instance
 
     @property
     def name(self):
-        return "Sabotage"
+        return getattr(self, '_name', "Sabotage")
 
     @property
     def min_reward(self):
-        return 100
+        return getattr(self, '_min_reward', 100)
 
     @property
     def max_reward(self):
-        return 1000
+        return getattr(self, '_max_reward', 1000)
 
     def __init__(self, game_id: str, chat_id: str, duration_minutes: int = 15):
         self.game_id = game_id
