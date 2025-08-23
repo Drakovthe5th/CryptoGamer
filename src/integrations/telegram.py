@@ -302,6 +302,5 @@ class TelegramIntegration:
             return None
 
 # Global instance
-send_telegram_message = TelegramIntegration.send_telegram_message
 
 telegram_client = TelegramIntegration()
