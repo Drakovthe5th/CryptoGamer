@@ -50,6 +50,30 @@ class SabotageGame:
         self.STEAL_COOLDOWN = 120  # seconds
         self.MEETING_DURATION = 120  # seconds
         self.BRIBE_COST = 500  # Gold cost for a bribe from saboteur's stash
+
+        # Add this class method to the SabotageGame class
+        @classmethod
+        def create_for_registry(cls):
+            """Create a dummy instance for the game registry"""
+            instance = cls.__new__(cls)
+            # Set minimal attributes needed for registry
+            instance.name = "Sabotage"
+            instance.min_reward = 100
+            instance.max_reward = 1000
+            return instance
+
+        # Also add these attributes to the class for compatibility with the game registry
+        @property
+        def name(self):
+            return "Sabotage"
+
+        @property
+        def min_reward(self):
+            return 100
+
+        @property
+        def max_reward(self):
+            return 1000
         
         # Initialize game document in MongoDB
         game_data = {
