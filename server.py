@@ -74,7 +74,7 @@ from src.database.mongo import get_user_data, save_user_data, update_balance, tr
 
 # Import blueprints
 from games.games import games_bp
-from miniapp import miniapp_bp
+from src.telegram.miniapp import miniapp_bp
 
 # Create Flask app
 app = Flask(__name__, template_folder='templates')
