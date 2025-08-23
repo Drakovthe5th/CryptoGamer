@@ -6,7 +6,6 @@ import os
 import logging
 from datetime import timedelta
 from config import config
-from src.utils.validators import validate_ton_address
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +153,8 @@ def reset_all_daily_limits():
         return False
 
 def connect_wallet(user_id: int, wallet_address: str):
+    from src.utils.validators import validate_ton_address  # Add this line
+    
     if not validate_ton_address(wallet_address):
         logger.error(f"Invalid wallet address: {wallet_address}")
         return False

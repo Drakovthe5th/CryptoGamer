@@ -3,7 +3,6 @@ from telethon.sessions import StringSession
 import requests
 import logging
 from config import config
-from src.database.mongo import db, get_db, get_user_data
 from src.integrations.ton import validate_wallet
 
 logger = logging.getLogger(__name__)
@@ -67,6 +66,7 @@ class TelegramIntegration:
             await self.client.disconnect()
 
     def send_telegram_message(user_id: int, message: str) -> bool:
+        from src.database.mongo import get_db  # Add this line
         """Send message to user via Telegram"""
         try:
             # Get Telegram chat ID from database
@@ -105,12 +105,13 @@ class TelegramIntegration:
         
     async def handle_webapp_data(data):
         if data['type'] == 'connect_wallet':
+            from src.utils.validators import validate_ton_address
+            from src.database.mongo import connect_wallet as save_wallet
+            
             user_id = data['user_id']
             wallet_address = data['address']
             
-            from src.utils.validators import validate_ton_address
             if validate_ton_address(wallet_address):
-                from src.database.mongo import connect_wallet as save_wallet
                 if save_wallet(user_id, wallet_address):
                     return "Wallet connected successfully!"
                 return "Database error"
