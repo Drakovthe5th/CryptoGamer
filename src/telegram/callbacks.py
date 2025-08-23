@@ -18,7 +18,7 @@ from src.telegram.stars import (
     handle_stars_purchase, 
     process_stars_purchase, 
     complete_stars_purchase,
-    handle_stars_balance
+    handle_stars_balance,
 )
 from src.telegram.subscriptions import handle_stars_subscriptions
 import random
@@ -27,6 +27,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Add to callback query handler patterns
 CALLBACK_HANDLERS = {
     "buy_stars": handle_stars_purchase,
     "stars_buy_.*": process_stars_purchase,
@@ -49,9 +50,23 @@ async def dismiss_suggestion(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     data = query.data.split('_')
     suggestion_type = data[1]
+    user_id = query.from_user.id
     
     try:
-        await query.edit_message_text("✅ Suggestion dismissed")
+        # Call Telegram API to dismiss suggestion
+        async with telegram_client:
+            result = await telegram_client(
+                functions.help.DismissSuggestionRequest(
+                    peer=types.InputPeerEmpty(),
+                    suggestion=suggestion_type
+                )
+            )
+            
+        if result:
+            await query.edit_message_text("✅ Suggestion dismissed")
+        else:
+            await query.edit_message_text("❌ Failed to dismiss suggestion")
+            
     except Exception as e:
         logger.error(f"Error dismissing suggestion: {str(e)}")
         await query.edit_message_text("❌ Error dismissing suggestion")
@@ -61,8 +76,27 @@ async def show_suggestions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    user_id = query.from_user.id
+    
     try:
-        await query.edit_message_text("No suggestions at this time!")
+        # Get client config
+        client_config = await config_manager.get_client_config()
+        pending_suggestions = client_config.get('pending_suggestions', [])
+        
+        if not pending_suggestions:
+            await query.edit_message_text("No suggestions at this time!")
+            return
+            
+        keyboard = []
+        for suggestion in pending_suggestions:
+            button_text = _get_suggestion_text(suggestion)
+            keyboard.append([InlineKeyboardButton(button_text, callback_data=f"suggestion_{suggestion}")])
+        
+        await query.edit_message_text(
+            "💡 Suggestions for you:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
     except Exception as e:
         logger.error(f"Error showing suggestions: {str(e)}")
         await query.edit_message_text("❌ Error loading suggestions")
@@ -124,6 +158,10 @@ async def set_paypal_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Or type /cancel to abort",
         parse_mode='Markdown'
     )
+
+# ================
+# GAME HANDLERS
+# ================
 
 async def trivia_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start a trivia game session"""
@@ -283,6 +321,10 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💎 New balance: {game_coins_to_ton(new_balance):.6f} TON"
     )
 
+# =====================
+# WITHDRAWAL HANDLERS
+# =====================
+
 async def process_withdrawal_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Process withdrawal method selection"""
     query = update.callback_query
@@ -296,6 +338,7 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
     method = data[1]
     user_id = query.from_user.id
     user_data = get_user_data(user_id)
+    balance = user_data.get('balance', 0)
     
     MIN_WITHDRAWAL_GC = 200000  # 200,000 GC = 100 TON
     
@@ -319,15 +362,15 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
         )
     else:
         # OTC desk cash withdrawal
-        currencies = list(otc_desk.buy_rates.keys())
+        currencies = otc_desk.buy_rates.keys()
         keyboard = [[InlineKeyboardButton(currency, callback_data=f"cash_{currency}")] 
                     for currency in currencies]
         
         context.user_data['withdrawal_method'] = method
-        context.user_data['withdrawal_amount'] = user_data.get('balance', 0)
+        context.user_data['withdrawal_amount'] = balance
         
         await query.edit_message_text(
-            f"💱 Select currency for your {user_data.get('balance', 0):.6f} TON:",
+            f"💱 Select currency for your {balance:.6f} TON:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -441,6 +484,10 @@ async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_
         error = result.get('error', 'Withdrawal failed') if result else 'Withdrawal failed'
         await update.message.reply_text(f"❌ Withdrawal failed: {error}")
 
+# ================
+# QUEST HANDLERS
+# ================
+
 async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show details of a specific quest"""
     query = update.callback_query
@@ -501,6 +548,10 @@ async def complete_quest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("✅ Quest completed! Rewards added to your account.")
     else:
         await query.edit_message_text("❌ Failed to complete quest. Please try again.")
+
+# ===================
+# PAYMENT METHOD HANDLERS
+# ===================
 
 async def select_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle payment method selection for OTC"""
@@ -578,6 +629,10 @@ async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYP
         "You can now use this method for OTC withdrawals."
     )
 
+# ================
+# ERROR HANDLERS
+# ================
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle errors in the telegram bot"""
     logger.error("Exception while handling an update:", exc_info=context.error)
@@ -605,19 +660,35 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         except Exception as e:
             logger.error(f"Failed to notify admin about error: {e}")
 
+# Add these callback handlers
 async def affiliate_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show affiliate program information"""
     query = update.callback_query
     await query.answer()
     
-    text = "🤝 Affiliate Program\n\n"
-    text += "Join our affiliate program to earn commissions!\n\n"
-    text += "Share your unique referral link and earn Stars when your friends make purchases."
+    # Get affiliate stats
+    stats = await telegram_client.get_affiliate_stats()
     
-    keyboard = [
-        [InlineKeyboardButton("🚀 Join Affiliate Program", callback_data="affiliate_join")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
-    ]
+    if stats:
+        text = "🤝 Affiliate Program\n\n"
+        text += f"• Total Referrals: {stats.participants}\n"
+        text += f"• Total Earnings: {stats.revenue} Stars\n"
+        text += f"• Commission Rate: {stats.commission_permille}‰\n\n"
+        text += "Share your referral link to earn commissions!"
+        
+        keyboard = [
+            [InlineKeyboardButton("📋 Copy Referral Link", callback_data="affiliate_copy_link")],
+            [InlineKeyboardButton("📊 View Detailed Stats", callback_data="affiliate_stats")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
+        ]
+    else:
+        text = "Join our affiliate program to earn commissions!\n\n"
+        text += "Share your unique referral link and earn Stars when your friends make purchases."
+        
+        keyboard = [
+            [InlineKeyboardButton("🚀 Join Affiliate Program", callback_data="affiliate_join")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
+        ]
     
     await query.edit_message_text(
         text,
@@ -629,14 +700,29 @@ async def join_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
-    await query.edit_message_text(
-        "✅ You've joined our affiliate program!\n\n"
-        "Your referral link will be available soon.",
-        parse_mode='Markdown',
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📊 View Stats", callback_data="affiliate_stats")]
-        ])
-    )
+    result = await telegram_client.join_affiliate_program("CryptoGamerBot")
+    
+    if result:
+        # Get the referral link
+        referral_link = result.connected_bots[0].url
+        
+        await query.edit_message_text(
+            f"✅ You've joined our affiliate program!\n\n"
+            f"Your referral link:\n`{referral_link}`\n\n"
+            f"Share this link to earn commissions on your friends' purchases.",
+            parse_mode='Markdown',
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("📋 Copy Link", callback_data=f"copy_{referral_link}")],
+                [InlineKeyboardButton("📊 View Stats", callback_data="affiliate_stats")]
+            ])
+        )
+    else:
+        await query.edit_message_text(
+            "❌ Could not join affiliate program at this time. Please try again later.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⬅️ Back", callback_data="affiliate_program")]
+            ])
+        )
 
 async def handle_giveaway_creation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show giveaway creation options"""
@@ -660,22 +746,102 @@ async def handle_premium_giveaway(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     await query.answer()
     
-    await query.edit_message_text("✅ Premium giveaway created successfully!")
+    # Implementation for premium giveaway
+    from src.features.monetization.giveaways import giveaway_manager
+    result = await giveaway_manager.create_premium_giveaway(
+        user_id=query.from_user.id,
+        boost_peer=types.InputPeerSelf(),  # Or specific channel
+        users_count=10,
+        months=3
+    )
+    
+    if result['success']:
+        await query.edit_message_text("✅ Premium giveaway created successfully!")
+    else:
+        await query.edit_message_text(f"❌ Error: {result['error']}")
 
 async def handle_gift_sending(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle gift sending"""
     query = update.callback_query
     await query.answer()
     
-    await query.edit_message_text("🎁 Gift sent successfully!")
+    data = query.data.split('_')
+    gift_id = data[2]
+    recipient_id = data[3]
+    
+    from src.features.monetization.gifts import gift_manager
+    result = await gift_manager.send_star_gift(
+        user_id=query.from_user.id,
+        recipient_id=recipient_id,
+        gift_id=int(gift_id)
+    )
+    
+    if result['success']:
+        await query.edit_message_text("🎁 Gift sent successfully!")
+    else:
+        await query.edit_message_text(f"❌ Error sending gift: {result['error']}")
 
 async def handle_attach_menu_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle attachment menu installation"""
     query = update.callback_query
     await query.answer()
     
-    await query.edit_message_text("✅ Attachment menu installed successfully!")
+    bot_id = query.data.split('_')[2]
+    user_id = query.from_user.id
+    
+    try:
+        # Check if disclaimer is needed
+        bot_info = await telegram_client.get_attach_menu_bot(bot_id)
+        
+        if bot_info.get('side_menu_disclaimer_needed', False):
+            # Show TOS disclaimer
+            keyboard = [
+                [InlineKeyboardButton("✅ Accept TOS", callback_data=f"attach_accept_{bot_id}")],
+                [InlineKeyboardButton("❌ Cancel", callback_data="attach_cancel")]
+            ]
+            
+            await query.edit_message_text(
+                "📋 Terms of Service Agreement\n\n"
+                "This Mini App is not affiliated with Telegram. By installing, you agree to our:\n"
+                "• [Mini Apps TOS](https://telegram.org/tos/mini-apps)\n"
+                "• [Privacy Policy](https://telegram.org/privacy)\n\n"
+                "Do you accept these terms?",
+                parse_mode='Markdown',
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            # Install directly
+            await install_attach_menu(user_id, bot_id)
+            
+    except Exception as e:
+        logger.error(f"Error installing attachment menu: {str(e)}")
+        await query.edit_message_text("❌ Failed to install. Please try again.")
 
+async def install_attach_menu(user_id: int, bot_id: int):
+    """Install attachment menu for user"""
+    try:
+        result = await telegram_client(
+            functions.messages.ToggleBotInAttachMenuRequest(
+                bot=types.InputUser(user_id=bot_id, access_hash=0),  # Will be filled by client
+                enabled=True
+            )
+        )
+        
+        if result:
+            # Update user data
+            db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"attach_menu_enabled": True}}
+            )
+            
+            return True
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error in attach menu installation: {str(e)}")
+        return False
+    
+# Add sabotage callback handlers
 async def handle_sabotage_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle player joining a sabotage game"""
     query = update.callback_query
@@ -683,11 +849,61 @@ async def handle_sabotage_join(update: Update, context: ContextTypes.DEFAULT_TYP
     
     game_id = query.data.split('_')[2]
     user_id = query.from_user.id
+    user_name = query.from_user.first_name
     
+    # Add player to game
+    from src.database.mongo import get_sabotage_game, update_sabotage_game
+    game_data = get_sabotage_game(game_id)
+    
+    if not game_data:
+        await query.edit_message_text("Game not found or already started.")
+        return
+    
+    if user_id in game_data.get('players', {}):
+        await query.answer("You've already joined this game!")
+        return
+    
+    # Add player to game
+    game_data['players'][str(user_id)] = {
+        'name': user_name,
+        'ready': False
+    }
+    
+    update_sabotage_game(game_id, game_data)
+    
+    # Update message with current players
+    player_list = "\n".join([f"• {p['name']}" for p in game_data['players'].values()])
     await query.edit_message_text(
-        f"🎮 You've joined game {game_id}!\n\n"
-        "Game will start soon...",
+        f"🎮 Crypto Crew: Sabotage\n\n"
+        f"Players joined ({len(game_data['players'])}/6):\n{player_list}\n\n"
+        "Game starts automatically when 6 players join.",
         reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Join Game", callback_data=f"sabotage_join_{game_id}")],
             [InlineKeyboardButton("Game Rules", callback_data="sabotage_rules")]
         ])
     )
+    
+    # Start game if we have 6 players
+    if len(game_data['players']) == 6:
+        # Initialize game
+        game = SabotageGame(game_id, game_data['chat_id'])
+        for player_id in game_data['players']:
+            await game.add_player(player_id, game_data['players'][player_id]['name'])
+        
+        # Update game state
+        game_data['state'] = 'tasks'
+        game_data['start_time'] = datetime.now()
+        game_data['end_time'] = datetime.now() + timedelta(minutes=15)
+        update_sabotage_game(game_id, game_data)
+        
+        # Notify players
+        for player_id in game_data['players']:
+            try:
+                role = "Miner" if game.players[player_id]['role'] == 'miner' else "Saboteur"
+                await context.bot.send_message(
+                    chat_id=player_id,
+                    text=f"🎮 Game starting! You are a {role}.\n\n"
+                         f"Open the miniapp to play: https://t.me/YourBotName/sabotage?game_id={game_id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to notify player {player_id}: {str(e)}")
