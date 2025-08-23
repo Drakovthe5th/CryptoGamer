@@ -24,11 +24,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Register the games blueprint
-app.register_blueprint(games_bp)
-
-miniapp_bp = Blueprint('miniapp', __name__)
-
 # Production TON imports
 try:
     from src.integrations.ton import (
@@ -82,6 +77,11 @@ from src.database.mongo import get_user_data, save_user_data, update_balance, tr
 app = Flask(__name__, template_folder='templates')
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Register the games blueprint
+app.register_blueprint(games_bp)
+
+miniapp_bp = Blueprint('miniapp', __name__)
 
 # Register games blueprint
 app.register_blueprint(games_bp, url_prefix='/games')
