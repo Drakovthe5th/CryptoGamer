@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 import random
 import hashlib
 import logging
+import threading
+import time
 from config import config
 from src.database.mongo import db, update_balance, get_user_data, save_quest_progress
 
@@ -114,19 +116,9 @@ class QuestSystem:
 
     def get_default_preferences(self, user_id, ip_address):
         """Get default quest preferences based on user country"""
-        country = get_user_country(user_id, ip_address)
-        
-        # Regional preferences
-        if country in ['US', 'CA', 'GB', 'AU']:
-            return ['gaming', 'exploration', 'social']
-        elif country in ['IN', 'NG', 'KE']:
-            return ['social', 'exploration', 'gaming']
-        elif country in ['JP', 'KR']:
-            return ['gaming', 'exploration']
-        elif country in ['BR', 'MX']:
-            return ['social', 'gaming']
-        
-        return ['general']
+        # This would typically use a geolocation service
+        # For now, return default preferences
+        return ['general', 'gaming', 'social', 'exploration']
 
     def adjust_quest_difficulty(self, quest, difficulty):
         """Adjust quest parameters to vary difficulty"""
@@ -149,7 +141,7 @@ class QuestSystem:
     def generate_daily_quests(self, user_id, ip_address=None):
         """Generate daily quest set for user"""
         quests = []
-        for _ in range(config.DAILY_QUEST_COUNT):  # Configurable count
+        for _ in range(config.DAILY_QUEST_COUNT):
             quest = self.generate_dynamic_quest(user_id, ip_address)
             quests.append(quest)
         return quests
@@ -191,9 +183,18 @@ class QuestSystem:
             {"user_id": user_id},
             update_data
         )
+
+        # Add Stars reward for certain quest types
+        if quest.get('reward_stars', 0) > 0:
+            stars_reward = quest['reward_stars']
+            db.users.update_one(
+                {"user_id": user_id},
+                {"$inc": {"telegram_stars": stars_reward}}
+            )
         
         return True, {
             'reward': reward,
+            'reward_stars': quest.get('reward_stars', 0),
             'xp_earned': xp_earned,
             'new_level': new_level if new_level > user.get("level", 1) else None
         }
@@ -202,106 +203,6 @@ class QuestSystem:
         """Verify quest completion with anti-cheat measures"""
         task = quest['tasks'][0]
         
-        if "win_" in task:
-            return self.validate_game_wins(quest, evidence)
-        elif "refer_" in task:
-            return self.validate_referrals(quest, evidence)
-        elif "play_" in task:
-            return self.validate_game_plays(quest, evidence)
-        elif "complete_" in task:
-            return self.validate_generic_completion(evidence)
-        
-        return False, "Invalid quest type"
-
-    def validate_game_wins(self, quest, evidence):
-        """Validate game wins with anti-cheat"""
-        required_wins = int(quest['tasks'][0].split('_')[1])
-        
-        # Evidence should be list of game session IDs
-        if not evidence or len(evidence) < required_wins:
-            return False, "Insufficient wins"
-        
-        # Verify wins with game service
-        from src.game_manager import validate_game_session
-        valid_wins = validate_game_session(evidence, win_only=True)
-        
-        if len(valid_wins) >= required_wins:
-            return True, "Validated"
-        
-        return False, "Invalid game sessions"
-
-    def validate_referrals(self, quest, evidence):
-        """Validate referrals with anti-fraud"""
-        required_refs = int(quest['tasks'][0].split('_')[1])
-        
-        # Evidence should be list of referral user IDs
-        if not evidence or len(evidence) < required_refs:
-            return False, "Insufficient referrals"
-        
-        # Verify referrals with database
-        valid_refs = []
-        for ref_id in evidence:
-            ref_data = get_user_data(ref_id)
-            if ref_data and ref_data.get('referred_by') == quest['user_id']:
-                valid_refs.append(ref_id)
-        
-        if len(valid_refs) >= required_refs:
-            return True, "Validated"
-        
-        return False, "Invalid referrals"
-
-    def generate_quest_id(self, quest, user_id):
-        """Create unique quest ID"""
-        base_str = f"{user_id}-{quest['type']}-{quest['tasks'][0]}"
-        return hashlib.sha256(base_str.encode()).hexdigest()[:16]
-
-    def check_level_up(self, total_xp):
-        """Calculate level based on XP"""
-        level = 1
-        xp_required = config.LEVEL_XP_BASE
-        
-        while total_xp >= xp_required and level < config.MAX_LEVEL:
-            level += 1
-            xp_required *= config.LEVEL_XP_MULTIPLIER
-            
-        return min(level, config.MAX_LEVEL)
-    
-    def get_active_quests(self, user_id):
-        """Get active quests for user"""
-        user_data = get_user_data(user_id)
-        if not user_data:
-            return []
-        return user_data.get('active_quests', [])
-
-    def get_daily_quests(self, user_id):
-        """Get today's generated quests for user"""
-        user_data = get_user_data(user_id)
-        if not user_data:
-            return []
-        return user_data.get('daily_quests', [])
-        
-    def update_quest_progress(self, user_id, quest_id, progress):
-        """Update progress for a specific quest"""
-        user_data = get_user_data(user_id)
-        if not user_data:
-            return False
-            
-        # Find the quest and update progress
-        for quest in user_data.get('active_quests', []):
-            if quest['id'] == quest_id:
-                quest['progress'] = progress
-                if progress >= 100:
-                    quest['completed'] = True
-                save_quest_progress(user_id, user_data)
-                return True
-                
-        return False
-
-    def verify_completion(self, quest, evidence):
-        """Verify quest completion with anti-cheat measures"""
-        task = quest['tasks'][0]
-        
-        # Existing verification methods
         if "win_" in task:
             return self.validate_game_wins(quest, evidence)
         elif "refer_" in task:
@@ -349,10 +250,55 @@ class QuestSystem:
         
         return False, "Invalid quest type"
 
-    # Add new validation methods
+    def validate_game_wins(self, quest, evidence):
+        """Validate game wins with anti-cheat"""
+        required_wins = int(quest['tasks'][0].split('_')[1])
+        
+        # Evidence should be list of game session IDs
+        if not evidence or len(evidence) < required_wins:
+            return False, "Insufficient wins"
+        
+        # Verify wins with game service
+        from src.game_manager import validate_game_session
+        valid_wins = validate_game_session(evidence, win_only=True)
+        
+        if len(valid_wins) >= required_wins:
+            return True, "Validated"
+        
+        return False, "Invalid game sessions"
+
+    def validate_referrals(self, quest, evidence):
+        """Validate referrals with anti-fraud"""
+        required_refs = int(quest['tasks'][0].split('_')[1])
+        
+        # Evidence should be list of referral user IDs
+        if not evidence or len(evidence) < required_refs:
+            return False, "Insufficient referrals"
+        
+        # Verify referrals with database
+        valid_refs = []
+        for ref_id in evidence:
+            ref_data = get_user_data(ref_id)
+            if ref_data and ref_data.get('referred_by') == quest['user_id']:
+                valid_refs.append(ref_id)
+        
+        if len(valid_refs) >= required_refs:
+            return True, "Validated"
+        
+        return False, "Invalid referrals"
+
+    def validate_game_plays(self, quest, evidence):
+        """Validate game plays"""
+        # Implementation would go here
+        return True, "Validated"
+
+    def validate_generic_completion(self, evidence):
+        """Validate generic completion"""
+        # Implementation would go here
+        return True, "Validated"
+
     def validate_wallet_connection(self, evidence):
         """Validate Telegram wallet connection"""
-        # Check if user has a connected wallet
         user_data = get_user_data(evidence['user_id'])
         if user_data and user_data.get('wallet_address'):
             return True, "Validated"
@@ -360,16 +306,12 @@ class QuestSystem:
 
     def validate_social_follow(self, platform, evidence):
         """Validate social media follow"""
-        # This would typically use platform APIs
-        # For now, we'll use a simple verification code system
         if evidence.get('verification_code') == f"follow_{platform}_{evidence['user_id']}":
             return True, "Validated"
         return False, "Follow not verified"
 
     def validate_channel_join(self, evidence):
         """Validate Telegram channel join"""
-        # Use Telegram Bot API to check channel membership
-        # For now, simple verification code
         if evidence.get('verification_code') == f"channel_join_{evidence['user_id']}":
             return True, "Validated"
         return False, "Channel membership not verified"
@@ -421,7 +363,7 @@ class QuestSystem:
 
     def validate_ad_watch(self, evidence):
         """Validate ad watch"""
-        if evidence.get('ads_watched', 0) >= 5:  # Watch at least 5 ads
+        if evidence.get('ads_watched', 0) >= 5:
             return True, "Validated"
         return False, "Not enough ads watched"
 
@@ -431,56 +373,146 @@ class QuestSystem:
         if user_data and boost_type in user_data.get('active_boosts', []):
             return True, "Validated"
         return False, f"{boost_type} boost not active"
+
+    def generate_quest_id(self, quest, user_id):
+        """Create unique quest ID"""
+        base_str = f"{user_id}-{quest['type']}-{quest['tasks'][0]}"
+        return hashlib.sha256(base_str.encode()).hexdigest()[:16]
+
+    def check_level_up(self, total_xp):
+        """Calculate level based on XP"""
+        level = 1
+        xp_required = config.LEVEL_XP_BASE
+        
+        while total_xp >= xp_required and level < config.MAX_LEVEL:
+            level += 1
+            xp_required *= config.LEVEL_XP_MULTIPLIER
+            
+        return min(level, config.MAX_LEVEL)
     
+    def get_active_quests(self, user_id):
+        """Get active quests for user"""
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return []
+        return user_data.get('active_quests', [])
+
+    def get_daily_quests(self, user_id):
+        """Get today's generated quests for user"""
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return []
+        return user_data.get('daily_quests', [])
+        
+    def update_quest_progress(self, user_id, quest_id, progress):
+        """Update progress for a specific quest"""
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return False
+            
+        # Find the quest and update progress
+        for quest in user_data.get('active_quests', []):
+            if quest['id'] == quest_id:
+                quest['progress'] = progress
+                if progress >= 100:
+                    quest['completed'] = True
+                save_quest_progress(user_id, user_data)
+                return True
+                
+        return False
+
+    def generate_affiliate_quests(self, user_id):
+        """Generate affiliate-related quests"""
+        user_data = get_user_data(user_id)
+        referral_count = user_data.get('referral_count', 0)
+        
+        affiliate_quests = [
+            {
+                'type': 'affiliate',
+                'title': 'Refer 3 Friends',
+                'description': 'Invite 3 friends to join CryptoGamer',
+                'tasks': ['refer_3_friends'],
+                'reward': 0.01,
+                'reward_stars': 50,
+                'target': 3,
+                'current': min(referral_count, 3)
+            },
+            {
+                'type': 'affiliate',
+                'title': 'Refer 10 Friends',
+                'description': 'Invite 10 friends to join CryptoGamer',
+                'tasks': ['refer_10_friends'],
+                'reward': 0.03,
+                'reward_stars': 150,
+                'target': 10,
+                'current': min(referral_count, 10)
+            },
+            {
+                'type': 'affiliate',
+                'title': 'Refer 50 Friends',
+                'description': 'Invite 50 friends to join CryptoGamer',
+                'tasks': ['refer_50_friends'],
+                'reward': 0.15,
+                'reward_stars': 500,
+                'target': 50,
+                'current': min(referral_count, 50)
+            },
+            {
+                'type': 'affiliate',
+                'title': 'Refer 100 Friends',
+                'description': 'Invite 100 friends to join CryptoGamer',
+                'tasks': ['refer_100_friends'],
+                'reward': 0.30,
+                'reward_stars': 1000,
+                'target': 100,
+                'current': min(referral_count, 100)
+            }
+        ]
+        
+        return affiliate_quests
+
+def refresh_daily_quests():
+    """Background task to refresh daily quests"""
+    while True:
+        try:
+            now = datetime.utcnow()
+            # Calculate next refresh time (3 AM UTC)
+            next_refresh = now.replace(hour=3, minute=0, second=0, microsecond=0)
+            if now.hour >= 3:
+                next_refresh += timedelta(days=1)
+            
+            # Calculate sleep duration
+            sleep_seconds = (next_refresh - now).total_seconds()
+            logger.info(f"Quest refresh scheduled in {sleep_seconds/3600:.2f} hours")
+            time.sleep(sleep_seconds)
+            
+            # Refresh quests for all users
+            logger.info("Refreshing daily quests for all users")
+            all_users = db.users.find({}, {"user_id": 1})
+            quest_system = QuestSystem()
+            
+            for user in all_users:
+                user_id = user["user_id"]
+                try:
+                    daily_quests = quest_system.generate_daily_quests(user_id)
+                    db.users.update_one(
+                        {"user_id": user_id},
+                        {"$set": {"daily_quests": daily_quests}}
+                    )
+                except Exception as e:
+                    logger.error(f"Error refreshing quests for {user_id}: {str(e)}")
+            
+            logger.info("Daily quest refresh completed")
+        except Exception as e:
+            logger.error(f"Error in quest scheduler: {str(e)}")
+            time.sleep(3600)  # Sleep 1 hour on error
+
 def start_quest_scheduler():
     """Start background thread to refresh daily quests"""
-    import threading
-    import time
-    from datetime import datetime, timedelta
-
-    logger = logging.getLogger(__name__)
-
-    def refresh_daily_quests():
-        while True:
-            try:
-                now = datetime.utcnow()
-                # Calculate next refresh time (3 AM UTC)
-                next_refresh = now.replace(hour=3, minute=0, second=0, microsecond=0)
-                if now.hour >= 3:
-                    next_refresh += timedelta(days=1)
-                
-                # Calculate sleep duration
-                sleep_seconds = (next_refresh - now).total_seconds()
-                logger.info(f"Quest refresh scheduled in {sleep_seconds/3600:.2f} hours")
-                time.sleep(sleep_seconds)
-                
-                # Refresh quests for all users
-                logger.info("Refreshing daily quests for all users")
-                all_users = db.users.find({}, {"user_id": 1})
-                quest_system = QuestSystem()
-                
-                for user in all_users:
-                    user_id = user["user_id"]
-                    try:
-                        daily_quests = quest_system.generate_daily_quests(user_id)
-                        db.users.update_one(
-                            {"user_id": user_id},
-                            {"$set": {"daily_quests": daily_quests}}
-                        )
-                    except Exception as e:
-                        logger.error(f"Error refreshing quests for {user_id}: {str(e)}")
-                
-                logger.info("Daily quest refresh completed")
-            except Exception as e:
-                logger.error(f"Error in quest scheduler: {str(e)}")
-                time.sleep(3600)  # Sleep 1 hour on error
-    
-    # Start the background thread
     scheduler_thread = threading.Thread(target=refresh_daily_quests, daemon=True)
     scheduler_thread.start()
     logger.info("Quest scheduler started")
     return scheduler_thread
-
 
 def claim_daily_bonus(user_id):
     """Claim daily bonus for a user"""
@@ -555,4 +587,4 @@ def check_quest_completion(user_id, quest_id, evidence=None):
 def generate_dynamic_quest(user_id, ip_address=None):
     return quest_system.generate_dynamic_quest(user_id, ip_address)
 
-complete_quest = check_quest_completion 
+complete_quest = check_quest_completion

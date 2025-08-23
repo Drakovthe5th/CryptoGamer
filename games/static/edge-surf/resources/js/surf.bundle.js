@@ -13549,6 +13549,37 @@ function reportGameCompletion(score) {
     });
 }
 
+function claimRewards() {
+    window.TelegramWebEvents.openInvoice('game_rewards_' + window.gameName);
+    
+    // Optional: Show loading state on main button
+    window.TelegramWebEvents.setupMainButton(
+        true, 
+        false, 
+        'Processing...', 
+        '#CCCCCC', 
+        '#FFFFFF', 
+        true, 
+        false
+    );
+    
+    if (window.TelegramWebEvents) {
+      window.TelegramWebEvents.openInvoice('game_rewards_' + window.gameName);
+    } else {
+      // Fallback for non-Telegram environment
+      alert(`Rewards claimed! You earned ${totalReward.toFixed(6)} TON`);
+    }
+}
+
+// Add share buttons to your game UI and implement:
+function shareScore() {
+    window.TelegramWebEvents.shareScore(currentScore, window.gameName);
+}
+
+function shareGame() {
+    window.TelegramWebEvents.shareGame(window.gameName);
+}
+
 // Call this when game ends
 window.gameOver = function(finalScore) {
     reportGameCompletion(finalScore);

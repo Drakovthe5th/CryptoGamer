@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stars Shop - CryptoGamer</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    /* Stars-specific styling */
+    :root {
+      --stars-gold: #ffd700;
+      --stars-purple: #6b5ce7;
+      --stars-dark: #1a1c2c;
+    }
+    
+    body {
+      background: linear-gradient(135deg, var(--stars-dark), #2d2b55);
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    
+    .stars-shop-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .stars-header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 16px;
+      border: 1px solid var(--stars-gold);
+    }
+    
+    .stars-balance {
+      background: linear-gradient(135deg, var(--stars-gold), #ffb700);
+      color: #8b4513;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-weight: bold;
+      display: inline-block;
+      margin: 15px 0;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    }
+    
+    .currency-toggle {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    
+    .currency-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      margin: 0 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .currency-btn.active {
+      background: var(--stars-purple);
+      box-shadow: 0 0 15px rgba(107, 92, 231, 0.5);
+    }
+    
+    .stars-products {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 25px;
+      margin-top: 30px;
+    }
+    
+    .stars-product {
+      background: linear-gradient(135deg, #2a2e43, #1e2236);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      transition: transform 0.3s, box-shadow 0.3s;
+      border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+    
+    .stars-product:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      border-color: var(--stars-gold);
+    }
+    
+    .product-badge {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: var(--stars-purple);
+      color: white;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 2;
+    }
+    
+    .product-header {
+      background: linear-gradient(90deg, var(--stars-purple), #8c7ae6);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+    
+    .product-icon {
+      font-size: 3.5rem;
+      margin: 15px 0;
+      text-align: center;
+      filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+    }
+    
+    .product-body {
+      padding: 20px;
+    }
+    
+    .product-title {
+      font-size: 1.4rem;
+      margin: 10px 0;
+      color: var(--stars-gold);
+    }
+    
+    .product-description {
+      color: #a0a0c0;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    
+    .product-price {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px 0;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+    
+    .stars-icon {
+      color: var(--stars-gold);
+      margin-right: 8px;
+      font-size: 1.4rem;
+    }
+    
+    .btn-buy-stars {
+      background: linear-gradient(135deg, var(--stars-gold), #ffb700);
+      color: #8b4513;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+      font-size: 1rem;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .btn-buy-stars:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+    }
+    
+    .btn-buy-stars:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .product-features {
+      margin: 15px 0;
+      padding-left: 20px;
+    }
+    
+    .product-features li {
+      margin-bottom: 8px;
+      color: #c0c0e0;
+    }
+    
+    .stars-purchase-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 3000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+    }
+    
+    .stars-purchase-modal.active {
+      display: flex;
+    }
+    
+    .stars-modal-content {
+      background: linear-gradient(135deg, #2a2e43, #1e2236);
+      width: 90%;
+      max-width: 500px;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+      position: relative;
+      border: 2px solid var(--stars-gold);
+    }
+    
+    .stars-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .close-stars-modal {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    
+    .close-stars-modal:hover {
+      opacity: 1;
+    }
+    
+    .stars-modal-icon {
+      text-align: center;
+      font-size: 4rem;
+      margin: 20px 0;
+      color: var(--stars-gold);
+    }
+    
+    .stars-modal-details {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    
+    .stars-modal-price {
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin: 15px 0;
+      color: var(--stars-gold);
+    }
+    
+    .stars-modal-actions {
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+    }
+    
+    .btn-stars-confirm {
+      background: linear-gradient(135deg, var(--stars-gold), #ffb700);
+      color: #8b4513;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      flex: 1;
+    }
+    
+    .btn-stars-cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      cursor: pointer;
+      flex: 1;
+    }
+    
+    @media (max-width: 768px) {
+      .stars-products {
+        grid-template-columns: 1fr;
+      }
+      
+      .stars-modal-actions {
+        flex-direction: column;
+      }
+    }
+    
+    /* Animation for stars */
+    @keyframes stars-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    
+    .stars-product.featured {
+      animation: stars-pulse 2s infinite;
+      border: 2px solid var(--stars-gold);
+    }
+  </style>
+</head>
+<body>
+  <!-- Stars Products Section -->
+  <div class="stars-shop-container">
+    <div class="stars-header">
+      <h1>⭐ Telegram Stars Shop</h1>
+      <p>Purchase premium items and upgrades with Telegram Stars</p>
+      
+      <div class="stars-balance" id="stars-balance">
+        <span class="stars-icon">⭐</span>
+        <span id="stars-amount">Loading...</span> Stars
+      </div>
+      
+      <div class="currency-toggle">
+        <button class="currency-btn" id="btn-show-gc">Game Coins Shop</button>
+        <button class="currency-btn active" id="btn-show-stars">Stars Shop</button>
+      </div>
+    </div>
+    
+    <div class="stars-products">
+      <!-- Premium Membership -->
+      <div class="stars-product featured">
+        <div class="product-badge">POPULAR</div>
+        <div class="product-header">
+          <h3>Premium Membership</h3>
+        </div>
+        <div class="product-icon">👑</div>
+        <div class="product-body">
+          <h4 class="product-title">VIP Game Experience</h4>
+          <p class="product-description">Unlock exclusive features, higher earnings, and priority support</p>
+          
+          <ul class="product-features">
+            <li>2x earning rates in all games</li>
+            <li>Exclusive VIP-only items</li>
+            <li>Priority customer support</li>
+            <li>Ad-free experience</li>
+            <li>Daily bonus multiplier</li>
+          </ul>
+          
+          <div class="product-price">
+            <span class="stars-icon">⭐</span> 1,000 Stars / month
+          </div>
+          
+          <button class="btn-buy-stars" data-product="premium_membership" data-price="1000">
+            Subscribe with Stars
+          </button>
+        </div>
+      </div>
+      
+      <!-- Mega Booster Pack -->
+      <div class="stars-product">
+        <div class="product-header">
+          <h3>Mega Booster Pack</h3>
+        </div>
+        <div class="product-icon">🚀</div>
+        <div class="product-body">
+          <h4 class="product-title">Maximum Earnings</h4>
+          <p class="product-description">Supercharge your gaming with this powerful booster package</p>
+          
+          <ul class="product-features">
+            <li>5x earnings for 24 hours</li>
+            <li>Unlimited plays during boost</li>
+            <li>+50% referral bonuses</li>
+            <li>Priority queue for withdrawals</li>
+          </ul>
+          
+          <div class="product-price">
+            <span class="stars-icon">⭐</span> 500 Stars
+          </div>
+          
+          <button class="btn-buy-stars" data-product="mega_booster" data-price="500">
+            Purchase with Stars
+          </button>
+        </div>
+      </div>
+      
+      <!-- Exclusive Avatar Set -->
+      <div class="stars-product">
+        <div class="product-header">
+          <h3>Exclusive Avatar Set</h3>
+        </div>
+        <div class="product-icon">🎭</div>
+        <div class="product-body">
+          <h4 class="product-title">Show Your Style</h4>
+          <p class="product-description">Stand out with these limited edition animated avatars</p>
+          
+          <ul class="product-features">
+            <li>5 exclusive animated avatars</li>
+            <li>Special frame and effects</li>
+            <li>Profile highlight in leaderboards</li>
+            <li>Permanent ownership</li>
+          </ul>
+          
+          <div class="product-price">
+            <span class="stars-icon">⭐</span> 300 Stars
+          </div>
+          
+          <button class="btn-buy-stars" data-product="exclusive_avatars" data-price="300">
+            Purchase with Stars
+          </button>
+        </div>
+      </div>
+      
+      <!-- Instant TON Converter -->
+      <div class="stars-product">
+        <div class="product-header">
+          <h3>Instant TON Converter</h3>
+        </div>
+        <div class="product-icon">💎</div>
+        <div class="product-body">
+          <h4 class="product-title">Convert Stars to TON</h4>
+          <p class="product-description">Immediately convert your Stars to TON at a premium rate</p>
+          
+          <ul class="product-features">
+            <li>Convert 100 Stars to 0.5 TON</li>
+            <li>No waiting period</li>
+            <li>Special conversion rate</li>
+            <li>Direct to your wallet</li>
+          </ul>
+          
+          <div class="product-price">
+            <span class="stars-icon">⭐</span> 100 Stars
+          </div>
+          
+          <button class="btn-buy-stars" data-product="ton_converter" data-price="100">
+            Convert Stars to TON
+          </button>
+        </div>
+      </div>
+      
+      <!-- Quest Unlocker -->
+      <div class="stars-product">
+        <div class="product-header">
+          <h3>Quest Unlocker Pack</h3>
+        </div>
+        <div class="product-icon">🗝️</div>
+        <div class="product-body">
+          <h4 class="product-title">Premium Quests</h4>
+          <p class="product-description">Access special high-reward quests available only to Stars purchasers</p>
+          
+          <ul class="product-features">
+            <li>5 premium quests with 5x rewards</li>
+            <li>Special achievement badges</li>
+            <li>Bonus referral rewards</li>
+            <li>Early access to new features</li>
+          </ul>
+          
+          <div class="product-price">
+            <span class="stars-icon">⭐</span> 250 Stars
+          </div>
+          
+          <button class="btn-buy-stars" data-product="quest_unlocker" data-price="250">
+            Unlock Premium Quests
+          </button>
+        </div>
+      </div>
+      
+      <!-- Custom Game Room -->
+      <div class="stars-product">
+        <div class="product-header">
+          <h3>Custom Game Room</h3>
+        </div>
+        <div class="product-icon">🎮</div>
+        <div class="product-body">
+          <h4 class="product-title">Private Gaming Space</h4>
+          <p class="product-description">Create your own private game room with custom rules</p>
+          
+          <ul class="product-features">
+            <li>Private room for you and friends</li>
+            <li>Custom game rules and parameters</li>
+            <li>Special rewards for room owners</li>
+            <li>30-day access</li>
+          </ul>
+          
+          <div class="product-price">
+            <span class="stars-icon">⭐</span> 400 Stars
+          </div>
+          
+          <button class="btn-buy-stars" data-product="custom_room" data-price="400">
+            Create Game Room
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stars Purchase Modal -->
+  <div class="stars-purchase-modal" id="stars-modal">
+    <div class="stars-modal-content">
+      <div class="stars-modal-header">
+        <h2 id="modal-product-title">Confirm Purchase</h2>
+        <button class="close-stars-modal" id="close-stars-modal">&times;</button>
+      </div>
+      
+      <div class="stars-modal-icon" id="modal-product-icon">⭐</div>
+      
+      <div class="stars-modal-details">
+        <p>You are about to purchase:</p>
+        <h3 id="modal-product-name">Product Name</h3>
+        <div class="stars-modal-price">
+          <span class="stars-icon">⭐</span> <span id="modal-product-price">0</span> Stars
+        </div>
+        <p id="modal-product-description">Product description will appear here</p>
+      </div>
+      
+      <div class="stars-modal-actions">
+        <button class="btn-stars-cancel" id="stars-cancel-purchase">Cancel</button>
+        <button class="btn-stars-confirm" id="stars-confirm-purchase">Confirm Purchase</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Telegram Web App
+    let Telegram = window.Telegram?.WebApp;
+    
+    // Product data
+    const starsProducts = {
+      premium_membership: {
+        name: "Premium Membership",
+        icon: "👑",
+        price: 1000,
+        description: "VIP membership with 2x earnings, exclusive items, and ad-free experience for 30 days."
+      },
+      mega_booster: {
+        name: "Mega Booster Pack",
+        icon: "🚀",
+        price: 500,
+        description: "5x earnings boost for 24 hours with unlimited plays and increased referral bonuses."
+      },
+      exclusive_avatars: {
+        name: "Exclusive Avatar Set",
+        icon: "🎭",
+        price: 300,
+        description: "5 limited edition animated avatars with special frames and leaderboard highlights."
+      },
+      ton_converter: {
+        name: "Instant TON Converter",
+        icon: "💎",
+        price: 100,
+        description: "Convert 100 Stars to 0.5 TON immediately at a special rate."
+      },
+      quest_unlocker: {
+        name: "Quest Unlocker Pack",
+        icon: "🗝️",
+        price: 250,
+        description: "Access to 5 premium quests with 5x rewards and special achievement badges."
+      },
+      custom_room: {
+        name: "Custom Game Room",
+        icon: "🎮",
+        price: 400,
+        description: "Private gaming space with custom rules for you and your friends for 30 days."
+      }
+    };
+    
+    // DOM elements
+    const starsBalanceElement = document.getElementById('stars-balance');
+    const starsAmountElement = document.getElementById('stars-amount');
+    const starsModal = document.getElementById('stars-modal');
+    const closeStarsModal = document.getElementById('close-stars-modal');
+    const starsCancelPurchase = document.getElementById('stars-cancel-purchase');
+    const starsConfirmPurchase = document.getElementById('stars-confirm-purchase');
+    const modalProductTitle = document.getElementById('modal-product-title');
+    const modalProductIcon = document.getElementById('modal-product-icon');
+    const modalProductName = document.getElementById('modal-product-name');
+    const modalProductPrice = document.getElementById('modal-product-price');
+    const modalProductDescription = document.getElementById('modal-product-description');
+    const btnShowGC = document.getElementById('btn-show-gc');
+    const btnShowStars = document.getElementById('btn-show-stars');
+    
+    // Current selected product
+    let selectedProduct = null;
+    
+    // Initialize the page
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load user's Stars balance
+      loadStarsBalance();
+      
+      // Set up event listeners
+      setupEventListeners();
+      
+      // Expand the Telegram Web App to full height
+      if (Telegram) {
+        Telegram.expand();
+      }
+    });
+    
+    // Set up event listeners
+    function setupEventListeners() {
+      // Buy buttons
+      document.querySelectorAll('.btn-buy-stars').forEach(button => {
+        button.addEventListener('click', function() {
+          const productId = this.dataset.product;
+          showPurchaseModal(productId);
+        });
+      });
+      
+      // Modal controls
+      closeStarsModal.addEventListener('click', hidePurchaseModal);
+      starsCancelPurchase.addEventListener('click', hidePurchaseModal);
+      starsConfirmPurchase.addEventListener('click', processStarsPurchase);
+      
+      // Currency toggle
+      btnShowGC.addEventListener('click', function() {
+        window.location.href = '/shop.html';
+      });
+      
+      btnShowStars.addEventListener('click', function() {
+        // Already on stars page
+      });
+    }
+    
+    // Load user's Stars balance
+    async function loadStarsBalance() {
+      try {
+        // In a real implementation, this would fetch from your backend
+        // For now, we'll simulate with a random value or use test data
+        
+        // If we have Telegram WebApp data, use the user ID
+        let userId = null;
+        if (Telegram && Telegram.initDataUnsafe && Telegram.initDataUnsafe.user) {
+          userId = Telegram.initDataUnsafe.user.id;
+        }
+        
+        // Simulate API call to get Stars balance
+        const response = await fetch('/api/stars/balance', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user_id: userId })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          starsAmountElement.textContent = data.balance.toLocaleString();
+        } else {
+          // Fallback for demo purposes
+          starsAmountElement.textContent = '1,250';
+        }
+      } catch (error) {
+        console.error('Error loading Stars balance:', error);
+        starsAmountElement.textContent = '1,250'; // Demo value
+      }
+    }
+    
+    // Show purchase modal
+    function showPurchaseModal(productId) {
+      const product = starsProducts[productId];
+      if (!product) return;
+      
+      selectedProduct = productId;
+      
+      // Update modal content
+      modalProductTitle.textContent = 'Confirm Stars Purchase';
+      modalProductIcon.textContent = product.icon;
+      modalProductName.textContent = product.name;
+      modalProductPrice.textContent = product.price.toLocaleString();
+      modalProductDescription.textContent = product.description;
+      
+      // Show modal
+      starsModal.classList.add('active');
+    }
+    
+    // Hide purchase modal
+    function hidePurchaseModal() {
+      starsModal.classList.remove('active');
+      selectedProduct = null;
+    }
+    
+    // Process Stars purchase
+    async function processStarsPurchase() {
+      if (!selectedProduct) return;
+      
+      const product = starsProducts[selectedProduct];
+      
+      try {
+        // Show loading state
+        starsConfirmPurchase.textContent = 'Processing...';
+        starsConfirmPurchase.disabled = true;
+        
+        // Get user ID from Telegram WebApp
+        let userId = null;
+        if (Telegram && Telegram.initDataUnsafe && Telegram.initDataUnsafe.user) {
+          userId = Telegram.initDataUnsafe.user.id;
+        }
+        
+        // Create invoice for Stars payment
+        const response = await fetch('/api/stars/create-invoice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            product_id: selectedProduct,
+            product_name: product.name,
+            price_stars: product.price
+          })
+        });
+        
+        if (response.ok) {
+          const invoiceData = await response.json();
+          
+          // Open Telegram payment interface
+          if (Telegram && Telegram.openInvoice) {
+            Telegram.openInvoice(invoiceData.invoice_url, function(status) {
+              // Payment status callback
+              if (status === 'paid') {
+                // Payment successful
+                handleSuccessfulPurchase();
+              } else if (status === 'failed') {
+                alert('Payment failed. Please try again.');
+                hidePurchaseModal();
+              } else if (status === 'cancelled') {
+                hidePurchaseModal();
+              }
+            });
+          } else {
+            // Simulate success for demo purposes
+            handleSuccessfulPurchase();
+          }
+        } else {
+          throw new Error('Failed to create invoice');
+        }
+      } catch (error) {
+        console.error('Purchase error:', error);
+        alert('An error occurred during purchase. Please try again.');
+        hidePurchaseModal();
+      } finally {
+        // Reset button state
+        starsConfirmPurchase.textContent = 'Confirm Purchase';
+        starsConfirmPurchase.disabled = false;
+      }
+    }
+    
+    // Handle successful purchase
+    function handleSuccessfulPurchase() {
+      alert(`Thank you for your purchase! Your ${starsProducts[selectedProduct].name} has been activated.`);
+      hidePurchaseModal();
+      
+      // Reload balance to reflect the purchase
+      loadStarsBalance();
+      
+      // In a real implementation, you would also unlock the product features
+      // on your backend and update the UI accordingly
+    }
+  </script>
+</body>
+</html>

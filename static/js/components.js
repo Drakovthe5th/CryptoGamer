@@ -28,3 +28,13 @@ window.Components = window.Components || {
         }
     }
 };
+
+function updateCrewCreditsDisplay(credits) {
+    document.getElementById('crew-credits').textContent = credits;
+    
+    // Enable/disable join button based on credits
+    const joinButton = document.getElementById('btn-join-game');
+    if (joinButton) {
+        joinButton.disabled = credits < 100; // Entry fee
+    }
+}

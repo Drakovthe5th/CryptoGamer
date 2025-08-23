@@ -108,11 +108,98 @@ function loadAAds() {
     document.getElementById('ad-container').appendChild(aadsDiv);
 }
 
+// Add Telegram sponsored messages functionality
+let telegramAds = [];
+
+function loadTelegramAds() {
+    fetch('/api/ads/telegram', {
+        headers: {
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        }
+    })
+    .then(response => response.json())
+    .then(ads => {
+        if (ads && ads.messages) {
+            telegramAds = ads.messages;
+            renderTelegramAds();
+        }
+    });
+}
+
+function renderTelegramAds() {
+    const container = document.getElementById('telegram-ads-container');
+    if (!container || telegramAds.length === 0) return;
+    
+    telegramAds.forEach(ad => {
+        const adElement = document.createElement('div');
+        adElement.className = 'telegram-ad';
+        adElement.innerHTML = `
+            <h4>${ad.title}</h4>
+            <p>${ad.message}</p>
+            ${ad.photo ? `<img src="${ad.photo.url}" alt="${ad.title}">` : ''}
+            <button onclick="handleTelegramAdClick('${ad.random_id}', '${ad.url}')">
+                ${ad.button_text}
+            </button>
+        `;
+        
+        container.appendChild(adElement);
+        
+        // Record view after ad is rendered
+        recordTelegramAdView(ad.random_id);
+    });
+}
+
+function recordTelegramAdView(randomId) {
+    fetch('/api/ads/telegram/view', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ random_id: randomId })
+    });
+}
+
+function handleTelegramAdClick(randomId, url) {
+    // Record click
+    fetch('/api/ads/telegram/click', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ random_id: randomId })
+    });
+    
+    // Open URL with confirmation for external links
+    if (isExternalUrl(url)) {
+        Telegram.WebApp.showConfirm(
+            `Open external link: ${url}`,
+            function(confirmed) {
+                if (confirmed) window.open(url, '_blank');
+            }
+        );
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
+function isExternalUrl(url) {
+    const telegramDomains = [
+        'telegram.org', 't.me', 'telegra.ph', 
+        'graph.org', 'fragment.com', 'telesco.pe'
+    ];
+    
+    const hostname = new URL(url).hostname;
+    return !telegramDomains.some(domain => hostname.endsWith(domain));
+}
+
 // Initialize ads
 document.addEventListener('DOMContentLoaded', () => {
     loadAd();
     loadMonetagAd();
     loadAAds();
+    loadTelegramAds();
     
     // Activate A-ADS after page load
     setTimeout(() => {

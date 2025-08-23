@@ -27,3 +27,21 @@ def calculate_fee(fiat_amount, fee_percent, min_fee):
 def check_daily_limit(user):
     """Check if user has reached daily earning limit"""
     return user.daily_coins_earned >= MAX_DAILY_GAME_COINS
+
+# Add Stars to Credits conversion
+STARS_TO_CREDITS_RATE = 100  # 1 Star = 100 Crew Credits
+
+def stars_to_credits(stars):
+    """Convert Telegram Stars to Crew Credits for Crypto Crew game"""
+    return stars * STARS_TO_CREDITS_RATE
+
+def credits_to_stars(credits):
+    """Convert Crew Credits back to Stars (for revenue calculation)"""
+    return credits / STARS_TO_CREDITS_RATE
+
+# Keep existing GC functions
+def game_coins_to_ton(coins):
+    return coins / GAME_COIN_TO_TON_RATE
+
+def ton_to_game_coins(ton):
+    return ton * GAME_COIN_TO_TON_RATE

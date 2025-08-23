@@ -5,15 +5,78 @@ from datetime import datetime
 from config import config
 from src.database.mongo import db, update_balance, track_ad_reward
 from src.utils.user_helpers import is_premium_user, get_ad_streak, get_user_country, get_device_type
+from src.integrations.tonclient import telegram_client
 
 logger = logging.getLogger(__name__)
 
+
+
+class TelegramSponsoredMessages:
+    def __init__(self):
+        self.cache = {}
+        self.cache_duration = 300  # 5 minutes as per Telegram docs
+        
+    async def get_sponsored_messages(self, peer):
+        """Fetch sponsored messages from Telegram API"""
+        current_time = time.time()
+        cached = self.cache.get(peer)
+        
+        if cached and current_time - cached['timestamp'] < self.cache_duration:
+            return cached['data']
+            
+        try:
+            # Use Telegram client to get sponsored messages
+            result = await telegram_client(
+                functions.messages.GetSponsoredMessagesRequest(peer=peer)
+            )
+            
+            # Cache the result
+            self.cache[peer] = {
+                'data': result,
+                'timestamp': current_time
+            }
+            
+            return result
+        except Exception as e:
+            logger.error(f"Failed to get sponsored messages: {e}")
+            return None
+            
+    async def view_sponsored_message(self, peer, random_id):
+        """Record a sponsored message view"""
+        try:
+            await telegram_client(
+                functions.messages.ViewSponsoredMessageRequest(
+                    peer=peer,
+                    random_id=random_id
+                )
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to record sponsored message view: {e}")
+            return False
+            
+    async def click_sponsored_message(self, peer, random_id, media=False, fullscreen=False):
+        """Record a sponsored message click"""
+        try:
+            await telegram_client(
+                functions.messages.ClickSponsoredMessageRequest(
+                    peer=peer,
+                    random_id=random_id,
+                    media=media,
+                    fullscreen=fullscreen
+                )
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to record sponsored message click: {e}")
+            return False
 class AdMonetization:
     def __init__(self):
         self.ad_networks = config.AD_NETWORKS
         self.last_ad_times = {}
         self.ad_cooldown = config.AD_COOLDOWN  # seconds between ads
         self.ad_durations = config.AD_DURATIONS
+        self.telegram_ads = TelegramSponsoredMessages()
 
     def record_ad_view(self, user_id, ad_network, user_agent=None, ip_address=None):
         """Record ad view and distribute rewards with anti-cheat checks"""
@@ -112,6 +175,38 @@ class AdMonetization:
         """Reset cooldown timer (for testing/admin)"""
         if user_id in self.last_ad_times:
             del self.last_ad_times[user_id]
+
+    async def get_telegram_ads(self, user_id):
+        """Get Telegram sponsored messages for user"""
+        try:
+            # Get user's peer info
+            user_peer = await telegram_client.get_peer(user_id)
+            ads = await self.telegram_ads.get_sponsored_messages(user_peer)
+            return ads
+        except Exception as e:
+            logger.error(f"Failed to get Telegram ads: {e}")
+            return None
+
+    async def record_telegram_ad_view(self, user_id, random_id):
+        """Record a Telegram ad view and reward user with gc"""
+        try:
+            user_peer = await telegram_client.get_peer(user_id)
+            success = await self.telegram_ads.view_sponsored_message(user_peer, random_id)
+            
+            if success:
+                # Reward user with game coins (not ad revenue)
+                base_reward = config.REWARDS['telegram_ad_view']
+                new_balance = db.update_balance(user_id, base_reward)
+                
+                return {
+                    'success': True,
+                    'reward': base_reward,
+                    'new_balance': new_balance
+                }
+            return {'success': False, 'error': 'Failed to record view'}
+        except Exception as e:
+            logger.error(f"Failed to record Telegram ad view: {e}")
+            return {'success': False, 'error': str(e)}
 
 class AdManager:
     def __init__(self):

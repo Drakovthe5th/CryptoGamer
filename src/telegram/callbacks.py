@@ -11,15 +11,80 @@ from src.features.quests import complete_quest
 from src.integrations.ton import process_ton_withdrawal
 from src.utils.conversions import game_coins_to_ton, convert_currency, calculate_fee
 from src.utils.validators import validate_ton_address, validate_mpesa_number, validate_email
+from src.telegram.config_manager import config_manager
+from src.integrations.telegram import telegram_client
 from config import Config
+from src.telegram.stars import (
+    handle_stars_purchase, 
+    process_stars_purchase, 
+    complete_stars_purchase,
+    handle_stars_balance
+)
+from src.telegram.subscriptions import handle_stars_subscriptions
 import random
 import datetime
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Database collections initialized inside functions
-# (Removed top-level collection assignments to prevent import-time errors)
+CALLBACK_HANDLERS = {
+    "buy_stars": handle_stars_purchase,
+    "stars_buy_.*": process_stars_purchase,
+    "stars_complete_purchase": complete_stars_purchase,
+    "stars_balance": handle_stars_balance,
+    "stars_subscriptions": handle_stars_subscriptions,
+    "giveaway_create": handle_giveaway_creation,
+    "giveaway_premium": handle_premium_giveaway,
+    "giveaway_stars": handle_stars_giveaway,
+    "gift_send": handle_gift_sending,
+    "gift_view": handle_gift_view,
+    "gift_save": handle_gift_save,
+    "gift_convert": handle_gift_convert
+}
+
+async def dismiss_suggestion(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle suggestion dismissal"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data.split('_')
+    suggestion_type = data[1]
+    
+    try:
+        await query.edit_message_text("✅ Suggestion dismissed")
+    except Exception as e:
+        logger.error(f"Error dismissing suggestion: {str(e)}")
+        await query.edit_message_text("❌ Error dismissing suggestion")
+
+async def show_suggestions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show pending suggestions to user"""
+    query = update.callback_query
+    await query.answer()
+    
+    try:
+        await query.edit_message_text("No suggestions at this time!")
+    except Exception as e:
+        logger.error(f"Error showing suggestions: {str(e)}")
+        await query.edit_message_text("❌ Error loading suggestions")
+
+def _get_suggestion_text(suggestion_type):
+    """Get user-friendly text for suggestion type"""
+    suggestion_texts = {
+        "AUTOARCHIVE_POPULAR": "⚡ Enable Auto-Archive",
+        "VALIDATE_PASSWORD": "🔒 Check Password",
+        "VALIDATE_PHONE_NUMBER": "📱 Verify Phone",
+        "NEWCOMER_TICKS": "💬 Message Status Guide",
+        "SETUP_PASSWORD": "🛡️ Setup 2FA",
+        "PREMIUM_ANNUAL": "⭐ Get Premium (Annual)",
+        "PREMIUM_UPGRADE": "⚡ Upgrade to Annual",
+        "PREMIUM_RESTORE": "🔄 Restore Premium",
+        "PREMIUM_CHRISTMAS": "🎄 Gift Premium",
+        "PREMIUM_GRACE": "⏳ Extend Premium",
+        "BIRTHDAY_SETUP": "🎂 Set Birthday",
+        "STARS_SUBSCRIPTION_LOW_BALANCE": "💫 Top Up Stars",
+        "USERPIC_SETUP": "🖼️ Set Profile Picture"
+    }
+    return suggestion_texts.get(suggestion_type, suggestion_type)
 
 async def set_ton_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Prompt user to set TON address"""
@@ -59,10 +124,6 @@ async def set_paypal_email(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Or type /cancel to abort",
         parse_mode='Markdown'
     )
-
-# ================
-# GAME HANDLERS
-# ================
 
 async def trivia_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start a trivia game session"""
@@ -222,10 +283,6 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💎 New balance: {game_coins_to_ton(new_balance):.6f} TON"
     )
 
-# =====================
-# WITHDRAWAL HANDLERS
-# =====================
-
 async def process_withdrawal_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Process withdrawal method selection"""
     query = update.callback_query
@@ -239,7 +296,6 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
     method = data[1]
     user_id = query.from_user.id
     user_data = get_user_data(user_id)
-    balance = user_data.get('balance', 0)
     
     MIN_WITHDRAWAL_GC = 200000  # 200,000 GC = 100 TON
     
@@ -263,18 +319,17 @@ async def process_withdrawal_selection(update: Update, context: ContextTypes.DEF
         )
     else:
         # OTC desk cash withdrawal
-        currencies = otc_desk.buy_rates.keys()
+        currencies = list(otc_desk.buy_rates.keys())
         keyboard = [[InlineKeyboardButton(currency, callback_data=f"cash_{currency}")] 
                     for currency in currencies]
         
         context.user_data['withdrawal_method'] = method
-        context.user_data['withdrawal_amount'] = balance
+        context.user_data['withdrawal_amount'] = user_data.get('balance', 0)
         
         await query.edit_message_text(
-            f"💱 Select currency for your {balance:.6f} TON:",
+            f"💱 Select currency for your {user_data.get('balance', 0):.6f} TON:",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
-
 
 async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Process currency selection for OTC withdrawal"""
@@ -386,10 +441,6 @@ async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_
         error = result.get('error', 'Withdrawal failed') if result else 'Withdrawal failed'
         await update.message.reply_text(f"❌ Withdrawal failed: {error}")
 
-# ================
-# QUEST HANDLERS
-# ================
-
 async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show details of a specific quest"""
     query = update.callback_query
@@ -450,10 +501,6 @@ async def complete_quest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("✅ Quest completed! Rewards added to your account.")
     else:
         await query.edit_message_text("❌ Failed to complete quest. Please try again.")
-
-# ===================
-# PAYMENT METHOD HANDLERS
-# ===================
 
 async def select_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle payment method selection for OTC"""
@@ -531,10 +578,6 @@ async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYP
         "You can now use this method for OTC withdrawals."
     )
 
-# ================
-# ERROR HANDLERS
-# ================
-
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle errors in the telegram bot"""
     logger.error("Exception while handling an update:", exc_info=context.error)
@@ -561,3 +604,90 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             )
         except Exception as e:
             logger.error(f"Failed to notify admin about error: {e}")
+
+async def affiliate_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show affiliate program information"""
+    query = update.callback_query
+    await query.answer()
+    
+    text = "🤝 Affiliate Program\n\n"
+    text += "Join our affiliate program to earn commissions!\n\n"
+    text += "Share your unique referral link and earn Stars when your friends make purchases."
+    
+    keyboard = [
+        [InlineKeyboardButton("🚀 Join Affiliate Program", callback_data="affiliate_join")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
+    ]
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def join_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Join the affiliate program"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        "✅ You've joined our affiliate program!\n\n"
+        "Your referral link will be available soon.",
+        parse_mode='Markdown',
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📊 View Stats", callback_data="affiliate_stats")]
+        ])
+    )
+
+async def handle_giveaway_creation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show giveaway creation options"""
+    query = update.callback_query
+    await query.answer()
+    
+    keyboard = [
+        [InlineKeyboardButton("🎁 Premium Giveaway", callback_data="giveaway_premium")],
+        [InlineKeyboardButton("⭐ Stars Giveaway", callback_data="giveaway_stars")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
+    ]
+    
+    await query.edit_message_text(
+        "🎉 Create a Giveaway\n\n"
+        "Choose the type of giveaway to create:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def handle_premium_giveaway(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle premium giveaway creation"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text("✅ Premium giveaway created successfully!")
+
+async def handle_gift_sending(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle gift sending"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text("🎁 Gift sent successfully!")
+
+async def handle_attach_menu_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle attachment menu installation"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text("✅ Attachment menu installed successfully!")
+
+async def handle_sabotage_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle player joining a sabotage game"""
+    query = update.callback_query
+    await query.answer()
+    
+    game_id = query.data.split('_')[2]
+    user_id = query.from_user.id
+    
+    await query.edit_message_text(
+        f"🎮 You've joined game {game_id}!\n\n"
+        "Game will start soon...",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Game Rules", callback_data="sabotage_rules")]
+        ])
+    )

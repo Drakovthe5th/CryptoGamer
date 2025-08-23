@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Revenue - Admin</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <h1>Ad Revenue Dashboard</h1>
+        
+        <div class="revenue-stats">
+            <div class="stat-card">
+                <h3>Current Balance</h3>
+                <p class="amount">{{ stats.balances.current_balance | nanotons_to_ton }} TON</p>
+            </div>
+            <div class="stat-card">
+                <h3>Available Balance</h3>
+                <p class="amount">{{ stats.balances.available_balance | nanotons_to_ton }} TON</p>
+            </div>
+            <div class="stat-card">
+                <h3>Overall Revenue</h3>
+                <p class="amount">{{ stats.balances.overall_revenue | nanotons_to_ton }} TON</p>
+            </div>
+        </div>
+        
+        <div class="withdrawal-section">
+            <h2>Withdraw Revenue</h2>
+            <form id="withdrawal-form">
+                <input type="password" id="password" placeholder="2FA Password" required>
+                <button type="submit">Generate Withdrawal URL</button>
+            </form>
+            <div id="withdrawal-result"></div>
+        </div>
+        
+        <div class="transactions">
+            <h2>Recent Transactions</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td>{{ transaction.date | timestamp_to_date }}</td>
+                        <td>{{ transaction.type }}</td>
+                        <td>{{ transaction.amount | nanotons_to_ton }} TON</td>
+                        <td>{{ transaction.status }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script src="/static/js/admin-revenue.js"></script>
+</body>
+</html>

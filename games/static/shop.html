@@ -244,6 +244,103 @@
       border: 1px solid rgba(255, 215, 0, 0.2);
     }
     
+    /* Gift Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2100;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: linear-gradient(135deg, #1a1f2d, #28313e);
+      margin: auto;
+      padding: 25px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      position: relative;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .close {
+      color: #fff;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    
+    .close:hover {
+      opacity: 1;
+    }
+    
+    /* Gift Selection */
+    #gift-selection {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    
+    .gift-option {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      transition: transform 0.3s, background 0.3s;
+      cursor: pointer;
+    }
+    
+    .gift-option:hover {
+      transform: translateY(-5px);
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .gift-option img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      margin-bottom: 10px;
+      border-radius: 8px;
+    }
+    
+    .gift-option h4 {
+      margin: 8px 0;
+      font-size: 0.95rem;
+    }
+    
+    .gift-option p {
+      color: #ffd700;
+      font-size: 0.85rem;
+      margin-bottom: 10px;
+    }
+    
+    .gift-option button {
+      background: #27ae60;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+    }
+    
     @media (max-width: 600px) {
       .shop-floating-btn {
         bottom: 20px;
@@ -253,13 +350,18 @@
         font-size: 24px;
       }
       
-      .shop-content {
+      .shop-content, .modal-content {
         width: 95%;
         padding: 20px;
       }
       
-      .shop-items, .shop-items-modal {
+      .shop-items, .shop-items-modal, #gift-selection {
         grid-template-columns: repeat(2, 1fr);
+      }
+      
+      .gift-option img {
+        width: 60px;
+        height: 60px;
       }
     }
   </style>
@@ -325,6 +427,19 @@
           <button class="btn-buy" data-item="clicker_auto_upgrade">Buy Now</button>
         </div>
       </div>
+      
+      <!-- Gifts Item -->
+      <div class="shop-item">
+        <div class="item-header">
+          <h3>🎁 Send Gift to Friend</h3>
+        </div>
+        <div class="item-icon">🎁</div>
+        <div class="item-body">
+          <p>Send a special gift to your friends!</p>
+          <div class="item-price">Starting from: 100 Stars</div>
+          <button class="btn-buy" onclick="openGiftSelection()">Choose Gift</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -366,10 +481,27 @@
           <div class="item-name-modal">Auto-Clicker</div>
           <div class="item-price-modal">1000 GC</div>
         </div>
+        
+        <div class="shop-item-modal" onclick="openGiftSelection()">
+          <div class="item-icon-modal">🎁</div>
+          <div class="item-name-modal">Send Gift</div>
+          <div class="item-price-modal">From 100★</div>
+        </div>
       </div>
       
       <div class="shop-balance-modal">
         Your Balance: <span id="shop-balance">5,250</span> GC
+      </div>
+    </div>
+  </div>
+
+  <!-- Gift Selection Modal -->
+  <div class="modal" id="gift-modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeGiftModal()">&times;</span>
+      <h2>🎁 Select a Gift</h2>
+      <div id="gift-selection">
+        <!-- Gift options will be loaded here -->
       </div>
     </div>
   </div>
@@ -384,6 +516,7 @@
     const shopBalance = document.getElementById('shop-balance');
     const shopBadge = document.getElementById('shop-badge');
     const buyButtons = document.querySelectorAll('.btn-buy');
+    const giftModal = document.getElementById('gift-modal');
 
     // Open shop modal
     shopIcon.addEventListener('click', (e) => {
@@ -409,13 +542,15 @@
     shopItems.forEach(item => {
       item.addEventListener('click', () => {
         const itemId = item.dataset.item;
-        const itemName = item.querySelector('.item-name-modal').textContent;
-        const itemPrice = item.querySelector('.item-price-modal').textContent;
-        
-        // Confirm purchase
-        if (confirm(`Purchase ${itemName} for ${itemPrice}?`)) {
-          // Call the purchase function
-          purchaseItem(itemId);
+        if (itemId) {
+          const itemName = item.querySelector('.item-name-modal').textContent;
+          const itemPrice = item.querySelector('.item-price-modal').textContent;
+          
+          // Confirm purchase
+          if (confirm(`Purchase ${itemName} for ${itemPrice}?`)) {
+            // Call the purchase function
+            purchaseItem(itemId);
+          }
         }
       });
     });
@@ -441,54 +576,122 @@
       document.getElementById('shop-balance').textContent = balance.toLocaleString();
     }
     
-    // Purchase item function
-    function purchaseItem(itemId) {
-      // Show loading state
-      const event = new CustomEvent('showSpinner', { detail: true });
-      document.dispatchEvent(event);
-      
-      // Make API call to purchase item
-      fetch(`/api/shop/purchase/${itemId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Telegram-Hash': window.Telegram.WebApp.initData
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          // Update balance display
-          updateGCBalance(data.new_gc_balance);
-          
-          // Show success message
-          if (window.Telegram && Telegram.WebApp) {
-            Telegram.WebApp.showPopup({
-              title: 'Purchase Complete!',
-              message: `You bought ${data.item_name}`,
-              buttons: [{type: 'ok'}]
-            });
-          } else {
-            alert(`Purchase complete! You bought ${data.item_name}`);
-          }
-        } else {
-          throw new Error(data.error || 'Purchase failed');
-        }
-      })
-      .catch(error => {
-        console.error('Purchase error:', error);
-        if (window.Telegram && Telegram.WebApp) {
-          Telegram.WebApp.showAlert(`Purchase failed: ${error.message}`);
-        } else {
-          alert(`Purchase failed: ${error.message}`);
-        }
-      })
-      .finally(() => {
-        // Hide loading state
-        const event = new CustomEvent('showSpinner', { detail: false });
+    // Enhanced purchase function with Stars support
+    async function purchaseItem(itemId, paymentMethod = 'stars') {
+        // Show loading state
+        const event = new CustomEvent('showSpinner', { detail: true });
         document.dispatchEvent(event);
-      });
+        
+        try {
+            let result;
+            
+            if (paymentMethod === 'stars') {
+                // Process via Telegram Stars
+                result = await processStarsPayment(itemId);
+            } else if (paymentMethod === 'ton') {
+                // Process via TON blockchain
+                result = await processTonPayment(itemId);
+            } else {
+                throw new Error('Unsupported payment method');
+            }
+            
+            if (result.success) {
+                // Update balance display
+                updateGCBalance(result.new_gc_balance || result.new_balance);
+                
+                // Show success message
+                showPurchaseSuccess(result.item_name, result.stars_spent);
+            } else {
+                throw new Error(result.error || 'Purchase failed');
+            }
+        } catch (error) {
+            console.error('Purchase error:', error);
+            showPurchaseError(error.message);
+        } finally {
+            // Hide loading state
+            const event = new CustomEvent('showSpinner', { detail: false });
+            document.dispatchEvent(event);
+        }
     }
+
+    // Telegram Stars payment processing
+    async function processStarsPayment(itemId) {
+        if (!window.Telegram?.WebApp) {
+            throw new Error('Telegram WebApp not available');
+        }
+        
+        // Create invoice
+        const invoiceResponse = await fetch('/api/shop/create-invoice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-InitData': window.Telegram.WebApp.initData
+            },
+            body: JSON.stringify({
+                product_id: itemId,
+                user_id: window.Telegram.WebApp.initDataUnsafe.user.id
+            })
+        });
+        
+        if (!invoiceResponse.ok) {
+            throw new Error('Failed to create invoice');
+        }
+        
+        const invoiceData = await invoiceResponse.json();
+        
+        // Open Telegram payment interface
+        window.Telegram.WebApp.openInvoice(
+            invoiceData.invoice,
+            function(status) {
+                if (status === 'paid') {
+                    // Payment successful
+                    completeStarsPurchase(itemId);
+                } else if (status === 'failed') {
+                    throw new Error('Payment failed');
+                } else if (status === 'cancelled') {
+                    throw new Error('Payment cancelled');
+                }
+            }
+        );
+    }
+
+    async function completeStarsPurchase(itemId) {
+      const response = await fetch('/api/shop/complete-purchase', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'X-Telegram-InitData': window.Telegram.WebApp.initData
+          },
+          body: JSON.stringify({
+              product_id: itemId,
+              user_id: window.Telegram.WebApp.initDataUnsafe.user.id
+          })
+      });
+      
+      return response.json();
+    }
+
+    // Update the buy button event listeners
+    buyButtons.forEach(button => {
+        button.addEventListener('click', async function() {
+            const itemId = this.dataset.item;
+            const itemName = this.parentNode.querySelector('p').textContent;
+            const itemPrice = this.parentNode.querySelector('.item-price').textContent;
+            
+            // Get available payment methods
+            const methods = await getPaymentMethods();
+            
+            if (methods.includes('stars')) {
+                // Use Telegram Stars by default
+                await purchaseItem(itemId, 'stars');
+            } else if (methods.includes('ton')) {
+                // Fallback to TON
+                await purchaseItem(itemId, 'ton');
+            } else {
+                showPurchaseError('No payment methods available');
+            }
+        });
+    });
 
     // Function to update the balance display in the shop
     function updateShopBalance() {
@@ -509,6 +712,77 @@
       });
     }
 
+    // Gift functionality
+    async function openGiftSelection() {
+        try {
+            const response = await fetch('/api/gifts/available');
+            const gifts = await response.json();
+            
+            const giftSelection = document.getElementById('gift-selection');
+            giftSelection.innerHTML = '';
+            
+            gifts.forEach(gift => {
+                const giftElement = document.createElement('div');
+                giftElement.className = 'gift-option';
+                giftElement.innerHTML = `
+                    <img src="${gift.image_url}" alt="${gift.name}">
+                    <h4>${gift.name}</h4>
+                    <p>${gift.stars} Stars</p>
+                    <button onclick="selectGift(${gift.id})">Select</button>
+                `;
+                giftSelection.appendChild(giftElement);
+            });
+            
+            giftModal.classList.add('active');
+        } catch (error) {
+            console.error('Failed to load gifts:', error);
+            alert('Failed to load available gifts');
+        }
+    }
+
+    function closeGiftModal() {
+        giftModal.classList.remove('active');
+    }
+
+    async function selectGift(giftId) {
+        // Prompt for recipient and send gift
+        const recipient = prompt("Enter recipient's username or ID:");
+        if (recipient) {
+            try {
+                const response = await fetch('/api/gifts/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-InitData': window.Telegram.WebApp.initData
+                    },
+                    body: JSON.stringify({
+                        gift_id: giftId, 
+                        recipient: recipient,
+                        user_id: window.Telegram.WebApp.initDataUnsafe.user.id
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Gift sent successfully!');
+                    closeGiftModal();
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.error || 'Error sending gift');
+                }
+            } catch (error) {
+                console.error('Error sending gift:', error);
+                alert('Error sending gift');
+            }
+        }
+    }
+
+    // Close gift modal when clicking outside
+    giftModal.addEventListener('click', (e) => {
+        if (e.target === giftModal) {
+            closeGiftModal();
+        }
+    });
+
     // Initialize with current balance
     document.addEventListener('DOMContentLoaded', () => {
       // Load user data
@@ -521,6 +795,51 @@
         updateShopBalance();
       }
     });
+
+    // Helper functions for UI feedback
+    function showPurchaseSuccess(itemName, starsSpent) {
+        alert(`Successfully purchased ${itemName} for ${starsSpent} Stars!`);
+    }
+
+    function showPurchaseError(errorMessage) {
+        alert(`Purchase failed: ${errorMessage}`);
+    }
+
+    async function getPaymentMethods() {
+        try {
+            const response = await fetch('/api/payment/methods', {
+                headers: {
+                    'X-Telegram-InitData': window.Telegram.WebApp.initData
+                }
+            });
+            const data = await response.json();
+            return data.methods || ['stars', 'ton'];
+        } catch (error) {
+            console.error('Failed to get payment methods:', error);
+            return ['stars', 'ton']; // Default fallback
+        }
+    }
+
+    async function processTonPayment(itemId) {
+        // Implementation for TON payment processing
+        const response = await fetch('/api/shop/ton-payment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-InitData': window.Telegram.WebApp.initData
+            },
+            body: JSON.stringify({
+                product_id: itemId,
+                user_id: window.Telegram.WebApp.initDataUnsafe.user.id
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('TON payment processing failed');
+        }
+        
+        return response.json();
+    }
   </script>
 </body>
 </html>

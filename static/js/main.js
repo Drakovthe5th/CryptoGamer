@@ -511,3 +511,524 @@ function purchaseItem(itemId) {
     Telegram.WebApp.showAlert('Failed to purchase item. Please try again.');
   });
 }
+
+// main.js - Enhanced with Attachment Menu and Pagination support
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize Telegram Web App
+  const webApp = window.Telegram.WebApp;
+  webApp.expand();
+  webApp.enableClosingConfirmation();
+  
+  // Load user data
+  loadUserData();
+  
+  // Set up event listeners
+  document.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', handleButtonClick);
+  });
+  
+  // Initialize theme
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  document.body.classList.toggle('light-theme', savedTheme === 'light');
+  
+  // Initialize language
+  const savedLang = localStorage.getItem('lang') || 'en';
+  document.getElementById('lang').value = savedLang;
+  
+  // Check for attachment menu deep links
+  checkAttachmentMenuDeepLink();
+});
+
+// ==================== ATTACHMENT MENU FUNCTIONS ====================
+
+/**
+ * Check if the app was launched from an attachment menu deep link
+ */
+function checkAttachmentMenuDeepLink() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const attachMenuLink = urlParams.get('attach_menu');
+  
+  if (attachMenuLink) {
+    // Parse deep link data
+    const deepLinkData = parseAttachMenuDeepLink(attachMenuLink);
+    
+    if (deepLinkData) {
+      // Show attachment menu installation dialog
+      showAttachMenuInstallDialog(deepLinkData.botId, deepLinkData.startParam);
+    }
+  }
+}
+
+/**
+ * Parse attachment menu deep link
+ */
+function parseAttachMenuDeepLink(link) {
+  try {
+    // Example: https://t.me/your_bot/attach?bot_id=12345&start_param=ref123
+    const url = new URL(link);
+    const botId = url.searchParams.get('bot_id');
+    const startParam = url.searchParams.get('start_param');
+    
+    return { botId, startParam };
+  } catch (error) {
+    console.error('Error parsing attachment menu deep link:', error);
+    return null;
+  }
+}
+
+/**
+ * Show attachment menu installation dialog
+ */
+async function showAttachMenuInstallDialog(botId, startParam) {
+  try {
+    // Get bot info
+    const botInfo = await API.call(`/api/attach-menu/bot/${botId}`);
+    
+    if (botInfo.success) {
+      const botData = botInfo.bot;
+      
+      // Check if already installed
+      if (!botData.inactive) {
+        // Already installed, just open the mini app
+        openMiniApp(botId, startParam);
+        return;
+      }
+      
+      // Show installation dialog
+      const dialogHtml = `
+        <div class="attach-menu-dialog">
+          <h3>Install ${botData.short_name}</h3>
+          <p>Add this mini app to your Telegram attachment menu for quick access?</p>
+          
+          ${botData.side_menu_disclaimer_needed ? `
+            <div class="tos-checkbox">
+              <input type="checkbox" id="accept-tos">
+              <label for="accept-tos">
+                I accept the <a href="https://telegram.org/tos/mini-apps" target="_blank">Mini Apps TOS</a>
+                and understand this app is not affiliated with Telegram
+              </label>
+            </div>
+          ` : ''}
+          
+          <div class="dialog-buttons">
+            <button class="btn btn-secondary" onclick="closeAttachMenuDialog()">Cancel</button>
+            <button class="btn btn-primary" id="install-btn" 
+                    ${botData.side_menu_disclaimer_needed ? 'disabled' : ''}
+                    onclick="installAttachMenuBot('${botId}', '${startParam}')">
+              Install
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // Show dialog
+      showModal('attach-menu-dialog', dialogHtml);
+      
+      // Enable install button when TOS is accepted
+      if (botData.side_menu_disclaimer_needed) {
+        document.getElementById('accept-tos').addEventListener('change', function() {
+          document.getElementById('install-btn').disabled = !this.checked;
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error showing attach menu dialog:', error);
+    showToast('Failed to load bot information', 'error');
+  }
+}
+
+/**
+ * Install attachment menu bot
+ */
+async function installAttachMenuBot(botId, startParam) {
+  try {
+    showSpinner();
+    
+    const result = await API.call('/api/attach-menu/install', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        bot_id: botId,
+        write_allowed: true // Request write access if needed
+      })
+    });
+    
+    if (result.success) {
+      showToast('Mini app installed successfully!');
+      closeAttachMenuDialog();
+      
+      // Open the mini app after installation
+      openMiniApp(botId, startParam);
+    } else {
+      showToast('Installation failed: ' + (result.error || 'Unknown error'), 'error');
+    }
+  } catch (error) {
+    console.error('Error installing attach menu bot:', error);
+    showToast('Installation failed', 'error');
+  } finally {
+    hideSpinner();
+  }
+}
+
+/**
+ * Open mini app from attachment menu
+ */
+function openMiniApp(botId, startParam) {
+  // This would typically use Telegram.WebApp.openLink or similar
+  // For now, we'll just show a success message
+  showToast('Mini app opened successfully!');
+  
+  // You might navigate to a specific part of your app based on startParam
+  if (startParam && startParam.startsWith('ref-')) {
+    // Handle referral parameter
+    const refCode = startParam.substring(4);
+    handleReferral(refCode);
+  }
+}
+
+/**
+ * Close attachment menu dialog
+ */
+function closeAttachMenuDialog() {
+  closeModal('attach-menu-dialog');
+}
+
+// ==================== PAGINATION FUNCTIONS ====================
+
+/**
+ * Generic paginated data loader
+ */
+async function loadPaginatedData(endpoint, containerId, itemRenderer, options = {}) {
+  const {
+    page = 1,
+    limit = 10,
+    hash = 0,
+    append = false,
+    loadingElement = null
+  } = options;
+  
+  try {
+    // Show loading state
+    if (loadingElement) {
+      loadingElement.style.display = 'block';
+    }
+    
+    // Make API call with pagination parameters
+    const response = await API.call(
+      `${endpoint}?page=${page}&limit=${limit}&hash=${hash}`
+    );
+    
+    if (response.not_modified) {
+      // Data hasn't changed, use cached version
+      return { not_modified: true };
+    }
+    
+    if (response.success) {
+      const container = document.getElementById(containerId);
+      
+      // Clear container if not appending
+      if (!append) {
+        container.innerHTML = '';
+      }
+      
+      // Render items
+      response.data.forEach(item => {
+        const itemElement = itemRenderer(item);
+        container.appendChild(itemElement);
+      });
+      
+      // Create pagination controls if needed
+      if (response.pagination && response.pagination.total_pages > 1) {
+        createPaginationControls(
+          containerId + '-pagination',
+          response.pagination,
+          (newPage) => {
+            loadPaginatedData(
+              endpoint, 
+              containerId, 
+              itemRenderer, 
+              { ...options, page: newPage }
+            );
+          }
+        );
+      }
+      
+      return response;
+    } else {
+      showToast('Failed to load data', 'error');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error loading paginated data:', error);
+    showToast('Error loading data', 'error');
+    return null;
+  } finally {
+    if (loadingElement) {
+      loadingElement.style.display = 'none';
+    }
+  }
+}
+
+/**
+ * Create pagination controls
+ */
+function createPaginationControls(containerId, pagination, onPageChange) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  const { current_page, total_pages, has_prev, has_next } = pagination;
+  
+  let controlsHtml = `
+    <div class="pagination-controls">
+      <button class="pagination-btn" ${!has_prev ? 'disabled' : ''} 
+              onclick="onPageChange(${current_page - 1})">
+        &laquo; Prev
+      </button>
+      
+      <span class="pagination-info">
+        Page ${current_page} of ${total_pages}
+      </span>
+      
+      <button class="pagination-btn" ${!has_next ? 'disabled' : ''} 
+              onclick="onPageChange(${current_page + 1})">
+        Next &raquo;
+      </button>
+    </div>
+  `;
+  
+  container.innerHTML = controlsHtml;
+}
+
+/**
+ * Generate hash for pagination (based on Telegram's algorithm)
+ */
+function generatePaginationHash(ids) {
+  let hash = 0;
+  
+  for (const id of ids) {
+    hash = hash ^ (hash >>> 21);
+    hash = hash ^ (hash << 35);
+    hash = hash ^ (hash >>> 4);
+    hash = hash + id;
+  }
+  
+  return hash;
+}
+
+// ==================== ENHANCED LOAD FUNCTIONS ====================
+
+/**
+ * Enhanced user data loader with pagination support
+ */
+async function loadUserData() {
+  try {
+    const response = await API.call('/api/user/data', {
+      headers: {
+        'X-Telegram-Hash': window.Telegram.WebApp.initData
+      }
+    });
+    
+    if (response.balance !== undefined) {
+      document.querySelectorAll('#balance').forEach(el => {
+        el.textContent = `Balance: ${data.balance.toFixed(6)} TON`;
+      });
+    }
+    
+    if (response.staked) {
+      document.querySelectorAll('#staked-amount').forEach(el => {
+        el.textContent = data.staked.toFixed(6);
+      });
+    }
+    
+    if (response.rewards) {
+      document.querySelectorAll('#staked-rewards').forEach(el => {
+        el.textContent = data.rewards.toFixed(6);
+      });
+    }
+
+    // Game coins display
+    if (response.gameCoins) {
+      document.querySelectorAll('#gc-balance').forEach(el => {
+        el.textContent = `${response.gameCoins} GC`;
+      });
+    }
+    
+    // Load installed attachment menu bots
+    if (response.attachMenuBots) {
+      renderAttachMenuBots(response.attachMenuBots);
+    }
+  } catch (error) {
+    console.error('Error loading user data:', error);
+  }
+}
+
+/**
+ * Render installed attachment menu bots
+ */
+function renderAttachMenuBots(bots) {
+  const container = document.getElementById('installed-bots-container');
+  if (!container || !bots || bots.length === 0) return;
+  
+  let html = '<h3>Your Mini Apps</h3><div class="bots-grid">';
+  
+  bots.forEach(bot => {
+    html += `
+      <div class="bot-item" data-bot-id="${bot.bot_id}">
+        <img src="${bot.icon_url}" alt="${bot.short_name}" class="bot-icon">
+        <div class="bot-name">${bot.short_name}</div>
+        <button class="bot-action" onclick="openAttachMenuBot('${bot.bot_id}')">
+          Open
+        </button>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+/**
+ * Open an installed attachment menu bot
+ */
+function openAttachMenuBot(botId) {
+  // This would use Telegram's API to open the mini app
+  // For now, we'll show a notification
+  showToast('Opening mini app...');
+  
+  // In a real implementation, you might use:
+  // Telegram.WebApp.openLink(`https://t.me/your_bot/attach?bot_id=${botId}`);
+}
+
+/**
+ * Enhanced leaderboard loader with pagination
+ */
+async function loadLeaderboard(page = 1) {
+  const loadingElement = document.getElementById('leaderboard-loading');
+  const containerId = 'leaderboard-list';
+  
+  await loadPaginatedData(
+    '/api/leaderboard',
+    containerId,
+    (user) => {
+      const element = document.createElement('div');
+      element.className = 'leaderboard-item';
+      element.innerHTML = `
+        <span class="rank">#${user.rank}</span>
+        <span class="username">${user.username}</span>
+        <span class="score">${user.score}</span>
+      `;
+      return element;
+    },
+    {
+      page,
+      limit: 20,
+      loadingElement
+    }
+  );
+}
+
+// ==================== ENHANCED UI COMPONENTS ====================
+
+/**
+ * Show a modal with specific content
+ */
+function showModal(id, content) {
+  let modal = document.getElementById(id);
+  
+  if (!modal) {
+    // Create modal if it doesn't exist
+    modal = document.createElement('div');
+    modal.id = id;
+    modal.className = 'modal';
+    modal.innerHTML = `
+      <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('${id}')">&times;</span>
+        <div class="modal-body">${content}</div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  
+  modal.style.display = 'block';
+}
+
+/**
+ * Close a modal
+ */
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+/**
+ * Show a toast notification
+ */
+function showToast(message, type = 'info') {
+  // Remove existing toasts
+  const existingToasts = document.querySelectorAll('.toast');
+  existingToasts.forEach(toast => toast.remove());
+  
+  // Create new toast
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  
+  document.body.appendChild(toast);
+  
+  // Animate in
+  setTimeout(() => {
+    toast.classList.add('show');
+  }, 10);
+  
+  // Remove after delay
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 3000);
+}
+
+// ==================== INITIALIZATION ====================
+
+// Initialize pagination for various sections
+document.addEventListener('DOMContentLoaded', function() {
+  // Load leaderboard with pagination
+  loadLeaderboard();
+  
+  // Load transaction history with pagination
+  loadTransactionHistory();
+  
+  // Load other paginated data as needed
+});
+
+/**
+ * Load transaction history with pagination
+ */
+async function loadTransactionHistory(page = 1) {
+  const loadingElement = document.getElementById('transactions-loading');
+  const containerId = 'transactions-list';
+  
+  await loadPaginatedData(
+    '/api/transactions',
+    containerId,
+    (transaction) => {
+      const element = document.createElement('div');
+      element.className = 'transaction-item';
+      element.innerHTML = `
+        <span class="transaction-date">${new Date(transaction.date).toLocaleDateString()}</span>
+        <span class="transaction-type">${transaction.type}</span>
+        <span class="transaction-amount ${transaction.amount >= 0 ? 'positive' : 'negative'}">
+          ${transaction.amount >= 0 ? '+' : ''}${transaction.amount}
+        </span>
+      `;
+      return element;
+    },
+    {
+      page,
+      limit: 15,
+      loadingElement
+    }
+  );
+}

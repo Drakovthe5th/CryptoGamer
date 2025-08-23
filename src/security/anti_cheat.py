@@ -174,6 +174,22 @@ class AntiCheatSystem:
         if reported_score > max_possible * 1.2:  # Allow 20% tolerance
             return False
         return True
+    
+    def validate_payment_request(user_id, credentials):
+        """Validate payment request to prevent fraud"""
+        # Check rate limiting
+        if is_rate_limited(f"payment_{user_id}", max_attempts=5, period=3600):
+            return False
+        
+        # Validate credentials format
+        if not validate_credentials_format(credentials):
+            return False
+        
+        # Check for suspicious patterns
+        if detect_suspicious_payment_pattern(user_id, credentials):
+            return False
+        
+        return True
 class AdValidator:
     def __init__(self):
         self.ad_events = {}

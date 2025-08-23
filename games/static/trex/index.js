@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 // extract from chromium source code by @liuwayong
 // Add at the top
+
 window.gameInputHistory = [];
 window.userId = Telegram.WebApp.initDataUnsafe.user.id;
 window.userId = Telegram.WebApp.initDataUnsafe?.user?.id || 'guest';
@@ -33,6 +34,12 @@ async function loadUserData() {
 
     // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
+
+    // Load Telegram Web Events library
+    const script = document.createElement('script');
+    script.src = '/static/js/telegram-web-events.js';
+    document.head.appendChild(script);
+
     // Get user data from URL params
     const urlParams = new URLSearchParams(window.location.search);
     window.gameSessionId = urlParams.get('session_id');
@@ -41,6 +48,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize game with user data
     initGame(window.userId, window.securityToken);
+
+      // Initialize Telegram Web Events
+    if (window.TelegramWebEvents) {
+    // Setup game-specific buttons and events
+        window.TelegramWebEvents.setupMainButton(true, true, 'Play Now', '#3390ec', '#ffffff', false, true);
+        
+        // Share functionality
+        window.shareScore = function(score) {
+        window.TelegramWebEvents.shareScore(score, window.gameName);
+        };
+        
+        window.shareGame = function() {
+        window.TelegramWebEvents.shareGame(window.gameName);
+        };
+    }
 });
 
 async function initGame(userId, token) {
@@ -2885,7 +2907,38 @@ document.addEventListener('keydown', (e) => {
                 this.dimensions.WIDTH));
         }
     };
-})();
+}}));
+
+function claimRewards() {
+    window.TelegramWebEvents.openInvoice('game_rewards_' + window.gameName);
+    
+    // Optional: Show loading state on main button
+    window.TelegramWebEvents.setupMainButton(
+        true, 
+        false, 
+        'Processing...', 
+        '#CCCCCC', 
+        '#FFFFFF', 
+        true, 
+        false
+    );
+
+    if (window.TelegramWebEvents) {
+        window.TelegramWebEvents.openInvoice('game_rewards_' + window.gameName);
+    } else {
+        // Fallback for non-Telegram environment
+        alert(`Rewards claimed! You earned ${totalReward.toFixed(6)} TON`);
+    }
+}
+
+// Add share buttons to your game UI and implement:
+function shareScore() {
+    window.TelegramWebEvents.shareScore(currentScore, window.gameName);
+}
+
+function shareGame() {
+    window.TelegramWebEvents.shareGame(window.gameName);
+}
 
 function resetGame(gameId) {
     fetch('/api/game/reset', {

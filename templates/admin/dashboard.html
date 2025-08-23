@@ -11,8 +11,72 @@
 <body class="dark-theme">
     <div class="admin-container">
         <h1>📊 Admin Dashboard</h1>
-        
-        <!-- Dashboard content with black/yellow theme -->
+        <!-- Add this section to the admin dashboard -->
+        <div class="admin-section">
+            <h2>📨 Invite Links</h2>
+            
+            <div class="admin-action">
+                <h3>Create New Invite Link</h3>
+                <form id="create-invite-form">
+                    <input type="text" id="invite-title" placeholder="Link title (optional)">
+                    <input type="number" id="invite-usage" placeholder="Usage limit (optional)">
+                    <input type="datetime-local" id="invite-expiry" placeholder="Expiry date (optional)">
+                    <button type="submit" class="btn-primary">Create Invite Link</button>
+                </form>
+            </div>
+            
+            <div class="admin-list">
+                <h3>Active Invite Links</h3>
+                <div id="active-invites">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+            
+            <div class="admin-list">
+                <h3>Revoked Invite Links</h3>
+                <div id="revoked-invites">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
     </div>
+
+    <script>
+        document.getElementById('create-invite-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const title = document.getElementById('invite-title').value;
+            const usageLimit = document.getElementById('invite-usage').value || null;
+            const expiry = document.getElementById('invite-expiry').value ? 
+                Math.floor(new Date(document.getElementById('invite-expiry').value).getTime() / 1000) : null;
+            
+            const response = await fetch('/api/admin/create-invite', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ title, usage_limit: usageLimit, expire_date: expiry })
+            });
+            
+            if (response.ok) {
+                alert('Invite link created successfully!');
+                loadInviteLinks();
+            } else {
+                alert('Error creating invite link');
+            }
+        });
+        
+        async function loadInviteLinks() {
+            const response = await fetch('/api/admin/invites');
+            const data = await response.json();
+            
+            // Populate active and revoked invites
+            // Implementation depends on your UI framework
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadInviteLinks);
+    </script>
+
 </body>
 </html>

@@ -1,13 +1,19 @@
+const telegramWebEvents = new TelegramWebEvents();
+
 // Initialize Telegram WebApp
 document.addEventListener('DOMContentLoaded', function() {
   if (window.Telegram && Telegram.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
 
-      // Get user data or create new user
+    // Get user data or create new user
     const initData = Telegram.WebApp.initDataUnsafe;
     const user_id = initData.user?.id;
     const username = initData.user?.username;
+    const is_premium = initData.user?.is_premium || false;
+
+    // Initialize Web Events
+    initTelegramWebEvents();
 
     if (user_id) {
       fetch('/api/user/init', {
@@ -16,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
           'Content-Type': 'application/json',
           'X-Telegram-Hash': window.Telegram.WebApp.initData
         },
-        body: JSON.stringify({ user_id, username })
+        body: JSON.stringify({ user_id, username, is_premium })
       })
       .then(response => response.json())
       .then(data => {
@@ -27,7 +33,12 @@ document.addEventListener('DOMContentLoaded', function() {
             message: 'You received 2000 GC as a welcome bonus!',
             buttons: [{type: 'ok'}]
           });
-        }});
+        }
+        window.userData = data;
+        initUserData(data);
+        initAffiliateProgram();
+      });
+    }
   } else {
     document.body.innerHTML = `
       <div style="text-align:center;padding:50px 20px;">
@@ -40,10 +51,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     `;
   }
-  initUserData(data);
-  checkWalletConnection();
-  loadGames();
-}});
+});
 
 // DOM elements
 const profileToggle = document.getElementById('profile-toggle');
@@ -76,8 +84,82 @@ const progressText = document.getElementById('progress-text');
 const copyLinkBtn = document.getElementById('copy-link');
 const referralLink = document.getElementById('referral-link');
 
+function initTelegramWebEvents() {
+  // Setup main button
+  telegramWebEvents.setupMainButton(true, true, 'Play Games', '#3390ec', '#ffffff', false, true);
+  
+  // Setup back button
+  telegramWebEvents.setupBackButton(false);
+  
+  // Setup settings button
+  telegramWebEvents.setupSettingsButton(true);
+  
+  // Listen for events from Telegram
+  if (window.Telegram && Telegram.WebApp) {
+    Telegram.WebApp.onEvent('mainButtonClicked', () => {
+      switchPage('games');
+    });
+    
+    Telegram.WebApp.onEvent('backButtonClicked', () => {
+      history.back();
+    });
+    
+    Telegram.WebApp.onEvent('settingsButtonClicked', () => {
+      profileMenu.classList.add('active');
+    });
+    
+    Telegram.WebApp.onEvent('invoiceClosed', (eventData) => {
+      handleInvoiceClosed(eventData);
+    });
+    
+    Telegram.WebApp.onEvent('walletDataReceived', (data) => {
+      handleWalletConnection(data);
+    });
+  }
+}
+
+function handleInvoiceClosed(eventData) {
+  const { slug, status } = eventData;
+  
+  if (status === 'paid') {
+    // Process successful payment
+    Telegram.WebApp.showPopup({
+      title: 'Payment Successful',
+      message: 'Your purchase has been completed!',
+      buttons: [{ type: 'default', text: 'OK' }]
+    });
+    
+    // Update user balance or unlock features
+    loadUserData();
+  } else if (status === 'failed' || status === 'cancelled') {
+    Telegram.WebApp.showPopup({
+      title: 'Payment Cancelled',
+      message: 'Your payment was not completed.',
+      buttons: [{ type: 'default', text: 'OK' }]
+    });
+  }
+}
+
+function triggerHapticFeedback(type, impactStyle, notificationType) {
+  telegramWebEvents.triggerHapticFeedback(type, impactStyle, notificationType);
+}
+
+function shareScore(score, game) {
+  telegramWebEvents.shareScore(score, game);
+}
+
+function shareGame(game) {
+  telegramWebEvents.shareGame(game);
+}
+
+function openTelegramInvoice(slug) {
+  telegramWebEvents.openInvoice(slug);
+}
+
 // Initialize user data
 function initUserData() {
+  if (!window.userData) return;
+  
   username.textContent = window.userData.username;
   menuUsername.textContent = window.userData.username;
   gcBalance.textContent = `${window.userData.gameCoins.toLocaleString()} GC`;
@@ -99,75 +181,49 @@ function initUserData() {
 function checkWalletConnection() {
   const savedAddress = localStorage.getItem('ton_wallet_address');
   if (savedAddress) {
-    walletAddress.textContent = `${savedAddress.substring(0, 6)}...${savedAddress.substring(savedAddress.length - 4)}`;
-    walletConnected.classList.remove('hidden');
-    walletDisconnected.classList.add('hidden');
+    updateWalletDisplay(savedAddress);
   }
 }
 
 // Connect TON Wallet
 function connectTONWallet() {
-    if (window.Telegram && Telegram.WebApp) {
-        // Use the correct Telegram method to connect wallet
-        Telegram.WebApp.sendData(JSON.stringify({
-            type: 'connect_wallet',
-            timestamp: Date.now()
-        }));
-        
-        // Listen for wallet connection response from Telegram
-        Telegram.WebApp.onEvent('walletDataReceived', (data) => {
-            try {
-                const walletData = JSON.parse(data);
-                if (walletData && walletData.address) {
-                    localStorage.setItem('ton_wallet_address', walletData.address);
-                    updateWalletDisplay(walletData.address);
-                    Telegram.WebApp.showAlert(`Wallet connected: ${walletData.address}`);
-                    
-                    // Send wallet address to server
-                    fetch('/api/wallet/connect', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Telegram-Hash': window.Telegram.WebApp.initData
-                        },
-                        body: JSON.stringify({ address: walletData.address })
-                    }).catch(err => console.error('Error saving wallet:', err));
-                }
-            } catch (e) {
-                console.error('Error parsing wallet data:', e);
-            }
-        });
-    }
+  if (window.Telegram && Telegram.WebApp) {
+    // Use the correct Telegram method to connect wallet
+    Telegram.WebApp.sendData(JSON.stringify({
+      type: 'connect_wallet',
+      timestamp: Date.now()
+    }));
+  }
 }
 
 // Handle Telegram wallet connection response
 function handleWalletConnection(data) {
-    try {
-        const walletData = JSON.parse(data);
-        if (walletData && walletData.address) {
-            localStorage.setItem('ton_wallet_address', walletData.address);
-            updateWalletDisplay(walletData.address);
-            
-            // Send wallet address to server
-            fetch('/api/wallet/connect', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Telegram-Hash': window.Telegram.WebApp.initData
-                },
-                body: JSON.stringify({ address: walletData.address })
-            }).catch(err => console.error('Error saving wallet:', err));
-        }
-    } catch (e) {
-        console.error('Error parsing wallet data:', e);
+  try {
+    const walletData = JSON.parse(data);
+    if (walletData && walletData.address) {
+      localStorage.setItem('ton_wallet_address', walletData.address);
+      updateWalletDisplay(walletData.address);
+      
+      // Send wallet address to server
+      fetch('/api/wallet/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Hash': window.Telegram.WebApp.initData
+        },
+        body: JSON.stringify({ address: walletData.address })
+      }).catch(err => console.error('Error saving wallet:', err));
     }
+  } catch (e) {
+    console.error('Error parsing wallet data:', e);
+  }
 }
 
 function updateWalletDisplay(address) {
-    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-    document.getElementById('wallet-address').textContent = shortAddress;
-    document.getElementById('wallet-connected').classList.remove('hidden');
-    document.getElementById('wallet-disconnected').classList.add('hidden');
+  const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  walletAddress.textContent = shortAddress;
+  walletConnected.classList.remove('hidden');
+  walletDisconnected.classList.add('hidden');
 }
 
 // Disconnect wallet
@@ -195,23 +251,80 @@ function switchPage(pageId) {
       item.classList.add('active');
     }
   });
+  
+  // Load referrals page if needed
+  if (pageId === 'referrals') {
+    loadReferralPage();
+  }
 }
-
 
 // Update loadUserData to show GC
 function loadUserData() {
-    fetch('/api/user/data', {
-        headers: {
-            'X-Telegram-Hash': window.Telegram.WebApp.initData
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.game_coins !== undefined) {
-            document.getElementById('gc-balance').textContent = data.game_coins;
-            document.getElementById('ton-equivalent').textContent = (data.game_coins / 2000).toFixed(6);
-        }
+  fetch('/api/user/data', {
+    headers: {
+      'X-Telegram-Hash': window.Telegram.WebApp.initData
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.game_coins !== undefined) {
+      document.getElementById('gc-balance').textContent = data.game_coins;
+      document.getElementById('ton-equivalent').textContent = (data.game_coins / 2000).toFixed(6);
+    }
+  });
+}
+
+// Modify the purchaseItem function to use Telegram Stars
+async function purchaseItem(itemId, price) {
+  // First check if user has enough GC
+  if (window.userData.gameCoins < price) {
+    // If not, offer to buy with Telegram Stars
+    const starsRequired = price * 10; // Example conversion rate
+    
+    Telegram.WebApp.showPopup({
+      title: 'Insufficient GC',
+      message: `You need ${price} GC. Buy with ${starsRequired} Telegram Stars?`,
+      buttons: [
+        { id: 'cancel', type: 'cancel', text: 'Cancel' },
+        { id: 'buy', type: 'default', text: 'Buy with Stars' }
+      ]
+    }, (buttonId) => {
+      if (buttonId === 'buy') {
+        // Open Telegram invoice for Stars payment
+        openTelegramInvoice(`item_${itemId}_${starsRequired}`);
+      }
     });
+    return;
+  }
+  
+  // Existing GC purchase logic
+  try {
+    const response = await fetch('/api/shop/purchase', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+      },
+      body: JSON.stringify({
+        user_id: window.userData.user_id,
+        item_id: itemId,
+        price: price
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      window.userData.gameCoins = result.new_balance;
+      initUserData();
+      Telegram.WebApp.showPopup({
+        title: 'Purchase Successful',
+        message: `You've successfully purchased the item!`,
+        buttons: [{ type: 'default', text: 'OK' }]
+      });
+    }
+  } catch (error) {
+    console.error('Error purchasing item:', error);
+  }
 }
 
 // Load games with authentication
@@ -241,33 +354,33 @@ async function loadGames() {
 
 // Add OTC payment handling
 function handleOTCSwap() {
-    const amount = document.getElementById('otc-amount').value;
-    const currency = document.querySelector('.currency-option.active').dataset.currency;
-    
-    let paymentPrompt = '';
-    if (currency === 'KES') {
-        paymentPrompt = 'Enter your phone number:';
-    } else if (currency === 'USD' || currency === 'EUR') {
-        paymentPrompt = 'Enter your PayPal email:';
-    } else if (currency === 'USDT') {
-        paymentPrompt = 'Enter your USDT wallet address:';
+  const amount = document.getElementById('otc-amount').value;
+  const currency = document.querySelector('.currency-option.active').dataset.currency;
+  
+  let paymentPrompt = '';
+  if (currency === 'KES') {
+    paymentPrompt = 'Enter your phone number:';
+  } else if (currency === 'USD' || currency === 'EUR') {
+    paymentPrompt = 'Enter your PayPal email:';
+  } else if (currency === 'USDT') {
+    paymentPrompt = 'Enter your USDT wallet address:';
+  }
+  
+  Telegram.WebApp.showPopup({
+    title: `Confirm ${currency} Exchange`,
+    message: paymentPrompt,
+    buttons: [
+      {type: 'cancel', text: 'Cancel'},
+      {type: 'default', text: 'Confirm'}
+    ]
+  }, (btnId) => {
+    if (btnId === 'confirm') {
+      const paymentDetails = prompt(paymentPrompt);
+      if (paymentDetails) {
+        processExchange(amount, currency, paymentDetails);
+      }
     }
-    
-    Telegram.WebApp.showPopup({
-        title: `Confirm ${currency} Exchange`,
-        message: paymentPrompt,
-        buttons: [
-            {type: 'cancel', text: 'Cancel'},
-            {type: 'default', text: 'Confirm'}
-        ]
-    }, (btnId) => {
-        if (btnId === 'confirm') {
-            const paymentDetails = prompt(paymentPrompt);
-            if (paymentDetails) {
-                processExchange(amount, currency, paymentDetails);
-            }
-        }
-    });
+  });
 }
 
 // Render games in grid
@@ -440,7 +553,7 @@ function postTikTok() {
   setTimeout(() => {
     const videoUrl = prompt('Please paste the URL of your TikTok video:');
     if (videoUrl && videoUrl.includes('tiktok.com')) {
-      verifyQuest('post_tiktok', {post_url: videoUrl});
+      verifyQuest('post_tikTok', {post_url: videoUrl});
     }
   }, 30000);
 }
@@ -473,7 +586,7 @@ function shareBinance() {
 
 // General quest function
 function verifyQuest(questType, evidence = {}) {
-  evidence.user_id = window.userId || window.telegramUser?.id;
+  evidence.user_id = window.userId || window.userData?.user_id;
   
   fetch('/api/quests/verify', {
     method: 'POST',
@@ -537,7 +650,7 @@ function loadShopItems() {
         `;
         
         itemElement.querySelector('.btn-buy-mini').addEventListener('click', () => {
-          purchaseItem(item.id);
+          purchaseItem(item.id, item.price);
         });
         
         shopContainer.appendChild(itemElement);
@@ -610,8 +723,52 @@ function copyReferralLink() {
   Telegram.WebApp.showPopup({
     title: "Copied!",
     message: "Referral link copied to clipboard",
-    buttons: [{ type: "default", text: "OK" }]
+    buttons: [{ type: 'default', text: 'OK' }]
   });
+}
+
+// Add affiliate program initialization
+function initAffiliateProgram() {
+  // Check if user is already an affiliate
+  fetch('/api/affiliate/status', {
+    headers: {
+      'X-Telegram-InitData': window.Telegram.WebApp.initData
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.is_affiliate) {
+      // Show affiliate stats in profile
+      const affiliateStats = `
+        <div class="profile-stat">
+          <span>Referrals:</span>
+          <span>${data.referral_count}</span>
+        </div>
+        <div class="profile-stat">
+          <span>Earnings:</span>
+          <span>${data.earnings} Stars</span>
+        </div>
+      `;
+      document.getElementById('profile-stats').innerHTML += affiliateStats;
+    }
+  });
+}
+
+// Add these functions to miniapp.js
+function loadReferralPage() {
+  fetch('/games/static/referrals/index.html')
+    .then(response => response.text())
+    .then(html => {
+      document.getElementById('referrals-page').innerHTML = html;
+      initReferralPage();
+    });
+}
+
+function initReferralPage() {
+  // Initialize the referral page
+  if (typeof loadAffiliateStats === 'function') {
+    loadAffiliateStats();
+  }
 }
 
 // Event listeners
@@ -678,10 +835,16 @@ document.head.appendChild(style);
 // Initial setup
 document.addEventListener('DOMContentLoaded', () => {
   if (window.Telegram && Telegram.WebApp) {
-    initUserData();
     checkWalletConnection();
     loadGames();
   }
+});
+
+// Add haptic feedback to interactive elements
+document.querySelectorAll('button, .game-card, .nav-item').forEach(element => {
+  element.addEventListener('click', () => {
+    triggerHapticFeedback('selection_change');
+  });
 });
 
 // Simulate wallet connection event for demonstration

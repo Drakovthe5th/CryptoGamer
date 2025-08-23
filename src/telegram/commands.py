@@ -3,11 +3,12 @@ from telegram.ext import ContextTypes
 from pymongo import MongoClient
 from src.database.mongo import (
     create_user, get_user_balance, update_balance, get_user_data,
-    update_leaderboard_points, get_leaderboard, get_user_rank
+    update_leaderboard_points, get_leaderboard, get_user_rank, db
 )
 from src.features.quests import get_active_quests
 from src.utils.conversions import game_coins_to_ton
 from src.utils.conversions import ton_to_game_coins
+from games.sabotage_game import SabotageGame
 from config import Config
 import datetime
 import random
@@ -278,3 +279,76 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     await update.message.reply_text(text, parse_mode='HTML')
+
+async def gifts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show available gifts"""
+    from src.features.monetization.gifts import gift_manager
+    result = await gift_manager.get_available_gifts()
+    
+    if result['success']:
+        keyboard = []
+        for gift in result['gifts'].gifts:
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"{gift.stars} Stars Gift",
+                    callback_data=f"gift_send_{gift.id}_{update.effective_user.id}"
+                )
+            ])
+        
+        await update.message.reply_text(
+            "🎁 Available Gifts:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    else:
+        await update.message.reply_text("❌ Could not load gifts")
+
+async def my_gifts(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show user's received gifts"""
+    from src.features.monetization.gifts import gift_manager
+    result = await gift_manager.get_user_gifts(update.effective_user.id)
+    
+    if result['success']:
+        text = "🎁 Your Received Gifts:\n\n"
+        for gift in result['gifts'].gifts:
+            text += f"• {gift.gift.stars} Stars Gift\n"
+        
+        await update.message.reply_text(text)
+    else:
+        await update.message.reply_text("❌ Could not load your gifts")
+
+# Add sabotage command
+async def sabotage(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a sabotage game in a group"""
+    chat_id = update.effective_chat.id
+    
+    # Check if in a group
+    if update.effective_chat.type not in ['group', 'supergroup']:
+        await update.message.reply_text(
+            "Sabotage can only be played in groups!",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Create a Group", callback_data="create_group")]
+            ])
+        )
+        return
+    
+    # Create new game
+    game_id = f"sabotage_{chat_id}_{int(time.time())}"
+    game = SabotageGame(game_id, str(chat_id))
+    
+    # Save to database
+    from src.database.mongo import save_sabotage_game
+    save_sabotage_game(game.to_dict())
+    
+    # Send invitation message
+    keyboard = [
+        [InlineKeyboardButton("Join Game", callback_data=f"sabotage_join_{game_id}")],
+        [InlineKeyboardButton("Game Rules", callback_data="sabotage_rules")]
+    ]
+    
+    await update.message.reply_text(
+        "🎮 Crypto Crew: Sabotage\n\n"
+        "A social deduction game where miners try to complete tasks while saboteurs "
+        "try to steal gold without getting caught!\n\n"
+        "Click 'Join Game' to participate. Game starts when 6 players join.",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )

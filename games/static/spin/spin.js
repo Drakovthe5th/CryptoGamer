@@ -1,5 +1,11 @@
 // Initialize game when page loads
 document.addEventListener('DOMContentLoaded', () => {
+
+  // Load Telegram Web Events library
+  const script = document.createElement('script');
+  script.src = '/static/js/telegram-web-events.js';
+  document.head.appendChild(script);
+
   // Get session ID from URL
   const sessionId = new URLSearchParams(window.location.search).get('session_id');
   
@@ -15,6 +21,21 @@ document.addEventListener('DOMContentLoaded', () => {
     window.Telegram.WebApp.expand();
   } else {
     console.log("Not running in Telegram environment");
+  }
+
+    // Initialize Telegram Web Events
+  if (window.TelegramWebEvents) {
+    // Setup game-specific buttons and events
+    window.TelegramWebEvents.setupMainButton(true, true, 'Play Now', '#3390ec', '#ffffff', false, true);
+    
+    // Share functionality
+    window.shareScore = function(score) {
+      window.TelegramWebEvents.shareScore(score, window.gameName);
+    };
+    
+    window.shareGame = function() {
+      window.TelegramWebEvents.shareGame(window.gameName);
+    };
   }
 
   // Create and initialize the game
@@ -388,6 +409,37 @@ class SpinGame {
       this.cashoutButton.addEventListener('click', () => this.handleCashout());
     }
   }
+}
+
+function claimRewards() {
+    window.TelegramWebEvents.openInvoice('game_rewards_' + window.gameName);
+    
+    // Optional: Show loading state on main button
+    window.TelegramWebEvents.setupMainButton(
+        true, 
+        false, 
+        'Processing...', 
+        '#CCCCCC', 
+        '#FFFFFF', 
+        true, 
+        false
+    );
+
+    if (window.TelegramWebEvents) {
+      window.TelegramWebEvents.openInvoice('game_rewards_' + window.gameName);
+    } else {
+      // Fallback for non-Telegram environment
+      alert(`Rewards claimed! You earned ${totalReward.toFixed(6)} TON`);
+    }
+}
+
+// Add share buttons to your game UI and implement:
+function shareScore() {
+    window.TelegramWebEvents.shareScore(currentScore, window.gameName);
+}
+
+function shareGame() {
+    window.TelegramWebEvents.shareGame(window.gameName);
 }
 
 function resetGame(gameId) {

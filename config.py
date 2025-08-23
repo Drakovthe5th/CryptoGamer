@@ -22,6 +22,13 @@ class Config:
         self.ADMIN_ID = os.getenv('ADMIN_ID')
         self.ENV = os.getenv('ENV', 'production')
         self.PORT = int(os.getenv('PORT', 10000))
+        self.TELEGRAM_API_ID = os.getenv('TELEGRAM_API_ID')
+        self.TELEGRAM_API_HASH = os.getenv('TELEGRAM_API_HASH')
+        self.TELEGRAM_SESSION_STRING = os.getenv('TELEGRAM_SESSION_STRING')
+
+        # Telegram Payments Configuration
+        self.TELEGRAM_STARS_PROVIDER_TOKEN = os.getenv('TELEGRAM_STARS_PROVIDER_TOKEN')
+        self.TELEGRAM_PAYMENTS_TEST_MODE = os.getenv('TELEGRAM_PAYMENTS_TEST_MODE', 'false').lower() == 'true'
 
         # MongoDB configuration - FIXED
         raw_uri = os.getenv('MONGO_URI')
@@ -120,10 +127,48 @@ class Config:
         
         # In-Game Purchases
         self.IN_GAME_ITEMS = {
-            "trivia_questions": {"id": "TRIV-EXTRA", "price_gc": 500, "effect": {"questions": 10}},
-            "double_earnings": {"id": "BOOST-2X", "price_gc": 2000, "effect": {"multiplier": 2.0, "duration": 3600}},
-            "extra_life": {"id": "LIFE-EXTRA", "price_gc": 300, "effect": {"lives": 1}},
-            "auto_clicker": {"id": "AUTO-CLICK", "price_gc": 1500, "effect": {"auto_click": True}}
+            "trivia_questions": {
+                "id": "TRIV-EXTRA", 
+                "price_stars": 50,  # 50 Stars
+                "price_gc": 500, 
+                "effect": {"questions": 10}
+            },
+            "double_earnings": {
+                "id": "BOOST-2X", 
+                "price_stars": 200,  # 200 Stars
+                "price_gc": 2000, 
+                "effect": {"multiplier": 2.0, "duration": 3600}
+            },
+            "extra_life": {
+                "id": "LIFE-EXTRA", 
+                "price_stars": 30,  # 30 Stars
+                "price_gc": 300, 
+                "effect": {"lives": 1}
+            },
+            "auto_clicker": {
+                "id": "AUTO-CLICK", 
+                "price_stars": 150,  # 150 Stars
+                "price_gc": 1500, 
+                "effect": {"auto_click": True}
+            }
+        }
+
+        # Add payment provider configuration
+        self.PAYMENT_PROVIDERS = {
+            'stars': {
+                'enabled': True,
+                'name': 'Telegram Stars',
+                'min_amount': 10,
+                'max_amount': 10000,
+                'currency': 'XTR'
+            },
+            'ton': {
+                'enabled': self.TON_ENABLED,
+                'name': 'TON Blockchain',
+                'min_amount': 0.1,
+                'max_amount': 1000,
+                'currency': 'TON'
+            }
         }
         
         # Web Server Configuration
@@ -342,6 +387,58 @@ class Config:
         self.FEATURE_GAMES = os.getenv("FEATURE_GAMES", "true").lower() == "true"
         self.FEATURE_IN_GAME_PURCHASES = os.getenv("FEATURE_IN_GAME_PURCHASES", "true").lower() == "true"
         self.FEATURE_MEMBERSHIPS = os.getenv("FEATURE_MEMBERSHIPS", "true").lower() == "true"
+
+                # Telegram Client Configuration Defaults
+        self.TELEGRAM_CLIENT_CONFIG = {
+            "about_length_limit_default": 70,
+            "about_length_limit_premium": 140,
+            "authorization_autoconfirm_period": 604800,
+            "autoarchive_setting_available": True,
+            "background_connection": True,
+            "caption_length_limit_default": 1024,
+            "caption_length_limit_premium": 4096,
+            "channels_limit_default": 500,
+            "channels_limit_premium": 1000,
+            "channels_public_limit_default": 10,
+            "channels_public_limit_premium": 20,
+            "dialog_filters_chats_limit_default": 100,
+            "dialog_filters_chats_limit_premium": 200,
+            "dialog_filters_enabled": True,
+            "dialog_filters_limit_default": 10,
+            "dialog_filters_limit_premium": 30,
+            "dialog_filters_tooltip": False,
+            "dialogs_folder_pinned_limit_default": 100,
+            "dialogs_folder_pinned_limit_premium": 200,
+            "dialogs_pinned_limit_default": 5,
+            "dialogs_pinned_limit_premium": 10,
+            "emojies_animated_zoom": 0.625,
+            "emojies_send_dice": ["🎲", "🎯", "🏀", "⚽", "⚽", "🎰", "🎳"],
+            "gif_search_branding": "tenor",
+            "keep_alive_service": True,
+            "message_animated_emoji_max": 100,
+            "premium_promo_order": [
+                "stories", "more_upload", "double_limits", "business", 
+                "last_seen", "voice_to_text", "faster_download", "translations",
+                "animated_emoji", "emoji_status", "saved_tags", "peer_colors",
+                "wallpapers", "profile_badge", "message_privacy", "advanced_chat_management",
+                "no_ads", "app_icons", "infinite_reactions", "animated_userpics",
+                "premium_stickers", "effects"
+            ],
+            "premium_bot_username": "PremiumBot",
+            "qr_login_camera": True,
+            "qr_login_code": "primary",
+            "reactions_uniq_max": 11,
+            "reactions_in_chat_max": 100,
+            "reactions_user_max_default": 1,
+            "reactions_user_max_premium": 3,
+            "saved_gifs_limit_default": 200,
+            "saved_gifs_limit_premium": 400,
+            "stickers_faved_limit_default": 5,
+            "stickers_faved_limit_premium": 10,
+            "upload_max_fileparts_default": 4000,
+            "upload_max_fileparts_premium": 8000,
+            "web_app_allowed_protocols": ["http", "https"]
+        }
         
         # Logging
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

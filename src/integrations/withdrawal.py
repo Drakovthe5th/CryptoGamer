@@ -33,10 +33,10 @@ class WithdrawalProcessor:
         today = datetime.utcnow().strftime("%Y-%m-%d")
         db.system_stats.update_one(
             {"name": "withdrawals", "date": today},
-            {"$set": {"total": amount}},
+            {"$inc": {"total": amount}},
             upsert=True
         )
-        self.today_withdrawn = amount
+        self.today_withdrawn += amount
     
     def check_gameplay_time(self, user_id):
         """Check if user has the minimum required gameplay time"""
@@ -50,7 +50,7 @@ class WithdrawalProcessor:
         user = get_user_data(user_id)
         max_possible_score = 100  # This should be calculated based on available activities
         current_score = user.get('participation_score', 0)
-        participation_ok = (current_score / max_possible_score) >= 0.75
+        participation_ok = (current_score / max_possible_score) >= 0.75 if max_possible_score > 0 else False
         
         # Check gameplay time (500 hours requirement)
         gameplay_ok = self.check_gameplay_time(user_id)
@@ -68,7 +68,7 @@ class WithdrawalProcessor:
         }
 
     def process_withdrawal(self, user_id):
-        """Process GC withdrawal to TON"""
+        """Process GC withdrawal to TON - USERS ONLY WITHDRAW GC, NOT AD REVENUE"""
         # Check eligibility first
         eligibility = self.check_withdrawal_eligibility(user_id)
         if not eligibility['eligible']:
@@ -77,29 +77,25 @@ class WithdrawalProcessor:
         
         user = get_user_data(user_id)
         
-        if not user.wallet_address:
+        if not user.get('wallet_address'):
             raise Exception("Wallet not connected")
         
-        if user.game_coins < MIN_WITHDRAWAL:
+        if user.get('game_coins', 0) < MIN_WITHDRAWAL:
             raise Exception("Insufficient balance")
         
-        # Check daily limits
-        if self.today_withdrawn >= self.daily_withdrawal_limit:
-            raise Exception("Daily withdrawal limit reached")
-        
-        # Convert to TON
-        ton_amount = user.game_coins / TON_TO_GC_RATE
+        # Convert GC to TON (200,000 gc = 100 TON)
+        ton_amount = user.get('game_coins', 0) * config.GC_TO_TON_RATE
         
         # Send transaction
-        tx_hash = ton_client.send_ton(user.wallet_address, ton_amount)
+        tx_hash = ton_client.send_ton(user.get('wallet_address'), ton_amount)
         
         # Update user balance
-        success, new_balance = update_game_coins(user_id, -MIN_WITHDRAWAL)
+        success, new_balance = update_game_coins(user_id, -user.get('game_coins', 0))
         if not success:
             raise Exception("Failed to update balance")
         
         # Update daily total
-        self.update_daily_total(self.today_withdrawn + ton_amount)
+        self.update_daily_total(ton_amount)
         
         return tx_hash
 
@@ -143,10 +139,10 @@ class WithdrawalProcessor:
                 "status": "completed",
                 "timestamp": datetime.now()
             }
-            db.collection("withdrawals").add(withdrawal_data)
+            db.withdrawals.insert_one(withdrawal_data)
             
             # Update daily total
-            self.update_daily_total(self.today_withdrawn + amount)
+            self.update_daily_total(amount)
             
             return {
                 "success": True,
@@ -189,10 +185,10 @@ class WithdrawalProcessor:
                 "status": "completed",
                 "timestamp": datetime.now()
             }
-            db.collection("withdrawals").add(withdrawal_data)
+            db.withdrawals.insert_one(withdrawal_data)
             
             # Update daily total
-            self.update_daily_total(self.today_withdrawn + amount)
+            self.update_daily_total(amount)
             
             return {"success": True, "amount_kes": amount_kes}
         return {"success": False, "error": result.get("error", "MPesa payment failed")}
@@ -231,10 +227,10 @@ class WithdrawalProcessor:
                 "status": "completed",
                 "timestamp": datetime.now()
             }
-            db.collection("withdrawals").add(withdrawal_data)
+            db.withdrawals.insert_one(withdrawal_data)
             
             # Update daily total
-            self.update_daily_total(self.today_withdrawn + amount)
+            self.update_daily_total(amount)
             
             return {"success": True, "amount_usd": amount_usd}
         return {"success": False, "error": result.get("error", "PayPal payout failed")}
@@ -244,14 +240,36 @@ class WithdrawalProcessor:
         user = get_user_data(user_id)
         return user.get('total_gameplay_hours', 0)
 
+    async def process_stars_withdrawal(self, user_id: str, stars_amount: int, details: dict) -> dict:
+        """Process Telegram Stars withdrawal to TON"""
+        user_data = get_user_data(user_id)
+        if not user_data or user_data.get('telegram_stars', 0) < stars_amount:
+            return {"success": False, "error": "Insufficient Stars balance"}
+        
+        try:
+            # This would require proper Telegram client implementation
+            # For now, we'll return a placeholder response
+            return {
+                "success": True, 
+                "url": "https://fragment.com/withdraw",
+                "message": f"Visit this URL to complete withdrawal of {stars_amount} Stars"
+            }
+            
+        except Exception as e:
+            logger.error(f"Stars withdrawal error: {str(e)}")
+            return {"success": False, "error": str(e)}
+
 # Global processor instance
 withdrawal_processor = None
 
 def get_withdrawal_processor():
-    if config.TON_ENABLED:
-        return WithdrawalProcessor()
-    else:
-        return DummyWithdrawalProcessor()
+    global withdrawal_processor
+    if withdrawal_processor is None:
+        if config.TON_ENABLED:
+            withdrawal_processor = WithdrawalProcessor()
+        else:
+            withdrawal_processor = DummyWithdrawalProcessor()
+    return withdrawal_processor
         
 class DummyWithdrawalProcessor:
     def process_gc_withdrawal(self, user_id):

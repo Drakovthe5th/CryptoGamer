@@ -1,6 +1,8 @@
 from functools import wraps, lru_cache
 from flask import request, jsonify
+from src.telegram.config_manager import config_manager
 import re
+from config import Config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -157,3 +159,99 @@ def validate_user_data(user_data: dict) -> bool:
 def cached_validate_init_data(init_data: str) -> bool:
     """Cached version of init data validation for performance"""
     return validate_telegram_init_data(init_data)
+
+
+def validate_caption_length(caption, user_data=None):
+    """Validate caption length against user's limits"""
+    if user_data is None:
+        max_length = 1024  # Default
+    else:
+        limits = config_manager.get_user_limits(user_data)
+        max_length = limits.get('caption_length_limit', 1024)
+    
+    return len(caption) <= max_length
+
+def validate_upload_size(file_size, user_data=None):
+    """Validate file size against user's limits"""
+    if user_data is None:
+        max_parts = 4000  # Default
+    else:
+        limits = config_manager.get_user_limits(user_data)
+        max_parts = limits.get('upload_max_fileparts', 4000)
+    
+    max_size = max_parts * 524288  # Convert parts to bytes
+    return file_size <= max_size
+
+def validate_bio_length(bio, user_data=None):
+    """Validate bio length against user's limits"""
+    if user_data is None:
+        max_length = 70  # Default
+    else:
+        limits = config_manager.get_user_limits(user_data)
+        max_length = limits.get('about_length_limit', 70)
+    
+    return len(bio) <= max_length
+
+# Add these validation functions to validators.py
+
+def validate_stars_payment_data(payment_data: dict) -> bool:
+    """Validate Telegram Stars payment data structure"""
+    required_fields = ['init_data', 'query_id', 'credentials']
+    if not all(field in payment_data for field in required_fields):
+        return False
+    
+    # Validate init data format
+    if not validate_telegram_init_data(payment_data['init_data']):
+        return False
+    
+    # Validate query ID is a positive integer
+    try:
+        query_id = int(payment_data['query_id'])
+        if query_id <= 0:
+            return False
+    except (ValueError, TypeError):
+        return False
+    
+    return True
+
+def validate_purchase_request(user_id: int, product_id: str, amount: int) -> bool:
+    """Validate purchase request parameters"""
+    from config import config
+    
+    # Validate product exists
+    if product_id not in config.IN_GAME_ITEMS:
+        return False
+    
+    # Validate amount matches product price
+    product = config.IN_GAME_ITEMS[product_id]
+    if amount != product.get('price_stars', 0):
+        return False
+    
+    # Validate user exists and is not restricted
+    user_data = db.get_user_data(user_id)
+    if not user_data or security.is_abnormal_activity(user_id):
+        return False
+    
+    return True
+
+def validate_currency(currency: str) -> bool:
+    """Validate currency codes"""
+    valid_currencies = {'XTR', 'TON', 'USD'}
+    return currency in valid_currencies
+
+def validate_stars_amount(amount):
+    """Validate Stars amount for transactions"""
+    try:
+        stars = int(amount)
+        if stars <= 0:
+            return False, "Amount must be positive"
+        if stars > Config.MAX_STARS_TRANSACTION:
+            return False, f"Amount exceeds maximum of {Config.MAX_STARS_TRANSACTION} Stars"
+        return True, stars
+    except ValueError:
+        return False, "Invalid amount format"
+
+def can_use_stars(user_data, required_stars):
+    """Check if user can use the specified amount of Stars"""
+    available_stars = user_data.get('telegram_stars', 0)
+    return available_stars >= required_stars, available_stars

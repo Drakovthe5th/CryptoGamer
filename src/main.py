@@ -14,11 +14,14 @@ from src.integrations.ton import (
     get_wallet_status,
     validate_ton_address
 )
+from src.telegram.stars import start_stars_service
 from src.features.quests import start_quest_scheduler
 from src.features.otc_desk import start_otc_scheduler
 from src.integrations.withdrawal import start_withdrawal_processor
 from src.telegram.setup import setup_handlers
 from src.utils.maintenance import start_monitoring 
+from src.telegram.config_manager import config_manager
+from src.integrations.telegram import telegram_client
 from config import config
 import atexit
 
@@ -102,6 +105,14 @@ async def validate_ton_config():
         # Validate wallet address
         if config.TON_HOT_WALLET and not validate_ton_address(config.TON_HOT_WALLET):
             raise ValueError("Invalid TON hot wallet address")
+        
+async def initialize_telegram_config():
+    """Initialize Telegram configuration on startup"""
+    try:
+        await config_manager.get_client_config(force_refresh=True)
+        logger.info("Telegram client configuration initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize Telegram config: {str(e)}")
 
 def validate_production_config():
     """Comprehensive production configuration validation"""
@@ -207,6 +218,13 @@ async def production_initialization():
     except Exception as e:
         logger.error(f"⚠️ Background services partially failed: {str(e)}")
 
+    # Phase 5: Stars service
+    try:
+        await start_stars_service()
+        logger.info("✅ Telegram Stars service initialized")
+    except Exception as e:
+        logger.error(f"⚠️ Stars service initialization failed: {str(e)}")
+    
     return True
 
 def shutdown_app():
@@ -271,6 +289,7 @@ async def main_async():
     """Asynchronous main entry point with production monitoring"""
     # Register shutdown handler
     atexit.register(shutdown_app)
+    initialize_telegram_config()
     
     # Start bot as asynchronous task
     bot_task = asyncio.create_task(run_bot())

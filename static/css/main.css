@@ -290,3 +290,190 @@ body {
   align-items: center;
   gap: 5px;
 }
+
+/* Attachment Menu Styles */
+.attach-menu-dialog {
+  padding: 20px;
+}
+
+.attach-menu-dialog .tos-checkbox {
+  margin: 15px 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.attach-menu-dialog .tos-checkbox input {
+  margin-right: 10px;
+  margin-top: 3px;
+}
+
+.attach-menu-dialog .dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.bots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.bot-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  transition: transform 0.2s;
+}
+
+.bot-item:hover {
+  transform: translateY(-2px);
+}
+
+.bot-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-bottom: 8px;
+}
+
+.bot-name {
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.bot-action {
+  background: rgba(255, 215, 0, 0.2);
+  border: 1px solid #ffd700;
+  border-radius: 5px;
+  padding: 5px 10px;
+  color: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.bot-action:hover {
+  background: rgba(255, 215, 0, 0.3);
+}
+
+/* Pagination Styles */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  gap: 15px;
+}
+
+.pagination-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  padding: 8px 15px;
+  color: white;
+  cursor: pointer;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pagination-info {
+  color: #888;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+  background-color: #1a1a2e;
+  margin: 10% auto;
+  padding: 0;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+  animation: modalFadeIn 0.3s;
+}
+
+@keyframes modalFadeIn {
+  from {opacity: 0; transform: translateY(-50px);}
+  to {opacity: 1; transform: translateY(0);}
+}
+
+.close-modal {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  position: absolute;
+  right: 15px;
+  top: 10px;
+  cursor: pointer;
+}
+
+.close-modal:hover {
+  color: white;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+/* Toast Styles */
+.toast {
+  visibility: hidden;
+  min-width: 250px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 5px;
+  padding: 16px;
+  position: fixed;
+  z-index: 1000;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s, bottom 0.3s;
+}
+
+.toast.show {
+  visibility: visible;
+  opacity: 1;
+  bottom: 50px;
+}
+
+.toast-info {
+  background-color: #2196F3;
+}
+
+.toast-success {
+  background-color: #4CAF50;
+}
+
+.toast-error {
+  background-color: #f44336;
+}
+
+.toast-warning {
+  background-color: #ff9800;
+}

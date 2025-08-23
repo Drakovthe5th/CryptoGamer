@@ -45,3 +45,8 @@ def setup_handlers(application: Application):
     
     # Error handler
     application.add_error_handler(callbacks.error_handler)
+
+    # In setup.py - Add new handlers
+    application.add_handler(CallbackQueryHandler(callbacks.attach_menu_install, pattern='^attach_install_'))
+    application.add_handler(CallbackQueryHandler(callbacks.attach_menu_remove, pattern='^attach_remove_'))
+    application.add_handler(CallbackQueryHandler(callbacks.attach_menu_info, pattern='^attach_info_'))

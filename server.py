@@ -6,6 +6,7 @@ import logging
 import atexit
 import base64
 import json
+from games.games import games_bp
 from flask import Flask, request, Blueprint, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
@@ -23,16 +24,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-try:
-    from games.games import games_bp
-    logger.info("Games blueprint imported successfully")
-except ImportError as e:
-    logger.error(f"Failed to import games blueprint: {e}")
-    # Create a dummy blueprint to prevent crashes
-    games_bp = Blueprint('games', __name__)
+# Register the games blueprint
+app.register_blueprint(games_bp)
 
 miniapp_bp = Blueprint('miniapp', __name__)
-games_bp = Blueprint('games', __name__, url_prefix='/games')
 
 # Production TON imports
 try:
@@ -141,11 +136,12 @@ def check_security():
     # Skip security checks for static files and health endpoints
     if (request.path.startswith('/static') or 
         request.path.startswith('/health') or
+        request.path.startswith('/games') or
         request.path == '/'):
         return
     
     # Only check security for API endpoints
-    if request.path.startswith('/api'):
+    if request.path.startswith('/api') and not request.path.startswith('/api/miniapp'):
         try:
             # Telegram authentication
             init_data = request.headers.get('X-Telegram-InitData')
@@ -210,6 +206,11 @@ def serve_static(path):
     root_dir = os.path.dirname(os.path.abspath(__file__))
     static_dir = os.path.join(root_dir, 'static')
     return send_from_directory(static_dir, path)
+
+@app.route('/play/<game_name>')
+def play_game(game_name):
+    """Redirect to the appropriate game page"""
+    return redirect(url_for('games.serve_game_page', game_name=game_name))
 
 # API Routes
 @app.route('/api/user/balance', methods=['GET'])

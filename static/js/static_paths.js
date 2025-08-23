@@ -21,7 +21,7 @@ window.StaticPaths = {
         favicon: '/static/favicon.ico'
     },
     
-    // Game assets (from /games/static/ via /game-assets/ route)
+    // Game assets (from games/game-assets/ via /game-assets/ route)
     games: {
         base: '/game-assets/',
         html: '/games/',

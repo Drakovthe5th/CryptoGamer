@@ -482,6 +482,35 @@ def get_user_rank(user_id: int):
             return rank
     return -1
 
+
+def update_user_data(user_id: int, update_data: dict, upsert: bool = False) -> bool:
+    """
+    Update user data with flexible fields
+    
+    Args:
+        user_id: Telegram user ID
+        update_data: Dictionary of fields to update
+        upsert: Whether to create the user if not exists
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Add timestamp for last activity if not explicitly set
+        if "last_active" not in update_data:
+            update_data["last_active"] = SERVER_TIMESTAMP
+        
+        result = db.users.update_one(
+            {"user_id": user_id},
+            {"$set": update_data},
+            upsert=upsert
+        )
+        
+        return result.modified_count > 0 or result.upserted_id is not None
+    except Exception as e:
+        logger.error(f"Error updating user data: {str(e)}")
+        return False
+
 def check_db_connection():
     try:
         db.command('ping')
