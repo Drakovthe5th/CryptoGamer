@@ -78,9 +78,6 @@ app = Flask(__name__, template_folder='templates')
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Register the games blueprint
-app.register_blueprint(games_bp)
-
 miniapp_bp = Blueprint('miniapp', __name__)
 
 # Register games blueprint
