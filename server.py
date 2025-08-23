@@ -6,7 +6,6 @@ import logging
 import atexit
 import base64
 import json
-from games.games import games_bp
 from flask import Flask, request, Blueprint, jsonify, render_template, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room
@@ -73,15 +72,18 @@ from config import config
 from src.database.mongo import initialize_mongodb
 from src.database.mongo import get_user_data, save_user_data, update_balance, track_ad_reward
 
+# Import blueprints
+from games.games import games_bp
+from miniapp import miniapp_bp
+
 # Create Flask app
 app = Flask(__name__, template_folder='templates')
 CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-miniapp_bp = Blueprint('miniapp', __name__)
-
-# Register games blueprint
+# Register blueprints
 app.register_blueprint(games_bp, url_prefix='/games')
+app.register_blueprint(miniapp_bp, url_prefix='/miniapp')
 
 # Celery configuration
 celery = Celery(
@@ -133,7 +135,8 @@ def check_security():
     # Skip security checks for static files and health endpoints
     if (request.path.startswith('/static') or 
         request.path.startswith('/health') or
-        request.path.startswith('/games') or
+        request.path.startswith('/games') or  # Games have their own security
+        request.path.startswith('/miniapp') or  # Miniapp has its own security
         request.path == '/'):
         return
     
@@ -204,11 +207,6 @@ def serve_static(path):
     static_dir = os.path.join(root_dir, 'static')
     return send_from_directory(static_dir, path)
 
-@app.route('/play/<game_name>')
-def play_game(game_name):
-    """Redirect to the appropriate game page"""
-    return redirect(url_for('games.serve_game_page', game_name=game_name))
-
 # API Routes
 @app.route('/api/user/balance', methods=['GET'])
 def get_user_balance():
@@ -256,115 +254,6 @@ def get_user_data_api():
     except Exception as e:
         logger.error(f"Get user data error: {str(e)}")
         return jsonify({'error': 'Failed to fetch user data'}), 500
-
-# Quests API
-@app.route('/api/quests/claim_bonus', methods=['POST'])
-def claim_daily_bonus_route():
-    """Claim daily bonus with security checks"""
-    try:
-        user_id = get_user_id(request)
-        if not user_id:
-            return jsonify({'error': 'User ID missing'}), 400
-        
-        # Check for suspicious activity
-        if is_abnormal_activity(user_id):
-            return jsonify({
-                'success': False,
-                'error': 'Account restricted due to suspicious activity'
-            }), 403
-        
-        success, new_balance = claim_daily_bonus(user_id)
-        
-        return jsonify({
-            'success': success,
-            'new_balance': new_balance,
-            'message': 'Daily bonus claimed successfully!' if success else 'Bonus already claimed today'
-        })
-        
-    except Exception as e:
-        logger.error(f"Claim bonus error: {str(e)}")
-        return jsonify({
-            'success': False, 
-            'error': 'Failed to claim bonus'
-        }), 500
-
-@app.route('/api/quests/record_click', methods=['POST'])
-def record_click_route():
-    """Record user click with anti-cheat measures"""
-    try:
-        user_id = get_user_id(request)
-        if not user_id:
-            return jsonify({'error': 'User ID missing'}), 400
-        
-        # Check for suspicious activity
-        if is_abnormal_activity(user_id):
-            return jsonify({
-                'success': False,
-                'error': 'Account restricted due to suspicious activity'
-            }), 403
-        
-        clicks, balance = record_click(user_id)
-        
-        return jsonify({
-            'success': True,
-            'clicks': clicks,
-            'balance': balance
-        })
-        
-    except Exception as e:
-        logger.error(f"Record click error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Failed to record click'
-        }), 500
-
-# Ads API
-@app.route('/api/ads/reward', methods=['POST'])
-def ad_reward_route():
-    """Process ad reward with validation"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'Invalid request data'}), 400
-            
-        user_id = data.get('user_id')
-        ad_id = data.get('ad_id')
-        
-        if not user_id or not ad_id:
-            return jsonify({'error': 'User ID and Ad ID required'}), 400
-        
-        # Security check
-        if is_abnormal_activity(user_id):
-            return jsonify({
-                'success': False,
-                'error': 'Account restricted due to suspicious activity'
-            }), 403
-        
-        # Calculate reward with bonuses
-        now = datetime.datetime.now()
-        is_weekend = now.weekday() in [5, 6]  # Saturday, Sunday
-        base_reward = config.REWARDS['ad_view']
-        
-        if is_weekend:
-            base_reward *= config.WEEKEND_BOOST_MULTIPLIER
-        
-        # Update balance and track reward
-        new_balance = update_balance(user_id, base_reward)
-        track_ad_reward(user_id, base_reward, ad_id, is_weekend)
-        
-        return jsonify({
-            'success': True,
-            'reward': base_reward,
-            'new_balance': new_balance,
-            'weekend_boost': is_weekend
-        })
-        
-    except Exception as e:
-        logger.error(f"Ad reward error: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Failed to process ad reward'
-        }), 500
 
 # Security API
 @app.route('/api/security/check', methods=['GET'])
@@ -535,16 +424,6 @@ def debug_info():
         
     except Exception as e:
         return jsonify({"error": "Debug info unavailable"}), 500
-    
-# Dummy ad endpoint
-@app.route('/api/ads/slot/<slot_name>', methods=['GET'])
-def get_ad_slot(slot_name):
-    """Return dummy ad data"""
-    return jsonify({
-        'url': 'https://example.com',
-        'image': 'https://via.placeholder.com/300x250?text=Ad+Placeholder',
-        'reward': 0.001
-    })
 
 # Staking data endpoint
 @app.route('/api/staking/data', methods=['GET'])
@@ -609,12 +488,29 @@ def forbidden(error):
 def health_check():
     """Health check endpoint"""
     try:
+        # Check database connection
+        from src.database.mongo import db
+        db_status = "connected" if db.is_connected() else "disconnected"
+        
+        # Check TON wallet status
+        ton_status = "disabled"
+        if config.TON_ENABLED:
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                status = loop.run_until_complete(get_wallet_status())
+                ton_status = "healthy" if status.get('healthy') else "unhealthy"
+            except:
+                ton_status = "error"
+        
         return jsonify({
             'status': 'healthy',
             'service': 'CryptoGameMiner',
             'version': '1.0.0',
             'timestamp': datetime.datetime.utcnow().isoformat(),
-            'features': {
+            'components': {
+                'database': db_status,
+                'ton_wallet': ton_status,
                 'games': config.FEATURE_GAMES,
                 'ads': config.FEATURE_ADS,
                 'otc': config.FEATURE_OTC

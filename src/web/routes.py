@@ -5,7 +5,7 @@ from functools import wraps
 from urllib.parse import parse_qs, unquote
 from functools import lru_cache
 import asyncio
-from flask import request, jsonify, render_template, send_from_directory, json
+from flask import request, jsonify, render_template, send_from_directory, json, send_file
 from src.database.mongo import update_game_coins, record_reset, connect_wallet, update_balance
 from src.database.mongo import get_games_list, record_game_start, get_user_data, create_user
 from src.database.mongo import db, check_db_connection, update_user_data
@@ -23,7 +23,6 @@ from src.utils.validators import validate_ton_address
 from src.telegram.config_manager import config_manager
 from src.features.monetization.gifts import gift_manager
 from src.features.monetization.giveaways import giveaway_manager
-
 from config import config
 import logging
 import os
@@ -55,14 +54,6 @@ def validate_json_input(schema):
     return decorator
 
 def configure_routes(app):
-    @app.route('/')
-    def home():
-        return "CryptoGameBot is running!"
-    
-    @app.route('/miniapp')
-    def miniapp_route():
-        return render_template('miniapp.html')
-    
     @app.route('/api/user/init', methods=['POST'])
     def init_user():
         """Initialize user - create if doesn't exist"""
@@ -148,132 +139,6 @@ def configure_routes(app):
         if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != config.TELEGRAM_TOKEN:
             return jsonify({"error": "Unauthorized"}), 401
         return jsonify(success=True), 200
-
-    @app.route('/api/ads/reward', methods=['POST'])
-    def ad_reward():
-        try:
-            init_data = request.headers.get('X-Telegram-Hash')
-            user_id = request.headers.get('X-Telegram-User-ID')
-            
-            if not validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
-                return jsonify({'error': 'Invalid Telegram hash'}), 401
-
-            now = datetime.now()
-            is_weekend = now.weekday() in [5, 6]
-            base_reward = config.AD_REWARD_AMOUNT
-            reward = base_reward * (config.WEEKEND_BOOST_MULTIPLIER if is_weekend else 1.0)
-            
-            new_balance = update_balance(int(user_id), reward)
-            track_ad_reward(int(user_id), reward, 'telegram_miniapp', is_weekend)
-            
-            return jsonify({
-                'success': True,
-                'reward': reward,
-                'new_balance': new_balance,
-                'weekend_boost': is_weekend
-            })
-        except Exception as e:
-            logger.error(f"Ad reward error: {str(e)}")
-            return jsonify({'error': str(e)}), 500
-        
-    @app.route('/api/quests/claim_bonus', methods=['POST'])
-    def claim_daily_bonus():
-        data = request.get_json()
-        user_id = data['user_id']
-        
-        # Check if bonus already claimed today
-        user_data = get_user_data(user_id)
-        last_claimed = user_data.get('last_bonus_claimed')
-        today = datetime.utcnow().date()
-        
-        if last_claimed and last_claimed.date() == today:
-            return jsonify({'error': 'Bonus already claimed today'}), 400
-        
-        # Award daily bonus (1000 GC)
-        bonus_amount = 1000
-        new_coins, actual_coins = update_game_coins(user_id, bonus_amount)
-        
-        if new_coins is not None:
-            # Update last claimed time
-            update_user_data(user_id, {
-                'last_bonus_claimed': datetime.utcnow(),
-                'daily_bonus_claimed': True
-            })
-            
-            return jsonify({
-                'success': True,
-                'bonus': actual_coins,
-                'new_balance': new_coins
-            })
-        else:
-            return jsonify({'error': 'Failed to claim bonus'}), 500
-        
-    @app.route('/api/quests/record_click', methods=['POST'])
-    def record_click():
-        try:
-            data = request.get_json()
-            user_id = int(data['user_id'])
-            user_data = get_user_data(user_id)
-            
-            # Reset clicks if new day
-            today = datetime.utcnow().date()
-            last_click_date = user_data.get('last_click_date')
-            clicks_today = user_data.get('clicks_today', 0)
-            
-            if not last_click_date or last_click_date.date() != today:
-                clicks_today = 0
-            
-            # Check daily limit
-            if clicks_today >= 100:
-                return jsonify({
-                    'success': False,
-                    'error': 'Daily click limit reached'
-                }), 400
-            
-            # Award click
-            click_reward = 0.0001
-            new_balance = update_balance(user_id, click_reward)
-            clicks_today += 1
-            
-            # Update user data
-            update_user_data(user_id, {
-                'clicks_today': clicks_today,
-                'last_click_date': datetime.utcnow(),
-                'balance': new_balance
-            })
-            
-            return jsonify({
-                'clicks': clicks_today,
-                'balance': new_balance
-            })
-            
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-        
-    @app.route('/api/ads/slot/<slot_id>', methods=['GET'])
-    def serve_ad(slot_id):
-        try:
-            # Get ad from ad manager
-            ad = ad_manager.get_available_ad(slot_id)
-            
-            if not ad:
-                return jsonify({
-                    'html': f'''
-                        <div style="width:100%;height:100%;background:#333;border-radius:8px;
-                                    display:flex;align-items:center;justify-content:center;">
-                            <div style="text-align:center;color:#666;">
-                                <div style="font-size:2rem;margin-bottom:8px;">📺</div>
-                                <div>No ad available</div>
-                            </div>
-                        </div>
-                    ''',
-                    'type': 'html'
-                })
-            
-            return jsonify(ad)
-            
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
 
     @app.route('/api/wallet/connect', methods=['POST'])
     def connect_wallet_endpoint():
@@ -431,40 +296,6 @@ def configure_routes(app):
         except Exception as e:
             return jsonify({"error": str(e)}), 500
         
-    @app.route('/api/sabotage/join', methods=['POST'])
-    def join_sabotage_game():
-        """Join a Crypto Crew game using Crew Credits"""
-        try:
-            user_id = get_user_id(request)
-            if not user_id:
-                return jsonify({"error": "Unauthorized"}), 401
-                
-            data = request.get_json()
-            game_id = data.get('game_id')
-            
-            if not game_id:
-                return jsonify({"error": "Game ID required"}), 400
-                
-            # Check user has enough Crew Credits
-            user_data = get_user_data(user_id)
-            if user_data.get('crew_credits', 0) < 100:  # Entry fee
-                return jsonify({"error": "Not enough Crew Credits"}), 400
-                
-            # Join the game (this will deduct credits)
-            from games.sabotage_game import sabotage_manager
-            success, message = sabotage_manager.join_game(game_id, user_id)
-            
-            if not success:
-                return jsonify({"error": message}), 400
-                
-            return jsonify({
-                "success": True,
-                "message": message,
-                "new_credits_balance": user_data.get('crew_credits', 0) - 100
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    
     @app.route('/api/withdraw/gc', methods=['POST'])
     def withdraw_game_coins():
         data = request.get_json()

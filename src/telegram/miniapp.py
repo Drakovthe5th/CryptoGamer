@@ -134,29 +134,6 @@ def get_user_secure_data():
     
     return jsonify({'token': token})
 
-@miniapp_bp.route('/quests/claim_bonus', methods=['POST'])
-@validators.validate_json_input({'user_id': {'type': 'int', 'required': True}})
-def claim_daily():
-    data = request.get_json()
-    user_id = data['user_id']
-    
-    # Security check for abnormal activity
-    if security.is_abnormal_activity(user_id):
-        return jsonify({
-            'restricted': True,
-            'error': 'Account restricted due to suspicious activity'
-        }), 403
-    
-    try:
-        success, new_balance = quests.claim_daily_bonus(user_id)
-        return jsonify({
-            'success': success,
-            'new_balance': new_balance
-        })
-    except Exception as e:
-        logger.error(f"Bonus claim error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-    
 @miniapp_bp.route('/quests/verify', methods=['POST'])
 @validate_json_input({
     'quest_type': {'type': 'str', 'required': True},
@@ -191,64 +168,6 @@ def verify_quest():
             
     except Exception as e:
         logger.error(f"Quest verification error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@miniapp_bp.route('/quests/record_click', methods=['POST'])
-@validators.validate_json_input({'user_id': {'type': 'int', 'required': True}})
-def record_click():
-    data = request.get_json()
-    user_id = data['user_id']
-    
-    # Security check for abnormal activity
-    if security.is_abnormal_activity(user_id):
-        return jsonify({
-            'restricted': True,
-            'error': 'Account restricted due to suspicious activity'
-        }), 403
-    
-    try:
-        clicks, balance = quests.record_click(user_id)
-        return jsonify({
-            'clicks': clicks,
-            'balance': balance
-        })
-    except Exception as e:
-        logger.error(f"Click error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@miniapp_bp.route('/ads/reward', methods=['POST'])
-@validators.validate_json_input({
-    'user_id': {'type': 'int', 'required': True},
-    'ad_id': {'type': 'str', 'required': True}
-})
-def ad_reward():
-    data = request.get_json()
-    user_id = data['user_id']
-    ad_id = data['ad_id']
-    
-    # Security check for abnormal activity
-    if security.is_abnormal_activity(user_id):
-        return jsonify({
-            'restricted': True,
-            'error': 'Account restricted due to suspicious activity'
-        }), 403
-    
-    try:
-        # Weekend bonus calculation
-        now = datetime.now()
-        is_weekend = now.weekday() in [5, 6]  # 5=Saturday, 6=Sunday
-        base_reward = config.REWARDS['ad_view']
-        reward = base_reward * (config.WEEKEND_BOOST_MULTIPLIER if is_weekend else 1.0)
-        
-        new_balance = db.update_balance(user_id, reward)
-        return jsonify({
-            'success': True,
-            'reward': reward,
-            'new_balance': new_balance,
-            'weekend_boost': is_weekend
-        })
-    except Exception as e:
-        logger.error(f"Ad reward error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @miniapp_bp.route('/security/check', methods=['GET'])

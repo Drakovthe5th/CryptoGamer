@@ -38,7 +38,7 @@ GAME_REGISTRY = {
     "trex": TRexRunner(),
     "edge-surf": EdgeSurf(),
     "edge_surf": EdgeSurf(),  # Alias for consistency
-    "sabotage": SabotageGame.create_for_registry()
+    "sabotage": SabotageGame()
 }
 
 # Configure retry settings for all games
@@ -46,15 +46,16 @@ for game in GAME_REGISTRY.values():
     game.max_retry_attempts = 3
     game.retry_delay = 1.5
 
+
 # Game directory mapping for consistent naming
 GAME_DIR_MAP = {
     'clicker': 'clicker',
     'spin': 'spin', 
     'trivia': 'trivia',
     'trex': 'trex',
-    'edge-surf': 'edge-surf',
-    'edge_surf': 'edge-surf',
-    'sabotage': 'sabotage'  # Add sabotage mapping
+    'edge-surf': 'egde-surf',  # Note the directory name spelling
+    'edge_surf': 'egde-surf',  # Map both names to the same directory
+    'sabotage': 'sabotage'
 }
 
 # Security middleware for game routes
@@ -153,23 +154,38 @@ def serve_game_page(game_name):
 
 @games_bp.route('/assets/<game_name>/<path:filename>')
 def serve_game_assets(game_name, filename):
-    """Serve game assets (CSS, JS) from the game directory"""
-    actual_dir = GAME_DIR_MAP.get(game_name.lower(), game_name.lower())
-    game_assets_path = os.path.join(base_dir, 'games', 'static', actual_dir)
-    
-    @backoff.on_exception(backoff.expo,
-                          FileNotFoundError,
-                          max_tries=3,
-                          jitter=backoff.full_jitter,
-                          max_time=10)
-    def try_serve_assets():
-        return send_from_directory(game_assets_path, filename)
-    
+    """Serve game assets with comprehensive error handling"""
     try:
-        return try_serve_assets()
-    except FileNotFoundError:
+        actual_dir = GAME_DIR_MAP.get(game_name.lower(), game_name.lower())
+        game_assets_path = os.path.join(base_dir, 'games', 'static', actual_dir)
+        
+        # Check if file exists in assets subdirectory first
+        assets_path = os.path.join(game_assets_path, 'assets', filename)
+        if os.path.exists(assets_path):
+            return send_from_directory(os.path.join(game_assets_path, 'assets'), filename)
+        
+        # Check if file exists in resources subdirectory (for edge-surf)
+        resources_path = os.path.join(game_assets_path, 'resources', filename)
+        if os.path.exists(resources_path):
+            return send_from_directory(os.path.join(game_assets_path, 'resources'), filename)
+        
+        # Check if file exists in root directory
+        if os.path.exists(os.path.join(game_assets_path, filename)):
+            return send_from_directory(game_assets_path, filename)
+        
+        # Special handling for edge-surf nested resources
+        if game_name.lower() in ['edge_surf', 'edge-surf']:
+            # Handle nested resource paths for edge-surf
+            nested_path = os.path.join(game_assets_path, filename)
+            if os.path.exists(nested_path):
+                return send_from_directory(game_assets_path, filename)
+        
         logger.error(f"Game asset not found: {game_name}/{filename}")
         return jsonify({"error": "Asset not found"}), 404
+        
+    except Exception as e:
+        logger.error(f"Error serving game asset {filename} for {game_name}: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @games_bp.route('/images/<game_name>/<path:filename>')
 def serve_game_images(game_name, filename):
@@ -256,7 +272,7 @@ def game_action(game_name):
 
 @games_bp.route('/api/<game_name>/complete', methods=['POST'])
 def complete_game(game_name):
-    """Complete game session and award rewards"""
+    """Complete game session and award rewards with daily limit checks"""
     game = GAME_REGISTRY.get(game_name.lower())
     if not game:
         return jsonify({'error': 'Game not found'}), 404
@@ -273,16 +289,32 @@ def complete_game(game_name):
     def try_complete():
         data = request.get_json()
         score = data.get('score', 0)
+        duration = data.get('duration', 0)
         session_id = data.get('session_id')
         
-        # Calculate reward based on game-specific logic
-        reward_data = game.calculate_reward(user_id, score)
-        gc_reward = reward_data.get('reward', 0)
+        # Check daily limit first
+        daily_earnings = game._get_daily_earnings(user_id)
+        if daily_earnings >= MAX_DAILY_GAME_COINS:
+            return {
+                'status': 'daily_limit_reached',
+                'daily_earnings': daily_earnings,
+                'max_daily': MAX_DAILY_GAME_COINS
+            }
+        
+        # Calculate reward using the game's method
+        reward_data = game._calculate_reward(user_id, score, duration)
+        if reward_data.get('status') == 'daily_limit_reached':
+            return reward_data
+        
+        gc_reward = reward_data.get('gc_reward', 0)
         
         # Update user's game coins
         success, new_balance = update_game_coins(user_id, gc_reward)
         if not success:
             raise Exception("Failed to update game coins")
+        
+        # Update daily earnings
+        game._update_daily_earnings(user_id, gc_reward)
         
         # Save game session record
         if session_id:
@@ -291,11 +323,16 @@ def complete_game(game_name):
         return {
             'gc_reward': gc_reward,
             'new_balance': new_balance,
-            'score': score
+            'score': score,
+            'ton_reward': reward_data.get('ton_reward', 0),
+            'daily_earnings': daily_earnings + gc_reward
         }
     
     try:
         result = try_complete()
+        if result.get('status') == 'daily_limit_reached':
+            return jsonify(result), 400
+            
         logger.info(f"Game {game_name} completed by user {user_id}, reward: {result['gc_reward']} GC")
         return jsonify({'success': True, **result})
     except Exception as e:
@@ -446,6 +483,68 @@ def games_health():
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+    
+@games_bp.route('/api/<game_name>/config', methods=['GET'])
+def get_game_config(game_name):
+    """Get configuration for a specific game"""
+    game = GAME_REGISTRY.get(game_name.lower())
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    try:
+        user_id = get_user_id(request)
+        user_data = get_user_data(user_id) if user_id else {}
+        
+        config_data = {
+            'name': game.name,
+            'min_reward': game.min_reward,
+            'max_reward': game.max_reward,
+            'instructions': game._get_instructions(),
+            'high_score': game._get_user_high_score(user_id) if user_id else 0,
+            'user_boosters': user_data.get('active_boosters', []) if user_data else [],
+            'gc_multiplier': game.gc_multiplier
+        }
+        
+        return jsonify({'success': True, 'config': config_data})
+    except Exception as e:
+        logger.error(f"Error getting game config for {game_name}: {str(e)}")
+        return jsonify({'error': 'Failed to get game configuration'}), 500
+    
+@games_bp.route('/health')
+def games_health():
+    """Health check for games service"""
+    try:
+        game_status = {}
+        for game_id, game in GAME_REGISTRY.items():
+            try:
+                # Test game initialization
+                test_data = game.get_init_data("healthcheck")
+                game_status[game_id] = {
+                    'name': game.name,
+                    'status': 'healthy',
+                    'test_data': bool(test_data),
+                    'active_players': len([p for p in game.players.values() if p.get("active")])
+                }
+            except Exception as e:
+                game_status[game_id] = {
+                    'name': game.name,
+                    'status': 'unhealthy',
+                    'error': str(e)
+                }
+        
+        return jsonify({
+            'status': 'healthy' if all(g['status'] == 'healthy' for g in game_status.values()) else 'degraded',
+            'games': game_status,
+            'total_games': len(GAME_REGISTRY),
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Games health check failed: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
             'error': str(e),

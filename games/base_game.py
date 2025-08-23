@@ -393,4 +393,31 @@ class BaseGame:
             if 'multiplier' in item.get('effect', {}):
                 self.gc_multiplier = max(self.gc_multiplier, item['effect']['multiplier'])
 
-    
+    # Add these methods to your BaseGame class in base_game.py
+    def _get_daily_earnings(self, user_id: str) -> int:
+        """Get user's daily earnings from database"""
+        try:
+            user_data = get_user_data(user_id)
+            if user_data:
+                # Get today's date as string for key
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                return user_data.get('daily_earnings', {}).get(today, 0)
+            return 0
+        except Exception as e:
+            logger.error(f"Error getting daily earnings: {e}")
+            return 0
+
+    def _update_daily_earnings(self, user_id: str, amount: int) -> None:
+        """Update user's daily earnings in database"""
+        try:
+            user_data = get_user_data(user_id)
+            if user_data:
+                today = datetime.utcnow().strftime("%Y-%m-%d")
+                daily_earnings = user_data.get('daily_earnings', {})
+                current = daily_earnings.get(today, 0)
+                daily_earnings[today] = current + amount
+                
+                # Update user data
+                update_user_data(user_id, {'daily_earnings': daily_earnings})
+        except Exception as e:
+            logger.error(f"Error updating daily earnings: {e}")
