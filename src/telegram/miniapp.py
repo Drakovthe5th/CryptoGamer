@@ -14,7 +14,6 @@ from src.database.mongo import get_user_data
 from src.features.monetization.ad_revenue import AdRevenue
 from config import config
 from src.telegram.config_manager import config_manager
-from src.telegram.web_events import handle_web_event, handle_payment_submit
 import logging
 from src.telegram.stars import (
     create_stars_invoice as create_stars_invoice_service,
@@ -471,6 +470,8 @@ def process_stars_payment():
 
 def process_telegram_stars_payment(user_id, credentials, title, amount):
     """Process Telegram Stars payment"""
+    from src.telegram.web_events import handle_payment_submit
+    return handle_payment_submit(user_id, credentials, title, amount)
     # Implement actual Telegram Stars payment processing
     logger.info(f"Processing Stars payment for user {user_id}: {title} - {amount} Stars")
     return True  # Placeholder - implement actual payment processing

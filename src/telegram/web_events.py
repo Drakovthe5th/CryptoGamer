@@ -1,13 +1,12 @@
 import logging
 from flask import request, jsonify
-from src.telegram.miniapp import miniapp_bp
 from src.database import mongo as db
 from src.utils import security
 from src.security import anti_cheat
+from src.database.mongo import get_user_data, update_user_data
 
 logger = logging.getLogger(__name__)
 
-@miniapp_bp.route('/web-events/handle', methods=['POST'])
 def handle_web_event():
     """Handle incoming web events from Telegram Mini Apps"""
     try:
@@ -110,6 +109,10 @@ def handle_haptic_feedback(data):
     logger.info(f"Haptic feedback requested by {user_id}: {feedback_type}")
     return jsonify({'success': True})
 
+def handle_payment_submit_request(data):
+    """Handle payment submission request (for use by miniapp)"""
+    return handle_payment_submit(data)
+
 # Helper functions
 def generate_share_link(user_id, score, game):
     """Generate a share link for scores"""
@@ -134,4 +137,19 @@ def process_telegram_stars_payment(user_id, credentials, title):
     # Implement actual Telegram Stars payment processing
     # This would typically verify with Telegram's payment API
     logger.info(f"Processing Stars payment for user {user_id}: {title}")
-    return True  # Placeholder - implement actual payment processing
+    
+    # In a real implementation, you would call Telegram's payment API
+    # For now, we'll simulate a successful payment
+    try:
+        # Update user balance
+        user_data = get_user_data(user_id)
+        if user_data:
+            # Get payment amount from credentials (simplified)
+            amount = 100  # Default amount for demo
+            new_balance = user_data.get('balance', 0) + amount
+            update_user_data(user_id, {'balance': new_balance})
+            
+        return True
+    except Exception as e:
+        logger.error(f"Payment processing error: {str(e)}")
+        return False
