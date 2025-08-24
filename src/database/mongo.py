@@ -165,6 +165,10 @@ def connect_wallet(user_id: int, wallet_address: str):
     )
     return True
 
+def get_database():
+    """Return the database connection object"""
+    return client[config.MONGO_DB_NAME] 
+
 def get_user_balance(user_id: int) -> float:
     user = db.users.find_one({"user_id": user_id})
     return user.get("balance", 0.0) if user else 0.0
