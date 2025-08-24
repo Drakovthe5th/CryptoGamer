@@ -457,7 +457,7 @@ def game_completed():
         'new_balance': new_balance
     })
 
-@games_bp.route('/health')
+@games_bp.route('/health', methods=['GET'], endpoint='games_health_check')
 def games_health():
     """Health check for games service"""
     try:
