@@ -2,6 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.database.mongo import get_user_data, update_user_data
+from datetime import datetime
 from src.integrations.telegram import telegram_client
 from config import Config
 

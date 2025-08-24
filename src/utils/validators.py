@@ -1,7 +1,10 @@
+import hashlib, hmac
 from functools import wraps, lru_cache
 from flask import request, jsonify
+from datetime import datetime, timedelta
+from src.database.mongo import db
 import re
-from config import Config
+from config import config
 import logging
 
 logger = logging.getLogger(__name__)
@@ -250,8 +253,8 @@ def validate_stars_amount(amount):
         stars = int(amount)
         if stars <= 0:
             return False, "Amount must be positive"
-        if stars > Config.MAX_STARS_TRANSACTION:
-            return False, f"Amount exceeds maximum of {Config.MAX_STARS_TRANSACTION} Stars"
+        if stars > config.MAX_STARS_TRANSACTION:
+            return False, f"Amount exceeds maximum of {config.MAX_STARS_TRANSACTION} Stars"
         return True, stars
     except ValueError:
         return False, "Invalid amount format"

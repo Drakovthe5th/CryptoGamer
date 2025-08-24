@@ -2,7 +2,7 @@ import hashlib
 import hmac
 from urllib.parse import parse_qsl
 from flask import current_app
-from . import Telegram
+from src.integrations.telegram import Telegram
 from src.database.mongo import get_user_data, create_user
 from config import config
 

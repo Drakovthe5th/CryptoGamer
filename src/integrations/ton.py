@@ -12,6 +12,7 @@ from pytoniq_core.crypto.keys import mnemonic_to_private_key
 import backoff
 from config import config
 from src.database.mongo import db, update_game_coins, client
+from src.utils.validators import validate_ton_address
 from src.utils.security import secure_mask
 
 logger = logging.getLogger(__name__)

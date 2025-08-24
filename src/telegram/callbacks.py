@@ -19,10 +19,18 @@ from src.telegram.stars import (
     process_stars_purchase, 
     complete_stars_purchase,
     handle_stars_balance,
+    handle_giveaway_creation,
+    handle_premium_giveaway,
+    handle_stars_giveaway,
+    handle_gift_sending,
+    handle_gift_view,
+    handle_gift_save,
+    handle_gift_convert
 )
 from src.telegram.subscriptions import handle_stars_subscriptions
+from games.sabotage_game import SabotageGame
 import random
-import datetime
+from datetime import datetime, timedelta
 import logging
 
 logger = logging.getLogger(__name__)

@@ -21,6 +21,7 @@ from .trivia_quiz import TriviaQuiz
 from .trex_runner import TRexRunner
 from .edge_surf import EdgeSurf
 from .sabotage_game import SabotageGame
+from config import MAX_DAILY_GAME_COINS
 
 logger = logging.getLogger(__name__)
 
