@@ -1,13 +1,120 @@
 import logging
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.database.mongo import get_user_data, update_user_data
 from datetime import datetime
 from src.integrations.telegram import telegram_client
 from config import Config
+from telethon import functions, types
 
 logger = logging.getLogger(__name__)
 
+# Add the missing functions that miniapp.py expects
+async def create_stars_invoice(user_id, product_id, title, description, price_stars, photo_url=None):
+    """Create a Telegram Stars invoice for a product"""
+    try:
+        async with telegram_client:
+            # Create invoice purpose
+            purpose = types.InputStorePaymentStars(
+                amount=price_stars,
+                currency="XTR",
+                description=description
+            )
+            
+            # Create invoice
+            invoice = types.InputInvoiceStars(
+                purpose=purpose,
+                title=title,
+                description=description,
+                photo=types.InputWebDocument(
+                    url=photo_url or "https://example.com/default-product.png",
+                    size=0,
+                    mime_type="image/png",
+                    attributes=[]
+                ) if photo_url else None
+            )
+            
+            # Get payment form
+            payment_form = await telegram_client(
+                functions.payments.GetPaymentFormRequest(
+                    invoice=invoice,
+                    theme_params=types.DataJSON(
+                        data=json.dumps({
+                            "bg_color": "#000000",
+                            "text_color": "#ffffff",
+                            "hint_color": "#aaaaaa",
+                            "link_color": "#ffcc00",
+                            "button_color": "#ffcc00",
+                            "button_text_color": "#000000"
+                        })
+                    )
+                )
+            )
+            
+            return {
+                'form_id': payment_form.form_id,
+                'invoice': invoice.to_dict(),
+                'url': f"https://t.me/invoice/{payment_form.form_id}",
+                'title': title,
+                'description': description,
+                'price': price_stars,
+                'currency': 'XTR'
+            }
+            
+    except Exception as e:
+        logger.error(f"Error creating Stars invoice: {str(e)}")
+        return None
+
+async def process_stars_payment(user_id, form_id, invoice_data):
+    """Process a Telegram Stars payment"""
+    try:
+        async with telegram_client:
+            # Send payment form
+            result = await telegram_client(
+                functions.payments.SendStarsFormRequest(
+                    form_id=form_id,
+                    invoice=types.InputInvoiceStars.from_dict(invoice_data)
+                )
+            )
+            
+            if hasattr(result, 'updates') and result.updates:
+                # Payment successful
+                return {
+                    'success': True,
+                    'stars_amount': invoice_data.get('amount', 0),
+                    'transaction_id': f"stars_tx_{datetime.now().timestamp()}"
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Payment failed'
+                }
+                
+    except Exception as e:
+        logger.error(f"Error processing Stars payment: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+async def get_stars_balance(user_id):
+    """Get user's Telegram Stars balance"""
+    try:
+        async with telegram_client:
+            status = await telegram_client(
+                functions.payments.GetStarsStatusRequest(
+                    peer=types.InputPeerSelf()
+                )
+            )
+            
+            return status.balance.stars if hasattr(status, 'balance') else 0
+            
+    except Exception as e:
+        logger.error(f"Error getting Stars balance: {str(e)}")
+        return 0
+
+# Existing functions from the original file
 async def handle_stars_purchase(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle Telegram Stars purchase"""
     query = update.callback_query
@@ -135,13 +242,13 @@ async def complete_stars_purchase(update: Update, context: ContextTypes.DEFAULT_
             
             # Update user data with new Crew Credits
             update_user_data(user_id, {
-                'crew_credits': current_credits + form_data['credits'],
+                'crew_credits': current_credits + form_data['stars'] * 10,  # 10 credits per star
                 'telegram_stars': user_data.get('telegram_stars', 0) + form_data['stars'],
                 '$push': {
                     'stars_transactions': {
                         'type': 'purchase',
                         'stars': form_data['stars'],
-                        'credits': form_data['credits'],
+                        'credits': form_data['stars'] * 10,
                         'date': datetime.now(),
                         'status': 'completed'
                     }
@@ -150,7 +257,7 @@ async def complete_stars_purchase(update: Update, context: ContextTypes.DEFAULT_
             
             await query.edit_message_text(
                 f"✅ Successfully purchased {form_data['stars']} Telegram Stars!\n\n"
-                f"Added {form_data['credits']} Crew Credits to your account.\n\n"
+                f"Added {form_data['stars'] * 10} Crew Credits to your account.\n\n"
                 "Use these credits to play Crypto Crew: Sabotage."
             )
             
@@ -182,7 +289,7 @@ async def handle_stars_balance(update: Update, context: ContextTypes.DEFAULT_TYP
         
         await query.edit_message_text(
             f"💰 Your Balances\n\n"
-            f"• Telegram Stars: {status.balance.stars} Stars\n"
+            f"• Telegram Stars: {status.balance.stars if hasattr(status, 'balance') else 0} Stars\n"
             f"• Crew Credits: {crew_credits} credits (for Crypto Crew only)\n"
             f"• Game Coins: {game_coins} GC (for all other games)\n\n"
             "Use Crew Credits to play Crypto Crew: Sabotage:",
