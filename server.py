@@ -488,9 +488,10 @@ def forbidden(error):
 def health_check():
     """Health check endpoint"""
     try:
-        # Check database connection
-        from src.database.mongo import db
-        db_status = "connected" if db.is_connected() else "disconnected"
+        # Check database connection - fixed import
+        from src.database.mongo import get_database
+        db = get_database()
+        db_status = "connected" if db is not None else "disconnected"
         
         # Check TON wallet status
         ton_status = "disabled"
