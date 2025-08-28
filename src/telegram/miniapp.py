@@ -15,6 +15,8 @@ from src.features.monetization.ad_revenue import AdRevenue
 from config import config
 from src.telegram.config_manager import config_manager
 import logging
+from fastapi import APIRouter
+from games.chess_masters import router as chess_router
 from src.telegram.stars import (
     create_stars_invoice as create_stars_invoice_service,
     process_stars_payment as process_stars_payment_service,

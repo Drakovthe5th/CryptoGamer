@@ -39,7 +39,9 @@ GAME_REGISTRY = {
     "trex": TRexRunner(),
     "edge-surf": EdgeSurf(),
     "edge_surf": EdgeSurf(),  # Alias for consistency
-    "sabotage": SabotageGame.create_for_registry()  # Use factory method
+    "sabotage": SabotageGame.create_for_registry(),  # Use factory method
+    "chess": ChessMasters(),  # Add ChessMasters
+    "chess_masters": ChessMasters()  # Alias
 }
 
 # Configure retry settings for all games
@@ -56,7 +58,9 @@ GAME_DIR_MAP = {
     'trex': 'trex',
     'edge-surf': 'egde-surf',  # Note the directory name spelling
     'edge_surf': 'egde-surf',  # Map both names to the same directory
-    'sabotage': 'sabotage'
+    'sabotage': 'sabotage',
+    'chess': 'chess',  # Add chess directory mapping
+    'chess_masters': 'chess'  # Map to same directory
 }
 
 # Security middleware for game routes
@@ -339,6 +343,106 @@ def complete_game(game_name):
     except Exception as e:
         logger.error(f"Error completing game {game_name}: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+# Add chess-specific API endpoints
+@games_bp.route('/api/chess/create_challenge', methods=['POST'])
+def create_chess_challenge():
+    """Create a new chess challenge"""
+    game = GAME_REGISTRY.get('chess')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'User authentication required'}), 401
+    
+    data = request.get_json()
+    stake = data.get('stake')
+    color = data.get('color', 'random')
+    
+    result = game.create_challenge(user_id, stake, color)
+    if 'error' in result:
+        return jsonify(result), 400
+        
+    return jsonify({'success': True, **result})
+
+@games_bp.route('/api/chess/accept_challenge', methods=['POST'])
+def accept_chess_challenge():
+    """Accept a chess challenge"""
+    game = GAME_REGISTRY.get('chess')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'User authentication required'}), 401
+    
+    data = request.get_json()
+    challenge_id = data.get('challenge_id')
+    
+    result = game.accept_challenge(user_id, challenge_id)
+    if 'error' in result:
+        return jsonify(result), 400
+        
+    return jsonify({'success': True, **result})
+
+@games_bp.route('/api/chess/move', methods=['POST'])
+def make_chess_move():
+    """Make a move in a chess game"""
+    game = GAME_REGISTRY.get('chess')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'User authentication required'}), 401
+    
+    data = request.get_json()
+    game_id = data.get('game_id')
+    move = data.get('move')
+    
+    result = game.make_move(user_id, game_id, move)
+    if 'error' in result:
+        return jsonify(result), 400
+        
+    return jsonify({'success': True, **result})
+
+@games_bp.route('/api/chess/bet', methods=['POST'])
+def place_chess_bet():
+    """Place a bet on a chess game"""
+    game = GAME_REGISTRY.get('chess')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'User authentication required'}), 401
+    
+    data = request.get_json()
+    game_id = data.get('game_id')
+    amount = data.get('amount')
+    on_player = data.get('on_player')
+    
+    result = game.place_bet(user_id, game_id, amount, on_player)
+    if 'error' in result:
+        return jsonify(result), 400
+        
+    return jsonify({'success': True, **result})
+
+@games_bp.route('/api/chess/state', methods=['GET'])
+def get_chess_state():
+    """Get the current state of a chess game"""
+    game = GAME_REGISTRY.get('chess')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    game_id = request.args.get('game_id')
+    
+    result = game.get_game_state(game_id)
+    if 'error' in result:
+        return jsonify(result), 400
+        
+    return jsonify({'success': True, **result})
 
 @games_bp.route('/api/reset', methods=['POST'])
 def reset_game():

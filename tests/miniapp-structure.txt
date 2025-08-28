@@ -1,0 +1,31 @@
+#*#= Folder Structure =#*#
+
+CryptoGamer --> src
+            --> other folders
+            --> static ---> css -> admin.css
+                                -> main.css
+                                -> miniapp.css
+
+                        --->js -> ads.js
+                               -> chart.js
+                               -> chart.css
+                               -> main.js
+                               -> staking.js
+                               -> websocket.js
+
+
+            --> templates ---> admin -> ad_campaign.html
+                                     -> dashboard.html
+
+                          ---> user -> quests.html
+                                    -> withdrawal.html
+
+                        -> miniapp.html
+                        -> 500.html
+                        -> 404.html
+
+
+#*# Indicators;
+            --> = Folder
+            ---> = Mini-folders
+            -> File

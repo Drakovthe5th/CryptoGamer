@@ -72,7 +72,10 @@ def create_user(user_id, username):
             'participation_score': 0,
             'game_stats': {},
             'welcome_bonus_received': True,
-            "payment_methods": {}
+            "payment_methods": {},
+            "stars_transactions": [],  # Array to track Stars transactions
+            "crew_credits": 0,        # Crew Credits balance
+            "telegram_stars": 0      # Telegram Stars balance (if needed)
         })
 
 def get_user_data(user_id: int):
@@ -521,4 +524,40 @@ def check_db_connection():
         db.command('ping')
         return True
     except PyMongoError:
+        return False
+    
+# Add function to get transaction history
+def get_stars_transactions(user_id: int, limit=50) -> list:
+    """Get user's Stars transaction history"""
+    user = db.users.find_one({"user_id": user_id})
+    if user and 'stars_transactions' in user:
+        # Return most recent transactions first
+        transactions = user['stars_transactions']
+        transactions.sort(key=lambda x: x.get('timestamp', datetime.min), reverse=True)
+        return transactions[:limit]
+    return []
+
+# Add function to update transaction status
+def update_stars_transaction(user_id: int, transaction_id: str, status: str, details: dict = None):
+    """Update a Stars transaction status"""
+    try:
+        result = db.users.update_one(
+            {"user_id": user_id, "stars_transactions.transaction_id": transaction_id},
+            {
+                "$set": {
+                    "stars_transactions.$.status": status,
+                    "stars_transactions.$.updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if details:
+            db.users.update_one(
+                {"user_id": user_id, "stars_transactions.transaction_id": transaction_id},
+                {"$set": {"stars_transactions.$.details": details}}
+            )
+            
+        return result.modified_count > 0
+    except Exception as e:
+        logger.error(f"Error updating Stars transaction: {str(e)}")
         return False

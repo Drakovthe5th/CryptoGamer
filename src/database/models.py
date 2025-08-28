@@ -1,6 +1,9 @@
 import os
 from pymongo import MongoClient
 from datetime import datetime
+from typing import Optional
+from datetime import datetime
+import enum
 from src.utils.pagination import Paginator
 
 class User:
@@ -182,6 +185,49 @@ class SabotagePlayer:
         self.gold_mined = data.get('gold_mined', 0)
         self.gold_stolen = data.get('gold_stolen', 0)
         self.joined_at = data.get('joined_at', datetime.now())
+
+# In your User model, add these fields:
+stars_balance: int = 0  # Telegram Stars balance
+active_chess_games: List[str] = []  # List of active chess game IDs
+chess_stats: Dict[str, Any] = {  # Chess statistics
+    "wins": 0,
+    "losses": 0,
+    "draws": 0,
+    "total_stakes": 0,
+    "total_winnings": 0
+}
+
+class ChessGameStatus(enum.Enum):
+    WAITING = "waiting"
+    IN_PROGRESS = "in_progress"
+    WHITE_WON = "white_won"
+    BLACK_WON = "black_won"
+    DRAW = "draw"
+
+class ChessGame(BaseModel):
+    """Model for an active chess game between two players."""
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    white_player_id: int  # Telegram user ID
+    black_player_id: int  # Telegram user ID
+    white_stake: int = 0  # Amount of Stars staked
+    black_stake: int = 0  # Amount of Stars staked
+    fen: str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"  # Standard starting position
+    status: ChessGameStatus = ChessGameStatus.WAITING
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
+        use_enum_values = True
+
+class ChessMove(BaseModel):
+    """Model for storing individual moves (for history/analysis)."""
+    game_id: PyObjectId
+    move: str  # UCI format (e.g., "e2e4")
+    fen_after: str  # Board state after move
+    player_id: int  # Who made the move
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 def get_leaderboard(self, limit=10, offset=0, max_id=None, min_id=None, hash_val=None):
     """Get paginated leaderboard with hash validation"""

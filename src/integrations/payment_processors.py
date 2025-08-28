@@ -1,5 +1,6 @@
 import stripe
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 from config import Config
 import logging
 
@@ -137,3 +138,54 @@ def create_stars_invoice_for_giveaway(user_id: int, giveaway_type: str, details:
         'prices': [{'label': 'Giveaway', 'amount': details['stars_amount'] if giveaway_type == 'stars' else details['premium_cost']}],
         'provider_token': Config.TELEGRAM_STARS_PROVIDER_TOKEN
     }
+
+def validate_stars_purchase(user_id, stars_amount):
+    """Validate if user can make this purchase"""
+    if stars_amount <= 0:
+        return False, "Invalid amount"
+    if stars_amount > Config.MAX_STARS_PURCHASE:
+        return False, f"Amount exceeds maximum of {Config.MAX_STARS_PURCHASE} Stars"
+    return True, ""
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
+def create_stars_invoice(user_id: int, product_id: str, title: str, description: str, 
+                        price_stars: int, photo_url: str = None):
+    """
+    Create a Telegram Stars invoice for digital goods with retry logic
+    """
+    # Validate input
+    is_valid, message = validate_stars_purchase(user_id, price_stars)
+    if not is_valid:
+        raise ValueError(message)
+    
+    payload = {
+        'user_id': user_id,
+        'product_id': product_id,
+        'title': title,
+        'description': description,
+        'payload': f"purchase:{user_id}:{product_id}".encode(),
+        'currency': 'XTR',
+        'prices': [{'label': title, 'amount': price_stars}],
+        'provider_token': Config.TELEGRAM_STARS_PROVIDER_TOKEN,
+        'start_parameter': f'buy_{product_id}',
+        'need_email': False,
+        'need_phone_number': False,
+        'need_shipping_address': False,
+        'is_flexible': False,
+        'send_email_to_provider': False,
+        'send_phone_number_to_provider': False
+    }
+    
+    if photo_url:
+        payload['photo_url'] = photo_url
+        
+    return payload
+
+# Add webhook verification function
+def verify_stars_webhook_signature(payload, signature):
+    """
+    Verify Telegram Stars webhook signature
+    """
+    # Implementation depends on Telegram's webhook signing method
+    # This is a placeholder - check Telegram documentation for actual implementation
+    return True  # In production, implement proper signature verification

@@ -15,6 +15,7 @@ from src.database.mongo import initialize_mongodb
 from src.utils.security import get_user_id, validate_telegram_hash, is_abnormal_activity
 from src.features.quests import claim_daily_bonus, record_click
 from src.features.ads import ad_manager
+from src.telegram.stars import handle_stars_webhook
 
 # Configure logging
 logging.basicConfig(
@@ -482,6 +483,17 @@ def forbidden(error):
         'error': 'Access forbidden',
         'message': 'You do not have permission to access this resource'
     }), 403
+
+@app.route('/api/stars/webhook', methods=['POST'])
+async def stars_webhook():
+    """Handle Telegram Stars payment webhooks"""
+    try:
+        payload = request.get_json()
+        result = await handle_stars_webhook(payload)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Stars webhook error: {str(e)}")
+        return jsonify({"status": "error", "message": "Internal server error"}), 500
 
 # Health check endpoint
 @app.route('/health')

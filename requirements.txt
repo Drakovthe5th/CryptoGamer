@@ -26,6 +26,7 @@ grpcio-status==1.62.3
 setuptools==80.9.0
 paypalrestsdk==1.13.1
 telethon==1.28.5
+python-chess==1.10.0
 
 # TON Blockchain Core Dependencies
 pytoniq==0.1.41

@@ -41,6 +41,11 @@ class Config:
         # Telegram Payments Configuration
         self.TELEGRAM_STARS_PROVIDER_TOKEN = os.getenv('TELEGRAM_STARS_PROVIDER_TOKEN')
         self.TELEGRAM_PAYMENTS_TEST_MODE = os.getenv('TELEGRAM_PAYMENTS_TEST_MODE', 'false').lower() == 'true'
+        
+        # Telegram Stars Configuration
+        TELEGRAM_STARS_TEST_MODE = False  # Set to True for testing
+        STARS_TO_CREDITS_RATE = 10  # 1 Star = 10 Crew Credits
+        MAX_STARS_PURCHASE = 50000  # Maximum Stars per transaction
 
         # MongoDB configuration - FIXED
         raw_uri = os.getenv('MONGO_URI')

@@ -1,6 +1,7 @@
 # src/features/monetization/premium.py
 from src.integrations.payment_processors import process_stars_purchase
 from src.database.mongo import db
+from src.telegram.stars import validate_stars_purchase, record_stars_transaction
 
 MEMBERSHIP_TIERS = {
     'BASIC': {
@@ -28,15 +29,21 @@ MEMBERSHIP_TIERS = {
     }
 }
 
-def upgrade_user_with_stars(user_id: int, tier: str, credentials: dict) -> dict:
+async def upgrade_user_with_stars(user_id: int, tier: str, credentials: dict) -> dict:
     """
-    Upgrade user membership using Telegram Stars
+    Upgrade user membership using Telegram Stars with enhanced validation
     """
     if tier not in MEMBERSHIP_TIERS:
         return {'success': False, 'error': 'Invalid tier'}
     
-    # Process Stars payment
     tier_info = MEMBERSHIP_TIERS[tier]
+    
+    # Validate Stars amount
+    is_valid, message = validate_stars_purchase(user_id, tier_info['price_stars'])
+    if not is_valid:
+        return {'success': False, 'error': message}
+    
+    # Process Stars payment
     if tier_info['price_stars'] > 0:
         result = process_stars_purchase(
             user_id=user_id,
@@ -45,6 +52,14 @@ def upgrade_user_with_stars(user_id: int, tier: str, credentials: dict) -> dict:
         )
         
         if not result['success']:
+            # Record failed transaction
+            await record_stars_transaction(
+                user_id, 
+                'membership_upgrade', 
+                tier_info['price_stars'], 
+                'failed',
+                {'tier': tier, 'error': result.get('error', 'unknown')}
+            )
             return result
     
     # Update user membership
@@ -52,6 +67,15 @@ def upgrade_user_with_stars(user_id: int, tier: str, credentials: dict) -> dict:
     success = update_user_membership(user_id, tier)
     
     if success:
+        # Record successful transaction
+        await record_stars_transaction(
+            user_id, 
+            'membership_upgrade', 
+            tier_info['price_stars'], 
+            'completed',
+            {'tier': tier}
+        )
+        
         return {
             'success': True,
             'tier': tier,
@@ -59,6 +83,15 @@ def upgrade_user_with_stars(user_id: int, tier: str, credentials: dict) -> dict:
             'stars_spent': tier_info['price_stars']
         }
     else:
+        # Record failed transaction
+        await record_stars_transaction(
+            user_id, 
+            'membership_upgrade', 
+            tier_info['price_stars'], 
+            'failed',
+            {'tier': tier, 'error': 'Database update failed'}
+        )
+        
         return {'success': False, 'error': 'Failed to update membership'}
 
 def get_membership_options(user_id: int) -> dict:
