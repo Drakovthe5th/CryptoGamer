@@ -383,6 +383,35 @@ function handleOTCSwap() {
   });
 }
 
+// Function to launch a game
+async function launchGame(gameId) {
+  try {
+    const response = await fetch(`/api/games/launch/${gameId}?user_id=${telegramUser ? telegramUser.id : 'demo'}`, {
+      headers: {
+        'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+      }
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success) {
+        // For HTML5 games, redirect to their page
+        if (gameId === 'pool' || gameId === 'chess' || gameId === 'poker') {
+          window.location.href = `/static/${gameId}/index.html`;
+        } else {
+          window.location.href = result.url;
+        }
+      } else {
+        console.error('Failed to launch game:', result.error);
+      }
+    } else {
+      console.error('Failed to launch game');
+    }
+  } catch (error) {
+    console.error('Error launching game:', error);
+  }
+}
+
 // Render games in grid
 function renderGames(games) {
   gamesContainer.innerHTML = '';
