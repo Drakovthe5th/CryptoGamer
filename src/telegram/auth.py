@@ -74,5 +74,28 @@ def get_or_create_user(user_id, username=None):
     
     return user
 
+# In PokerGame class
+def validate_action(self, user_id: str, table_id: str, action: str, amount: int = 0) -> bool:
+    """Validate if a poker action is legitimate"""
+    table = self.tables.get(table_id)
+    if not table:
+        return False
+        
+    # Check if it's the player's turn
+    current_player = table.players[table.current_player_idx]
+    if current_player["user_id"] != user_id:
+        return False
+        
+    # Action-specific validation
+    if action == "raise":
+        min_raise = table.min_raise
+        current_bet = current_player["current_bet"]
+        if amount < min_raise or amount > current_player["balance"]:
+            return False
+            
+    # Add more validation logic for other actions
+    
+    return True
+
 # Maintain backward compatibility with existing imports
 validate_init_data = validate_telegram_data

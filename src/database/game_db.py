@@ -42,5 +42,23 @@ def save_game_session(user_id: int, game_id: str, score: int,
         }
     )
 
+def save_pool_game_result(game_data):
+    """Save pool game result to database"""
+    try:
+        game_result = PoolGameResult(
+            game_id=game_data['game_id'],
+            players=game_data['players'],
+            bet_amount=game_data['bet_amount'],
+            pot=game_data['pot'],
+            winner=game_data['winner'],
+            start_time=game_data['start_time'],
+            end_time=game_data['end_time']
+        )
+        game_result.save()
+        return True
+    except Exception as e:
+        logger.error(f"Error saving game result: {e}")
+        return False
+
 def get_games_list():
     return list(db.games.find({"enabled": True}))

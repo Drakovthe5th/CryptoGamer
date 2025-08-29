@@ -256,3 +256,49 @@ def get_leaderboard(self, limit=10, offset=0, max_id=None, min_id=None, hash_val
         'hash': calculated_hash,
         'has_more': len(results) == limit
     }
+
+class PoolGameResult:
+    def __init__(self, data):
+        self.game_id = data.get('game_id')
+        self.players = data.get('players', [])
+        self.bets = data.get('bets', {})
+        self.pot = data.get('pot', 0)
+        self.winner = data.get('winner')
+        self.start_time = data.get('start_time')
+        self.end_time = data.get('end_time')
+
+    def to_dict(self):
+        return {
+            'game_id': self.game_id,
+            'players': self.players,
+            'bets': self.bets,
+            'pot': self.pot,
+            'winner': self.winner,
+            'start_time': self.start_time,
+            'end_time': self.end_time
+        }
+    
+class PokerTable:
+    def __init__(self, data):
+        self.table_id = data.get('table_id')
+        self.small_blind = data.get('small_blind', 10)
+        self.big_blind = data.get('big_blind', 20)
+        self.max_players = data.get('max_players', 6)
+        self.players = data.get('players', [])
+        self.community_cards = data.get('community_cards', [])
+        self.pot = data.get('pot', 0)
+        self.state = data.get('state', 'waiting')
+        self.current_player = data.get('current_player', 0)
+        self.dealer_position = data.get('dealer_position', 0)
+        self.created_at = data.get('created_at', datetime.now())
+
+class PokerHandResult:
+    def __init__(self, data):
+        self.hand_id = data.get('hand_id')
+        self.table_id = data.get('table_id')
+        self.players = data.get('players', [])
+        self.community_cards = data.get('community_cards', [])
+        self.pot = data.get('pot', 0)
+        self.winners = data.get('winners', [])
+        self.winning_hand = data.get('winning_hand')
+        self.timestamp = data.get('timestamp', datetime.now())

@@ -53,3 +53,21 @@ def process_purchase(user_id: int, item_id: str):
     except Exception as e:
         logger.error(f"Purchase failed: {str(e)}")
         return False, "Transaction error"
+    
+# In PokerGame class
+def process_buy_in(self, user_id: str, amount: int) -> bool:
+    """Process poker table buy-in"""
+    user_balance = self._get_user_balance(user_id)
+    
+    if amount > user_balance:
+        return False
+        
+    # Deduct from user's balance
+    success, new_balance = update_game_coins(user_id, -amount)
+    return success
+
+def process_cash_out(self, user_id: str, amount: int) -> bool:
+    """Process poker table cash-out"""
+    # Add to user's balance
+    success, new_balance = update_game_coins(user_id, amount)
+    return success

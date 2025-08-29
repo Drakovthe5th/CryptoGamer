@@ -561,3 +561,45 @@ def update_stars_transaction(user_id: int, transaction_id: str, status: str, det
     except Exception as e:
         logger.error(f"Error updating Stars transaction: {str(e)}")
         return False
+    
+def save_poker_hand_result(hand_data):
+    """Save poker hand result to database"""
+    try:
+        db.poker_hands.insert_one({
+            "hand_id": hand_data['hand_id'],
+            "table_id": hand_data['table_id'],
+            "players": hand_data['players'],
+            "community_cards": hand_data['community_cards'],
+            "pot": hand_data['pot'],
+            "winners": hand_data['winners'],
+            "winning_hand": hand_data['winning_hand'],
+            "timestamp": datetime.utcnow()
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Error saving poker hand: {e}")
+        return False
+
+def get_poker_stats(user_id: int):
+    """Get user's poker statistics"""
+    user = db.users.find_one({"user_id": user_id})
+    if user and 'poker_stats' in user:
+        return user['poker_stats']
+    return {
+        "hands_played": 0,
+        "hands_won": 0,
+        "total_profit": 0,
+        "biggest_pot_won": 0
+    }
+
+def update_poker_stats(user_id: int, stats_update: dict):
+    """Update user's poker statistics"""
+    try:
+        db.users.update_one(
+            {"user_id": user_id},
+            {"$inc": stats_update}
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Error updating poker stats: {e}")
+        return False

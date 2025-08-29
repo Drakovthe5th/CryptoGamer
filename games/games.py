@@ -21,6 +21,8 @@ from .trivia_quiz import TriviaQuiz
 from .trex_runner import TRexRunner
 from .edge_surf import EdgeSurf
 from .sabotage_game import SabotageGame
+from .pool_game import PoolGame
+from .poker_game import PokerGame
 from config import MAX_DAILY_GAME_COINS
 
 logger = logging.getLogger(__name__)
@@ -41,7 +43,9 @@ GAME_REGISTRY = {
     "edge_surf": EdgeSurf(),  # Alias for consistency
     "sabotage": SabotageGame.create_for_registry(),  # Use factory method
     "chess": ChessMasters(),  # Add ChessMasters
-    "chess_masters": ChessMasters()  # Alias
+    "chess_masters": ChessMasters(),  # Alias
+    "pool": PoolGame(),  # Add PoolGame
+    "poker": PokerGame()  # Add Poker game
 }
 
 # Configure retry settings for all games
@@ -60,7 +64,9 @@ GAME_DIR_MAP = {
     'edge_surf': 'egde-surf',  # Map both names to the same directory
     'sabotage': 'sabotage',
     'chess': 'chess',  # Add chess directory mapping
-    'chess_masters': 'chess'  # Map to same directory
+    'chess_masters': 'chess',  # Map to same directory
+    'pool': 'pool',  # Add pool directory mapping
+    'poker': 'poker'  # Add poker directory mapping
 }
 
 # Security middleware for game routes
@@ -443,6 +449,80 @@ def get_chess_state():
         return jsonify(result), 400
         
     return jsonify({'success': True, **result})
+
+@games_bp.route('/api/poker/create_table', methods=['POST'])
+def create_poker_table():
+    """Create a new poker table"""
+    game = GAME_REGISTRY.get('poker')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'User authentication required'}), 401
+    
+    data = request.get_json()
+    small_blind = data.get('small_blind', game.small_blind)
+    big_blind = data.get('big_blind', game.big_blind)
+    
+    # Generate unique table ID
+    table_id = f"poker_{int(time.time())}_{user_id}"
+    
+    # Create new table
+    game.tables[table_id] = PokerTable(table_id, small_blind, big_blind)
+    
+    return jsonify({
+        'success': True, 
+        'table_id': table_id,
+        'message': 'Poker table created successfully'
+    })
+
+@games_bp.route('/api/poker/tables', methods=['GET'])
+def get_poker_tables():
+    """Get list of available poker tables"""
+    game = GAME_REGISTRY.get('poker')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+        
+    tables = game.get_available_tables()
+    return jsonify({'success': True, 'tables': tables})
+
+@games_bp.route('/api/poker/table/<table_id>', methods=['GET'])
+def get_poker_table_state(table_id):
+    """Get current state of a poker table"""
+    game = GAME_REGISTRY.get('poker')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+        
+    table_state = game.get_table_state(table_id)
+    if 'error' in table_state:
+        return jsonify(table_state), 404
+        
+    return jsonify({'success': True, 'table': table_state})
+
+@games_bp.route('/api/poker/action', methods=['POST'])
+def poker_action():
+    """Handle poker game action"""
+    game = GAME_REGISTRY.get('poker')
+    if not game:
+        return jsonify({'error': 'Game not found'}), 404
+    
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'User authentication required'}), 401
+    
+    data = request.get_json()
+    action = data.get('action')
+    table_id = data.get('table_id')
+    
+    if not action or not table_id:
+        return jsonify({'error': 'Action and table_id required'}), 400
+        
+    result = game.handle_action(user_id, action, data)
+    if 'error' in result:
+        return jsonify(result), 400
+        
+    return jsonify({'success': True, 'result': result})
 
 @games_bp.route('/api/reset', methods=['POST'])
 def reset_game():

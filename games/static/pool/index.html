@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoGamer - Pool</title>
+    <link rel="stylesheet" href="/static/pool/pool.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="pool-game">
+        <!-- Main Menu -->
+        <div id="main-menu">
+            <h1>Pool Game</h1>
+            <button id="create-game-btn" class="menu-btn">Create Game</button>
+            <button id="join-game-btn" class="menu-btn">Join Game</button>
+        </div>
+
+        <!-- Lobby -->
+        <div id="lobby" style="display: none;">
+            <div id="game-id-display">Game ID: </div>
+            <h2>Players</h2>
+            <ul id="players-list"></ul>
+            <div id="game-status">Waiting for players...</div>
+            <button id="start-game-btn" class="menu-btn">Start Game</button>
+            <button id="leave-game-btn" class="menu-btn">Leave Game</button>
+        </div>
+
+        <!-- Game Interface -->
+        <div id="game-interface" style="display: none;">
+            <div id="pool-table">
+                <div id="pool-balls">
+                    <div id="cue-ball" style="top: 75%; left: 50%;"></div>
+                    <!-- Other balls would be added dynamically -->
+                </div>
+                <div id="pool-cue" style="top: 75%; left: 50%;"></div>
+            </div>
+
+            <div id="power-meter">
+                <div id="power-level"></div>
+            </div>
+
+            <div id="turn-indicator">Your Turn!</div>
+
+            <div id="chat-container">
+                <div id="chat-messages"></div>
+                <div id="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="Type a message...">
+                    <button id="send-chat-btn">Send</button>
+                </div>
+            </div>
+
+            <button id="leave-game-btn" class="menu-btn" style="position: absolute; top: 20px; right: 20px;">Leave Game</button>
+        </div>
+
+        <!-- Betting Interface -->
+        <div id="betting-interface" style="display: none;">
+            <h2>Place Your Bet</h2>
+            <p>All players must bet the same amount</p>
+            <input type="number" id="bet-amount" placeholder="Stars amount" min="1">
+            <button id="place-bet-btn">Place Bet</button>
+            
+            <h3>Current Bets</h3>
+            <ul id="bets-list"></ul>
+            
+            <div id="pot-display">Total Pot: <span id="pot-amount">0</span> Stars</div>
+        </div>
+
+        <!-- Game Results -->
+        <div id="game-result"></div>
+
+        <!-- Join Game Dialog -->
+        <div id="join-game-dialog">
+            <h2>Join Game</h2>
+            <input type="text" id="game-id-input" placeholder="Enter Game ID">
+            <button id="join-game-submit">Join</button>
+            <button onclick="poolGame.hideJoinGameDialog()">Cancel</button>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message"></div>
+    </div>
+
+    <script src="/static/pool/pool.js"></script>
+</body>
+</html>
