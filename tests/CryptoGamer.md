@@ -51,8 +51,17 @@ CryptoGamer
 |                         |         |  --->trivia.css
 |                         |         |  --->trivia.js
 |                         |         |_____/assets
-                          |
-                          |____/crew --> index.html
+|                         |
+|                         |____/crew --> index.html
+|                         |
+|                         |____/pool --> index.html
+|                         |           --> pool.js
+|                         |           --> pool.css
+|                         |____/chess --> index.html
+|                         |           --> pool.css
+|                         |           -->pool.js
+|                         |____/poker --> index.html
+|                         | 
 |                         |
 |                         |--->index.html
 |                         |--->shop.html

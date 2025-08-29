@@ -49,15 +49,51 @@ def miniapp_security():
         return jsonify({'error': 'Invalid Telegram authentication'}), 401
 
 def get_user_id(request):
-    """Extract user ID from request"""
-    init_data = request.headers.get('X-Telegram-InitData', '')
-    params = dict(param.split('=') for param in init_data.split('&') if '=' in param)
-    user_str = params.get('user', '{}')
+    """Extract and validate user ID from Telegram WebApp init data"""
+    init_data = request.headers.get('X-Telegram-InitData')
+    
+    # Return early if no init data
+    if not init_data:
+        logger.warning("No Telegram init data found in headers")
+        return None
+    
     try:
-        import json
+        # Validate the init data hash first
+        if not validate_telegram_init_data(init_data):
+            logger.warning("Invalid Telegram init data hash")
+            return None
+        
+        # Parse the init data
+        parsed_data = parse_qs(init_data)
+        
+        # Extract user data
+        user_str = parsed_data.get('user', [None])[0]
+        if not user_str:
+            logger.warning("No user data found in init data")
+            return None
+        
+        # Parse user JSON
         user_data = json.loads(user_str)
-        return user_data.get('id')
-    except:
+        
+        # Extract and validate user ID
+        user_id = user_data.get('id')
+        if not user_id or not isinstance(user_id, int):
+            logger.warning(f"Invalid user ID format: {user_id}")
+            return None
+        
+        # Additional security checks
+        if not validate_user_data(user_data):
+            logger.warning(f"User data validation failed for user {user_id}")
+            return None
+        
+        logger.info(f"Successfully extracted user ID: {user_id}")
+        return user_id
+        
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as e:
+        logger.error(f"Error parsing Telegram init data: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error in get_user_id: {str(e)}")
         return None
 
 @miniapp_bp.route('/api/telegram/config', methods=['GET'])

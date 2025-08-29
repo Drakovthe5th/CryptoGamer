@@ -246,7 +246,6 @@ class BaseGame:
         return f"Play {self.name} and earn TON rewards!"
     
     def _calculate_reward(self, score: int, duration: float) -> float:
-        """Calculate reward based on score and duration using config rates"""
         try:
             game_rates = REWARD_RATES.get(self.name, {})
             
@@ -263,7 +262,7 @@ class BaseGame:
             
             # Add distance-based reward for trex runner
             if self.name == 'trex' and 'per_100_meters' in game_rates:
-                base_reward += (score / 100) * game_rates['per_100_meters']  # score is distance in meters
+                base_reward += (score / 100) * game_rates['per_100_meters']
             
             # Cap at maximum reward for this game
             max_reward_gc = MAX_GAME_REWARD.get(self.name, 100)
@@ -272,23 +271,6 @@ class BaseGame:
             # Convert to TON
             reward_ton = base_reward / TON_TO_GC_RATE
             
-            # Check daily limit
-            daily_earnings = self._get_daily_earnings(user_id)
-            if daily_earnings >= MAX_DAILY_GAME_COINS:
-                logger.info(f"User {user_id} reached daily GC limit")
-                return {
-                    "status": "daily_limit_reached",
-                    "score": player["score"],
-                    "daily_earnings": daily_earnings,
-                    "max_daily": MAX_DAILY_GAME_COINS
-                }
-            
-            # Then calculate reward as before
-            reward = self._calculate_reward(player["score"], duration)
-            gc_reward = int(reward * TON_TO_GC_RATE * self.gc_multiplier)
-
-            # Update daily earnings
-            self._update_daily_earnings(user_id, gc_reward)
             return round(reward_ton, 6)
             
         except Exception as e:

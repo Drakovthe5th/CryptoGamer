@@ -12,11 +12,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 REWARD_RATES = {
-'edge-surf': {'base': 30, 'per_second': 7},
-'trex-runner': {'base': 10, 'per_100_meters': 50},
-'clicker': {'base': 5, 'per_1000_points': 15},
-'trivia': {'base': 20, 'per_correct_answer': 50},
-'spin': {'base': 40}
+    'clicker': {'base': 10, 'per_1000_points': 2},
+    'spin': {'base': 5, 'per_minute': 1},
+    'trivia': {'base': 8, 'per_correct_answer': 3},
+    'trex': {'base': 12, 'per_100_meters': 4},
+    'edge_surf': {'base': 7, 'per_minute': 2},
+    'chess_masters': {'base': 20, 'per_victory': 15},
+    'pool': {'base': 15, 'per_victory': 10},
+    'poker': {'base': 25, 'per_victory': 20}
 }
 
 MAX_GAME_REWARD = 1.0

@@ -568,6 +568,7 @@
         </p>
         
         <div class="game-grid">
+          <!-- Existing games -->
           <div class="game-card" data-game-id="trivia">
             <div class="game-icon">❓</div>
             <div class="game-name">Crypto Trivia</div>
@@ -598,40 +599,67 @@
             <small style="color: #888;">Surf the web</small>
           </div>
           
-          <!-- Sabotage Game Card -->
+          <!-- Sabotage Game -->
           <div class="game-card" data-game="sabotage">
             <div class="game-icon">🕵️</div>
             <div class="game-info">
-                <h3>Crypto Crew: Sabotage</h3>
-                <p>Social deduction game - Find the saboteurs!</p>
-                <div class="game-stats">
-                    <span class="stat">👥 4-6 players</span>
-                    <span class="stat">⏱️ 15 min</span>
-                    <span class="stat">💰 Up to 8000 GC</span>
-                </div>
+              <h3>Crypto Crew: Sabotage</h3>
+              <p>Social deduction game - Find the saboteurs!</p>
+              <div class="game-stats">
+                <span class="stat">👥 4-6 players</span>
+                <span class="stat">⏱️ 15 min</span>
+                <span class="stat">💰 Up to 8000 GC</span>
+              </div>
             </div>
             <button class="play-btn" onclick="launchGame('sabotage')">Play</button>
           </div>
 
-          <div class="game-card" data-game="sabotage">
-            <div class="game-icon">♟️♟️</div>
+          <!-- Chess Game -->
+          <div class="game-card" data-game="chess">
+            <div class="game-icon">♟️</div>
             <div class="game-info">
-                <h3>ChessMasters</h3>
-                <p>How Good is Your Deductive Reasoning!</p>
-                <div class="game-stats">
-                    <span class="stat">👥 2 players</span>
-                    <span class="stat">⏱️ 20 min</span>
-                    <span class="stat">💰 Up to 8000 GC</span>
-                </div>
+              <h3>ChessMasters</h3>
+              <p>Strategic board game - Checkmate your opponent!</p>
+              <div class="game-stats">
+                <span class="stat">👥 2 players</span>
+                <span class="stat">⏱️ 20 min</span>
+                <span class="stat">💰 Up to 5000 GC</span>
+              </div>
             </div>
-            <button class="play-btn" onclick="launchGame('chessmasters')">Play</button>
+            <button class="play-btn" onclick="launchGame('chess')">Play</button>
           </div>
 
-          <div class="game-item" onclick="openGame('pool')">
-              <img src="/static/pool/assets/icon.png" alt="Pool Game">
-              <span>Pool</span>
+          <!-- Pool Game -->
+          <div class="game-card" data-game="pool">
+            <div class="game-icon">🎱</div>
+            <div class="game-info">
+              <h3>Pool Masters</h3>
+              <p>Classic billiards game - Sink the balls!</p>
+              <div class="game-stats">
+                <span class="stat">👥 2-4 players</span>
+                <span class="stat">⏱️ 10 min</span>
+                <span class="stat">💰 Up to 5000 GC</span>
+              </div>
+            </div>
+            <button class="play-btn" onclick="launchGame('pool')">Play</button>
+          </div>
+
+          <!-- Poker Game -->
+          <div class="game-card" data-game="poker">
+            <div class="game-icon">🃏</div>
+            <div class="game-info">
+              <h3>Poker Royale</h3>
+              <p>Texas Hold'em poker - Bluff your way to victory!</p>
+              <div class="game-stats">
+                <span class="stat">👥 2-8 players</span>
+                <span class="stat">⏱️ 15 min</span>
+                <span class="stat">💰 Up to 10000 GC</span>
+              </div>
+            </div>
+            <button class="play-btn" onclick="launchGame('poker')">Play</button>
           </div>
           
+          <!-- Premium Games -->
           <div class="game-card premium-feature" style="opacity: 0.6; pointer-events: none;">
             <div class="game-icon">🎲</div>
             <div class="game-name">Premium Games</div>

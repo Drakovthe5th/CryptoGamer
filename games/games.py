@@ -21,6 +21,7 @@ from .trivia_quiz import TriviaQuiz
 from .trex_runner import TRexRunner
 from .edge_surf import EdgeSurf
 from .sabotage_game import SabotageGame
+from .chess_masters import ChessMasters
 from .pool_game import PoolGame
 from .poker_game import PokerGame
 from config import MAX_DAILY_GAME_COINS
@@ -165,37 +166,19 @@ def serve_game_page(game_name):
 
 @games_bp.route('/assets/<game_name>/<path:filename>')
 def serve_game_assets(game_name, filename):
-    """Serve game assets with comprehensive error handling"""
     try:
         actual_dir = GAME_DIR_MAP.get(game_name.lower(), game_name.lower())
-        game_assets_path = os.path.join(base_dir, 'games', 'static', actual_dir)
+        game_path = os.path.join(base_dir, 'games', 'static', actual_dir)
         
-        # Check if file exists in assets subdirectory first
-        assets_path = os.path.join(game_assets_path, 'assets', filename)
-        if os.path.exists(assets_path):
-            return send_from_directory(os.path.join(game_assets_path, 'assets'), filename)
-        
-        # Check if file exists in resources subdirectory (for edge-surf)
-        resources_path = os.path.join(game_assets_path, 'resources', filename)
-        if os.path.exists(resources_path):
-            return send_from_directory(os.path.join(game_assets_path, 'resources'), filename)
-        
-        # Check if file exists in root directory
-        if os.path.exists(os.path.join(game_assets_path, filename)):
-            return send_from_directory(game_assets_path, filename)
-        
-        # Special handling for edge-surf nested resources
-        if game_name.lower() in ['edge_surf', 'edge-surf']:
-            # Handle nested resource paths for edge-surf
-            nested_path = os.path.join(game_assets_path, filename)
-            if os.path.exists(nested_path):
-                return send_from_directory(game_assets_path, filename)
-        
-        logger.error(f"Game asset not found: {game_name}/{filename}")
+        # Check common asset directories
+        for assets_dir in ['assets', 'resources', 'static', '']:
+            full_path = os.path.join(game_path, assets_dir, filename)
+            if os.path.exists(full_path):
+                return send_from_directory(os.path.join(game_path, assets_dir), filename)
+                
         return jsonify({"error": "Asset not found"}), 404
-        
     except Exception as e:
-        logger.error(f"Error serving game asset {filename} for {game_name}: {e}")
+        logger.error(f"Asset serving error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 @games_bp.route('/images/<game_name>/<path:filename>')
@@ -283,72 +266,29 @@ def game_action(game_name):
 
 @games_bp.route('/api/<game_name>/complete', methods=['POST'])
 def complete_game(game_name):
-    """Complete game session and award rewards with daily limit checks"""
-    game = GAME_REGISTRY.get(game_name.lower())
-    if not game:
-        return jsonify({'error': 'Game not found'}), 404
-    
-    user_id = get_user_id(request)
-    if not user_id:
-        return jsonify({'error': 'User authentication required'}), 401
-    
-    @backoff.on_exception(backoff.expo,
-                          Exception,
-                          max_tries=game.max_retry_attempts,
-                          jitter=backoff.full_jitter,
-                          max_time=10)
-    def try_complete():
-        data = request.get_json()
-        score = data.get('score', 0)
-        duration = data.get('duration', 0)
-        session_id = data.get('session_id')
-        
-        # Check daily limit first
-        daily_earnings = game._get_daily_earnings(user_id)
-        if daily_earnings >= MAX_DAILY_GAME_COINS:
-            return {
-                'status': 'daily_limit_reached',
-                'daily_earnings': daily_earnings,
-                'max_daily': MAX_DAILY_GAME_COINS
-            }
-        
-        # Calculate reward using the game's method
-        reward_data = game._calculate_reward(user_id, score, duration)
-        if reward_data.get('status') == 'daily_limit_reached':
-            return reward_data
-        
-        gc_reward = reward_data.get('gc_reward', 0)
-        
-        # Update user's game coins
-        success, new_balance = update_game_coins(user_id, gc_reward)
-        if not success:
-            raise Exception("Failed to update game coins")
-        
-        # Update daily earnings
-        game._update_daily_earnings(user_id, gc_reward)
-        
-        # Save game session record
-        if session_id:
-            save_game_session(user_id, game_name, score, gc_reward, session_id)
-        
-        return {
-            'gc_reward': gc_reward,
-            'new_balance': new_balance,
-            'score': score,
-            'ton_reward': reward_data.get('ton_reward', 0),
-            'daily_earnings': daily_earnings + gc_reward
-        }
-    
     try:
-        result = try_complete()
-        if result.get('status') == 'daily_limit_reached':
+        game = GAME_REGISTRY.get(game_name.lower())
+        user_id = get_user_id(request)
+        data = request.get_json()
+        
+        # Use game's end_game method instead of direct calculation
+        result = game.end_game(user_id)
+        if 'error' in result:
             return jsonify(result), 400
             
-        logger.info(f"Game {game_name} completed by user {user_id}, reward: {result['gc_reward']} GC")
-        return jsonify({'success': True, **result})
+        # Process reward and update database
+        gc_reward = result['gc_reward']
+        success, new_balance = update_game_coins(user_id, gc_reward)
+        
+        return jsonify({
+            'success': True,
+            'reward': gc_reward,
+            'new_balance': new_balance
+        })
+        
     except Exception as e:
-        logger.error(f"Error completing game {game_name}: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Game completion error: {str(e)}")
+        return jsonify({'error': 'Game completion failed'}), 500
     
 # Add chess-specific API endpoints
 @games_bp.route('/api/chess/create_challenge', methods=['POST'])
@@ -476,6 +416,10 @@ def create_poker_table():
         'table_id': table_id,
         'message': 'Poker table created successfully'
     })
+
+@games_bp.route('/poker')
+def serve_poker():
+    return serve_game_page('poker')
 
 @games_bp.route('/api/poker/tables', methods=['GET'])
 def get_poker_tables():
