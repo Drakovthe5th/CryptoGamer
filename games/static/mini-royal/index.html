@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mini Royal - CryptoGamer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/miniapp.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mini-royal/mini-royal.css') }}">
+</head>
+<body class="miniapp-body">
+    <div class="game-container">
+        <div id="game-ui">
+            <div class="top-bar">
+                <div class="circle-timer">
+                    <span id="time-remaining">90</span>
+                    <div class="circle-progress"></div>
+                </div>
+                <div class="player-count">
+                    <span id="alive-count">0</span>/<span id="total-count">0</span>
+                </div>
+            </div>
+            
+            <canvas id="game-canvas" width="800" height="800"></canvas>
+            
+            <div class="controls">
+                <button id="shoot-btn" class="yellow-btn">SHOOT</button>
+            </div>
+        </div>
+        
+        <div id="lobby" class="screen">
+            <h2>Mini Royal</h2>
+            <div class="players-list">
+                <div class="waiting-text">Waiting for players...</div>
+            </div>
+            <button id="start-btn" class="yellow-btn" disabled>Start Game</button>
+        </div>
+        
+        <div id="game-over" class="screen hidden">
+            <h2>Game Over</h2>
+            <div id="winner-display"></div>
+            <div class="stats">
+                <div class="stat">Kills: <span id="kills-stat">0</span></div>
+                <div class="stat">Position: <span id="position-stat">1st</span></div>
+            </div>
+            <button id="play-again" class="yellow-btn">Play Again</button>
+            <button id="back-to-lobby" class="yellow-btn">Back to Lobby</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+    <script src="{{ url_for('static', filename='mini-royal/mini-royal.js') }}"></script>
+</body>
+</html>
