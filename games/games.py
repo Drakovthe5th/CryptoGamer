@@ -3,6 +3,7 @@ import time
 import hmac
 import logging
 import backoff
+import asyncio
 from flask import (
     Blueprint, render_template, send_from_directory, request, 
     jsonify, redirect, url_for
@@ -24,7 +25,7 @@ from .sabotage_game import SabotageGame
 from .chess_masters import ChessMasters
 from .pool_game import PoolGame
 from .poker_game import PokerGame
-from config import MAX_DAILY_GAME_COINS
+from .tonopoly_game import TONopolyGame  # Add TONopoly import
 
 logger = logging.getLogger(__name__)
 
@@ -46,14 +47,14 @@ GAME_REGISTRY = {
     "chess": ChessMasters(),  # Add ChessMasters
     "chess_masters": ChessMasters(),  # Alias
     "pool": PoolGame(),  # Add PoolGame
-    "poker": PokerGame()  # Add Poker game
+    "poker": PokerGame(),  # Add Poker game
+    "tonopoly": TONopolyGame()  # Add TONopoly game
 }
 
 # Configure retry settings for all games
 for game in GAME_REGISTRY.values():
     game.max_retry_attempts = 3
     game.retry_delay = 1.5
-
 
 # Game directory mapping for consistent naming
 GAME_DIR_MAP = {
@@ -67,8 +68,12 @@ GAME_DIR_MAP = {
     'chess': 'chess',  # Add chess directory mapping
     'chess_masters': 'chess',  # Map to same directory
     'pool': 'pool',  # Add pool directory mapping
-    'poker': 'poker'  # Add poker directory mapping
+    'poker': 'poker',  # Add poker directory mapping
+    'tonopoly': 'tonopoly'  # Add tonopoly directory mapping
 }
+
+# Global storage for active TONopoly games
+active_tonopoly_games = {}
 
 # Security middleware for game routes
 @games_bp.before_request
@@ -436,7 +441,7 @@ def get_poker_table_state(table_id):
     """Get current state of a poker table"""
     game = GAME_REGISTRY.get('poker')
     if not game:
-        return jsonify({'error': 'Game not found'}), 404
+        return jsonify({'error': 'Game not found'), 404
         
     table_state = game.get_table_state(table_id)
     if 'error' in table_state:
@@ -585,6 +590,234 @@ def game_completed():
         'new_balance': new_balance
     })
 
+# TONopoly-specific API endpoints
+@games_bp.route('/api/tonopoly/create', methods=['POST'])
+def create_tonopoly_game():
+    """Create a new TONopoly game"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User authentication required'}), 401
+            
+        data = request.get_json()
+        bet_amount = data.get('bet_amount', 0)
+        
+        # Create game instance
+        game = TONopolyGame()
+        game_id = f"tonopoly_{int(time.time())}_{user_id}"
+        
+        # Set bet if specified
+        if bet_amount > 0:
+            asyncio.run(game.set_bet(user_id, bet_amount))
+            
+        # Store game in active games
+        active_tonopoly_games[game_id] = game
+        
+        # Get user data for username
+        user_data = get_user_data(user_id)
+        username = user_data.get('username', f'Player{user_id}')
+        
+        # Join the creator to the game
+        asyncio.run(game.join_game(user_id, username))
+        
+        return jsonify({
+            'success': True,
+            'game_id': game_id,
+            'bet_amount': bet_amount,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating TONopoly game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/<game_id>/join', methods=['POST'])
+def join_tonopoly_game(game_id):
+    """Join an existing TONopoly game"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User authentication required'}), 401
+            
+        data = request.get_json()
+        color = data.get('color')
+        
+        # Get game from storage
+        game = active_tonopoly_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+        
+        # Get user data for username
+        user_data = get_user_data(user_id)
+        username = user_data.get('username', f'Player{user_id}')
+            
+        # Join game
+        asyncio.run(game.join_game(user_id, username, color))
+        
+        return jsonify({
+            'success': True,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error joining TONopoly game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/<game_id>/bet', methods=['POST'])
+def tonopoly_place_bet(game_id):
+    """Place a bet in a TONopoly game"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User authentication required'}), 401
+            
+        data = request.get_json()
+        amount = data.get('amount')
+        
+        # Get game from storage
+        game = active_tonopoly_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        # Set bet
+        asyncio.run(game.set_bet(user_id, amount))
+        
+        return jsonify({
+            'success': True,
+            'bet_amount': amount,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error placing bet in TONopoly game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/<game_id>/roll', methods=['POST'])
+def tonopoly_roll_dice(game_id):
+    """Roll dice in a TONopoly game"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User authentication required'}), 401
+            
+        # Get game from storage
+        game = active_tonopoly_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        # Roll dice
+        dice_value = asyncio.run(game.roll_dice(user_id))
+        
+        return jsonify({
+            'success': True,
+            'dice_value': dice_value,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error rolling dice in TONopoly game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/<game_id>/move', methods=['POST'])
+def tonopoly_move_piece(game_id):
+    """Move a piece in a TONopoly game"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User authentication required'}), 401
+            
+        data = request.get_json()
+        piece_index = data.get('piece_index')
+        
+        # Get game from storage
+        game = active_tonopoly_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        # Move piece
+        success, message = asyncio.run(game.move_piece(user_id, piece_index))
+        
+        return jsonify({
+            'success': success,
+            'message': message,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error moving piece in TONopoly game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/<game_id>/stake', methods=['POST'])
+def tonopoly_stake_coins(game_id):
+    """Stake coins in a TONopoly game"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'User authentication required'}), 401
+            
+        data = request.get_json()
+        amount = data.get('amount')
+        
+        # Get game from storage
+        game = active_tonopoly_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        # Stake coins
+        success = asyncio.run(game.stake_coins(user_id, amount))
+        
+        return jsonify({
+            'success': success,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error staking coins in TONopoly game: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/<game_id>/state', methods=['GET'])
+def get_tonopoly_state(game_id):
+    """Get the current state of a TONopoly game"""
+    try:
+        # Get game from storage
+        game = active_tonopoly_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        return jsonify({
+            'success': True,
+            'game_state': game.get_state()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting TONopoly game state: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@games_bp.route('/api/tonopoly/config', methods=['GET'])
+def get_tonopoly_config():
+    """Get TONopoly game configuration"""
+    game = TONopolyGame()
+    return jsonify({
+        'success': True,
+        'config': game.get_game_config()
+    })
+
+@games_bp.route('/api/tonopoly/leaderboard', methods=['GET'])
+def get_tonopoly_leaderboard():
+    """Get TONopoly leaderboard"""
+    try:
+        # This would typically fetch from database
+        return jsonify({
+            'success': True,
+            'leaderboard': [
+                {'username': 'Player1', 'score': 15000, 'games_won': 5},
+                {'username': 'Player2', 'score': 12000, 'games_won': 3},
+                {'username': 'Player3', 'score': 9000, 'games_won': 2}
+            ]
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @games_bp.route('/health', methods=['GET'], endpoint='games_health_check')
 def games_health():
     """Health check for games service"""
@@ -605,9 +838,16 @@ def games_health():
                     'error': str(e)
                 }
         
+        # Add TONopoly games status
+        tonopoly_status = {
+            'active_games': len(active_tonopoly_games),
+            'total_players': sum(len(game.players) for game in active_tonopoly_games.values())
+        }
+        
         return jsonify({
             'status': 'healthy' if all(g['status'] == 'healthy' for g in game_status.values()) else 'degraded',
             'games': game_status,
+            'tonopoly': tonopoly_status,
             'timestamp': datetime.utcnow().isoformat()
         })
     except Exception as e:

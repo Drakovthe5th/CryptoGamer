@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 TON_TO_GC_RATE = 2000  # 2000 Game Coins = 1 TON
 MAX_DAILY_GC = 20000  # Maximum game coins per day
 
+class GameType(Enum):
+    SINGLEPLAYER = "singleplayer"
+    MULTIPLAYER = "multiplayer"
+    TOURNAMENT = "tournament"
+
+class BettingType(Enum):
+    NONE = "none"
+    TELEGRAM_STARS = "telegram_stars"
+    GAME_COINS = "game_coins"
+
 class BaseGame:
     """Base class for all games with common functionality"""
     
@@ -26,6 +36,12 @@ class BaseGame:
         self.max_retry_attempts = 3
         self.retry_delay = 1.5
         self.gc_multiplier = 1.0  # ADDED: Default multiplier
+        self.game_type = GameType.SINGLEPLAYER  # Default
+        self.betting_type = BettingType.NONE    # Default
+        self.max_players = 1                    # Default
+        self.min_players = 1                    # Default
+        self.supported_bet_amounts = []         # For betting games
+        self.house_fee_percent = 5              # Default house fee
         
         logger.info(f"Initialized {self.name} game")
     
@@ -109,6 +125,62 @@ class BaseGame:
             'sha256'
         ).hexdigest()
         return f"{user_id}.{timestamp}.{signature}"
+    
+    # Add these imports at the top
+from enum import Enum
+from typing import Dict, List, Optional, Any
+import datetime
+
+# Add these constants near the top
+class GameType(Enum):
+    SINGLEPLAYER = "singleplayer"
+    MULTIPLAYER = "multiplayer"
+    TOURNAMENT = "tournament"
+
+class BettingType(Enum):
+    NONE = "none"
+    TELEGRAM_STARS = "telegram_stars"
+    GAME_COINS = "game_coins"
+
+# Add these to the BaseGame class
+class BaseGame:
+    # ... existing code ...
+    
+    def __init__(self, name: str):
+        # ... existing initialization ...
+        self.game_type = GameType.SINGLEPLAYER  # Default
+        self.betting_type = BettingType.NONE    # Default
+        self.max_players = 1                    # Default
+        self.min_players = 1                    # Default
+        self.supported_bet_amounts = []         # For betting games
+        self.house_fee_percent = 5              # Default house fee
+        
+    def get_game_config(self) -> Dict[str, Any]:
+        """Get game configuration including betting options"""
+        return {
+            "name": self.name,
+            "type": self.game_type.value,
+            "betting_type": self.betting_type.value,
+            "max_players": self.max_players,
+            "min_players": self.min_players,
+            "supported_bet_amounts": self.supported_bet_amounts,
+            "house_fee_percent": self.house_fee_percent,
+            "can_bet": self.betting_type != BettingType.NONE
+        }
+    
+    def validate_bet(self, user_id: str, amount: int) -> bool:
+        """Validate if a bet amount is acceptable"""
+        if self.betting_type == BettingType.NONE:
+            return False
+            
+        if not self.supported_bet_amounts:
+            return amount > 0  # Any positive amount if no specific amounts defined
+            
+        return amount in self.supported_bet_amounts
+    
+    def process_bet_payout(self, winner_id: str, total_pot: int) -> Dict[str, Any]:
+        """Process betting payout (to be implemented by games that support betting)"""
+        raise NotImplementedError("This game does not support betting")
 
     def validate_session(self, user_id: str, token: str) -> bool:
         try:

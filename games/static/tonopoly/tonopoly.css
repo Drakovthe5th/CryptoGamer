@@ -1,0 +1,426 @@
+/* TONopoly Styles */
+:root {
+    --bitcoin: #F7931A;
+    --ethereum: #627EEA;
+    --ton: #0088CC;
+    --stablecoin: #27AE60;
+    --background: #000;
+    --text: #FFF;
+    --accent: #FF0;
+    --error: #FF4444;
+    --success: #00C851;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--background);
+    color: var(--text);
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100vh;
+}
+
+.container {
+    max-width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border-bottom: 1px solid var(--accent);
+}
+
+.player-info, .game-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.game-controls button {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+/* Screens */
+.screen {
+    display: none;
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Lobby Screen */
+.players-list {
+    margin: 10px 0;
+}
+
+.player-item {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    border-bottom: 1px solid #333;
+}
+
+.color-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.color-options {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.color-option {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.color-option.selected {
+    border-color: var(--accent);
+}
+
+.betting-section {
+    background: rgba(255, 255, 0, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.betting-section input {
+    background: var(--background);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    padding: 5px;
+    margin: 5px;
+    width: 80px;
+}
+
+.betting-section button, .lobby-actions button {
+    background: var(--accent);
+    color: var(--background);
+    border: none;
+    border-radius: 5px;
+    padding: 8px 15px;
+    cursor: pointer;
+    margin: 5px;
+}
+
+.lobby-actions {
+    margin-top: 20px;
+}
+
+/* Game Screen */
+.game-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.board {
+    width: 90vmin;
+    height: 90vmin;
+    max-width: 500px;
+    max-height: 500px;
+    background: #1a1a1a;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    position: relative;
+    background-image: 
+        radial-gradient(circle at 20% 20%, rgba(255, 0, 102, 0.2), transparent 25%),
+        radial-gradient(circle at 80% 20%, rgba(0, 102, 255, 0.2), transparent 25%),
+        radial-gradient(circle at 20% 80%, rgba(0, 255, 102, 0.2), transparent 25%),
+        radial-gradient(circle at 80% 80%, rgba(255, 102, 0, 0.2), transparent 25%);
+    animation: rotateBackground 30s linear infinite;
+}
+
+@keyframes rotateBackground {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.board-space {
+    position: absolute;
+    width: 8%;
+    height: 8%;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7em;
+    text-align: center;
+    padding: 2px;
+    transition: all 0.3s ease;
+}
+
+.board-space.normal { background: #2a2a2a; border: 1px solid #444; }
+.board-space.mining { background: rgba(247, 147, 26, 0.3); border: 1px solid var(--bitcoin); }
+.board-space.bear_trap { background: rgba(255, 68, 68, 0.3); border: 1px solid var(--error); }
+.board-space.bull_market { background: rgba(0, 200, 81, 0.3); border: 1px solid var(--success); }
+.board-space.halving { background: rgba(255, 255, 0, 0.3); border: 1px solid var(--accent); }
+.board-space.rug_pull { background: rgba(153, 0, 0, 0.3); border: 1px solid #900; }
+.board-space.ath { background: rgba(0, 136, 204, 0.3); border: 1px solid var(--ton); }
+
+.piece {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    position: absolute;
+    transition: all 0.5s ease;
+    z-index: 10;
+    border: 2px solid white;
+}
+
+.piece.bitcoin { background: var(--bitcoin); }
+.piece.ethereum { background: var(--ethereum); }
+.piece.ton { background: var(--ton); }
+.piece.stablecoin { background: var(--stablecoin); }
+
+.game-controls {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dice-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.dice {
+    width: 60px;
+    height: 60px;
+    background: #fff;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: #000;
+    margin-bottom: 10px;
+}
+
+#roll-btn {
+    background: var(--accent);
+    color: var(--background);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#roll-btn:disabled {
+    background: #555;
+    color: #888;
+    cursor: not-allowed;
+}
+
+.piece-selection {
+    margin: 10px 0;
+    text-align: center;
+}
+
+.piece-options {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.piece-option {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.piece-option.available {
+    border-color: var(--accent);
+}
+
+.special-actions {
+    margin-top: 10px;
+}
+
+.special-actions button {
+    background: rgba(255, 255, 0, 0.2);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 0 5px;
+}
+
+.players-panel {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+}
+
+.player-turn {
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.game-messages {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.message {
+    margin: 5px 0;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.message.info { background: rgba(0, 136, 204, 0.2); }
+.message.success { background: rgba(0, 200, 81, 0.2); }
+.message.error { background: rgba(255, 68, 68, 0.2); }
+
+/* Game Over Screen */
+#game-over {
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.winner-info {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(255, 255, 0, 0.1);
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+}
+
+.game-over-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.game-over-actions button {
+    background: var(--accent);
+    color: var(--background);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--background);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 80%;
+    text-align: center;
+}
+
+.modal-content button {
+    background: var(--accent);
+    color: var(--background);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 10px 5px;
+}
+
+/* Bottom navigation */
+.bottom-nav {
+    display: flex;
+    justify-content: space-around;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border-top: 1px solid var(--accent);
+}
+
+.bottom-nav button {
+    background: transparent;
+    border: none;
+    color: var(--accent);
+    padding: 5px 10px;
+    cursor: pointer;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .board {
+        width: 95vmin;
+        height: 95vmin;
+    }
+    
+    .header {
+        flex-wrap: wrap;
+    }
+    
+    .game-info {
+        order: 3;
+        width: 100%;
+        text-align: center;
+        margin-top: 5px;
+    }
+}

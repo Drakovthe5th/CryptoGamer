@@ -2,12 +2,11 @@
 <html>
 <head>
     <title>Mini Royal - CryptoGamer</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/miniapp.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='mini-royal/mini-royal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mini-royal.css') }}">
 </head>
 <body class="miniapp-body">
     <div class="game-container">
-        <div id="game-ui">
+        <div id="game-ui" class="hidden">
             <div class="top-bar">
                 <div class="circle-timer">
                     <span id="time-remaining">90</span>
@@ -16,6 +15,7 @@
                 <div class="player-count">
                     <span id="alive-count">0</span>/<span id="total-count">0</span>
                 </div>
+                <div class="map-name" id="map-name">Classic Arena</div>
             </div>
             
             <canvas id="game-canvas" width="800" height="800"></canvas>
@@ -29,8 +29,18 @@
             <h2>Mini Royal</h2>
             <div class="players-list">
                 <div class="waiting-text">Waiting for players...</div>
+                <div id="players-container"></div>
             </div>
             <button id="start-btn" class="yellow-btn" disabled>Start Game</button>
+            
+            <div class="map-selection">
+                <h3>Select Map</h3>
+                <div class="map-options">
+                    <div class="map-option" data-map="classic">Classic Arena</div>
+                    <div class="map-option" data-map="desert">Desert Dunes</div>
+                    <div class="map-option" data-map="arctic">Frozen Tundra</div>
+                </div>
+            </div>
         </div>
         
         <div id="game-over" class="screen hidden">
@@ -42,6 +52,14 @@
             </div>
             <button id="play-again" class="yellow-btn">Play Again</button>
             <button id="back-to-lobby" class="yellow-btn">Back to Lobby</button>
+            
+            <div class="ad-reward">
+                <p>Watch an ad for 2x rewards?</p>
+                <div class="ad-buttons">
+                    <button class="yellow-btn">Yes</button>
+                    <button class="yellow-btn">No</button>
+                </div>
+            </div>
         </div>
     </div>
 

@@ -1,7 +1,9 @@
 import random
 import math
+import time
 from enum import Enum
 from datetime import datetime
+from typing import Dict, Any, List, Optional
 from .base_game import BaseGame
 from src.database.mongo import get_user_data, update_user_data
 from src.integrations.telegram import deduct_stars, add_stars
@@ -15,26 +17,35 @@ class PoolGameState(Enum):
 
 class PoolGame(BaseGame):
     def __init__(self):
-        super().__init__("Pool Game", "pool")
+        super().__init__("Pool Game")
         self.max_players = 6
         self.active_games = {}  # game_id -> game_data
         self.player_games = {}  # user_id -> game_id
+        self.min_bet = 1  # Minimum bet in Stars
+        self.max_bet = 100  # Maximum bet in Stars
         
     def get_init_data(self, user_id: str) -> Dict[str, Any]:
         base_data = super().get_init_data(user_id)
+        user_data = get_user_data(user_id)
+        
         base_data.update({
             "max_players": self.max_players,
             "min_players": 2,
             "can_bet": True,
-            "min_bet": 1,  # Minimum bet in Stars
-            "max_bet": 100  # Maximum bet in Stars
+            "min_bet": self.min_bet,
+            "max_bet": self.max_bet,
+            "stars_balance": user_data.get('telegram_stars', 0) if user_data else 0
         })
         return base_data
         
     def create_game(self, user_id: str, bet_amount: int) -> Dict[str, Any]:
+        # Validate bet amount
+        if bet_amount < self.min_bet or bet_amount > self.max_bet:
+            return {"error": f"Bet must be between {self.min_bet} and {self.max_bet} Stars"}
+        
         # Check if user has enough Stars
         user_data = get_user_data(user_id)
-        if user_data.get('telegram_stars', 0) < bet_amount:
+        if not user_data or user_data.get('telegram_stars', 0) < bet_amount:
             return {"error": "Insufficient Stars"}
         
         # Deduct the bet amount
@@ -42,7 +53,7 @@ class PoolGame(BaseGame):
             return {"error": "Failed to deduct Stars"}
         
         # Generate game ID
-        game_id = f"pool_{datetime.now().timestamp()}_{user_id}"
+        game_id = f"pool_{int(time.time())}_{user_id}"
         
         # Initialize game state
         self.active_games[game_id] = {
@@ -53,16 +64,23 @@ class PoolGame(BaseGame):
             "current_turn": None,
             "start_time": datetime.now(),
             "bet_amount": bet_amount,  # The agreed bet amount
-            "game_data": {}  # Will store the game state (balls positions, etc.)
+            "balls": self._setup_initial_balls(),
+            "game_data": {
+                "shots_taken": 0,
+                "balls_potted": 0,
+                "last_shot": None
+            }
         }
         
         self.player_games[user_id] = game_id
         
         return {
+            "success": True,
             "game_id": game_id,
-            "status": "waiting",
+            "status": "waiting_for_players",
             "players": [user_id],
-            "pot": bet_amount
+            "pot": bet_amount,
+            "required_bet": bet_amount
         }
         
     def join_game(self, user_id: str, game_id: str) -> Dict[str, Any]:
@@ -80,7 +98,7 @@ class PoolGame(BaseGame):
         # Check if user has enough Stars for the bet
         bet_amount = game["bet_amount"]
         user_data = get_user_data(user_id)
-        if user_data.get('telegram_stars', 0) < bet_amount:
+        if not user_data or user_data.get('telegram_stars', 0) < bet_amount:
             return {"error": "Insufficient Stars"}
         
         # Deduct the bet amount
@@ -93,17 +111,41 @@ class PoolGame(BaseGame):
         game["pot"] += bet_amount
         self.player_games[user_id] = game_id
         
-        # If the game is now full, start it
-        if len(game["players"]) == self.max_players:
-            game["status"] = PoolGameState.IN_PROGRESS
-            # Set the first player's turn
-            game["current_turn"] = game["players"][0]
-        
+        # If the game has enough players, start it
+        if len(game["players"]) >= 2 and game["status"] == PoolGameState.WAITING_FOR_PLAYERS:
+            game["status"] = PoolGameState.WAITING_FOR_BETS
+            
         return {
+            "success": True,
             "game_id": game_id,
             "status": game["status"].name,
             "players": game["players"],
-            "pot": game["pot"]
+            "pot": game["pot"],
+            "required_bet": bet_amount
+        }
+        
+    def start_game(self, game_id: str) -> Dict[str, Any]:
+        if game_id not in self.active_games:
+            return {"error": "Game not found"}
+        
+        game = self.active_games[game_id]
+        
+        if len(game["players"]) < 2:
+            return {"error": "Not enough players"}
+        
+        if game["status"] != PoolGameState.WAITING_FOR_BETS:
+            return {"error": "Game not in betting phase"}
+        
+        # Start the game
+        game["status"] = PoolGameState.IN_PROGRESS
+        game["current_turn"] = game["players"][0]  # First player starts
+        
+        return {
+            "success": True,
+            "game_id": game_id,
+            "status": "in_progress",
+            "current_turn": game["current_turn"],
+            "players": game["players"]
         }
         
     def handle_action(self, user_id: str, action: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -120,49 +162,133 @@ class PoolGame(BaseGame):
             if game["current_turn"] != user_id:
                 return {"error": "Not your turn"}
             
-            # Process the shot (update game state)
-            success = self._process_shot(game, data)
+            # Process the shot
+            angle = data.get("angle", 0)
+            power = data.get("power", 0)
+            success, result = self._process_shot(game, angle, power)
             
             if success:
-                # Move to next player
-                current_index = game["players"].index(user_id)
-                next_index = (current_index + 1) % len(game["players"])
-                game["current_turn"] = game["players"][next_index]
+                # Update game state
+                game["game_data"]["shots_taken"] += 1
+                game["game_data"]["last_shot"] = {
+                    "player": user_id,
+                    "angle": angle,
+                    "power": power,
+                    "timestamp": datetime.now()
+                }
                 
-                # Check if game is over (all balls potted)
+                # Move to next player if no ball was potted or foul
+                if not result.get("ball_potted", False) or result.get("foul", False):
+                    current_index = game["players"].index(user_id)
+                    next_index = (current_index + 1) % len(game["players"])
+                    game["current_turn"] = game["players"][next_index]
+                
+                # Check if game is over
                 if self._is_game_over(game):
                     winner = self._determine_winner(game)
                     self._distribute_winnings(game_id, winner)
-                    return {"status": "game_over", "winner": winner}
+                    return {
+                        "status": "game_over", 
+                        "winner": winner,
+                        "pot": game["pot"]
+                    }
                 
-                return {"status": "success", "next_turn": game["current_turn"]}
+                return {
+                    "success": True, 
+                    "next_turn": game["current_turn"],
+                    "shot_result": result
+                }
             else:
                 return {"error": "Invalid shot"}
         
         elif action == "forfeit":
-            # Remove player from the game and distribute winnings to the remaining players
-            winner = [p for p in game["players"] if p != user_id][0]
-            self._distribute_winnings(game_id, winner)
-            return {"status": "forfeited", "winner": winner}
+            # Remove player and distribute winnings
+            remaining_players = [p for p in game["players"] if p != user_id]
+            if remaining_players:
+                winner = remaining_players[0]
+                self._distribute_winnings(game_id, winner)
+                return {"status": "forfeited", "winner": winner}
+            else:
+                # Refund if no players left
+                self._refund_bets(game_id)
+                return {"status": "game_cancelled"}
         
         else:
             return {"error": "Unknown action"}
             
-    def _process_shot(self, game: Dict[str, Any], shot_data: Dict[str, Any]) -> bool:
-        # Placeholder for actual pool game physics and logic
-        # This would update the game state (ball positions, etc.)
-        return True
+    def _setup_initial_balls(self) -> List[Dict[str, Any]]:
+        """Set up initial ball positions (standard pool rack)"""
+        balls = []
+        
+        # Cue ball
+        balls.append({
+            "type": "cue",
+            "x": 200, "y": 200,
+            "potted": False,
+            "number": 0
+        })
+        
+        # Rack of 15 balls in triangle formation
+        ball_number = 1
+        for row in range(5):
+            for col in range(row + 1):
+                x = 600 + row * 30
+                y = 200 - (row * 15) + (col * 30)
+                balls.append({
+                    "type": "numbered",
+                    "x": x, "y": y,
+                    "potted": False,
+                    "number": ball_number
+                })
+                ball_number += 1
+        
+        return balls
+        
+    def _process_shot(self, game: Dict[str, Any], angle: float, power: float) -> tuple:
+        """Process a shot - simplified physics for MVP"""
+        # This is a simplified implementation - real physics would be more complex
+        try:
+            # Calculate ball movement based on angle and power
+            result = {
+                "ball_potted": random.random() > 0.7,  # 30% chance to pot a ball
+                "foul": random.random() > 0.9,  # 10% chance of foul
+                "balls_moved": min(int(power * 5), 5),  # Number of balls affected
+                "power": power
+            }
+            
+            if result["ball_potted"]:
+                game["game_data"]["balls_potted"] += 1
+                
+            # Update ball positions (simplified)
+            for ball in game["balls"]:
+                if not ball["potted"] and random.random() < power * 0.3:
+                    ball["x"] += math.cos(angle) * power * 50
+                    ball["y"] += math.sin(angle) * power * 50
+                    
+                    # Check if ball is potted (simplified)
+                    if (ball["x"] < 50 or ball["x"] > 750 or 
+                        ball["y"] < 50 or ball["y"] > 350):
+                        ball["potted"] = True
+                        result["ball_potted"] = True
+            
+            return True, result
+            
+        except Exception as e:
+            return False, {"error": str(e)}
         
     def _is_game_over(self, game: Dict[str, Any]) -> bool:
-        # Placeholder: check if all balls are potted
-        return False
+        """Check if game is over (all balls potted)"""
+        numbered_balls = [b for b in game["balls"] if b["type"] == "numbered"]
+        potted_balls = [b for b in numbered_balls if b["potted"]]
+        return len(potted_balls) >= len(numbered_balls) * 0.8  # 80% of balls potted
         
     def _determine_winner(self, game: Dict[str, Any]) -> str:
-        # Placeholder: determine the winner based on the game state
-        # For now, just return the first player
-        return game["players"][0]
+        """Determine winner based on balls potted (simplified)"""
+        # In a real game, this would be more complex with scoring
+        return game["players"][0]  # First player wins for MVP
         
     def _distribute_winnings(self, game_id: str, winner: str):
+        """Distribute winnings to the winner"""
         game = self.active_games[game_id]
         pot = game["pot"]
         
@@ -177,7 +303,9 @@ class PoolGame(BaseGame):
             'pot': pot,
             'winner': winner,
             'start_time': game["start_time"],
-            'end_time': datetime.now()
+            'end_time': datetime.now(),
+            'shots_taken': game["game_data"]["shots_taken"],
+            'balls_potted': game["game_data"]["balls_potted"]
         })
         
         # Clean up the game
@@ -186,3 +314,32 @@ class PoolGame(BaseGame):
                 del self.player_games[player]
         
         del self.active_games[game_id]
+        
+    def _refund_bets(self, game_id: str):
+        """Refund bets if game is cancelled"""
+        game = self.active_games[game_id]
+        
+        for player_id, bet_amount in game["bets"].items():
+            add_stars(player_id, bet_amount)
+        
+        # Clean up the game
+        for player in game["players"]:
+            if player in self.player_games:
+                del self.player_games[player]
+        
+        del self.active_games[game_id]
+        
+    def get_game_state(self, game_id: str) -> Dict[str, Any]:
+        """Get current game state"""
+        if game_id not in self.active_games:
+            return {"error": "Game not found"}
+        
+        game = self.active_games[game_id]
+        return {
+            "players": game["players"],
+            "pot": game["pot"],
+            "status": game["status"].name,
+            "current_turn": game["current_turn"],
+            "balls": game["balls"],
+            "game_data": game["game_data"]
+        }

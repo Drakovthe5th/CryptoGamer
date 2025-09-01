@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Crew: Sabotage - CryptoGamer</title>
+    <link rel="stylesheet" href="sabotage.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">Crypto Crew: Sabotage</div>
+            <div class="game-info">
+                <div class="info-box">
+                    <div class="info-label">TIME LEFT</div>
+                    <div class="info-value" id="time-left">15:00</div>
+                </div>
+                <div class="info-box">
+                    <div class="info-label">VAULT GOLD</div>
+                    <div class="info-value" id="vault-gold">0</div>
+                </div>
+                <div class="info-box">
+                    <div class="info-label">PLAYERS</div>
+                    <div class="info-value" id="players-count">6/6</div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="game-content">
+            <div class="ship-map">
+                <div class="map-grid">
+                    <div class="room" data-room="navigation">
+                        <div class="room-icon">🧭</div>
+                        <div class="room-name">Navigation</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="electrical">
+                        <div class="room-icon">⚡</div>
+                        <div class="room-name">Electrical</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="oxygen">
+                        <div class="room-icon">💨</div>
+                        <div class="room-name">Oxygen</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="weapons">
+                        <div class="room-icon">🔫</div>
+                        <div class="room-name">Weapons</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="cafeteria">
+                        <div class="room-icon">🍔</div>
+                        <div class="room-name">Cafeteria</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="medbay">
+                        <div class="room-icon">💊</div>
+                        <div class="room-name">Medbay</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="storage">
+                        <div class="room-icon">📦</div>
+                        <div class="room-name">Storage</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="admin">
+                        <div class="room-icon">📊</div>
+                        <div class="room-name">Admin</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                    <div class="room" data-room="communications">
+                        <div class="room-icon">📡</div>
+                        <div class="room-name">Communications</div>
+                        <div class="player-dot miner-dot" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="game-sidebar">
+                <div class="player-list">
+                    <h2 class="section-title">👥 Crew Members</h2>
+                    <div id="players-container">
+                        <!-- Players will be added dynamically -->
+                    </div>
+                </div>
+                
+                <div class="action-panel">
+                    <h2 class="section-title">⚡ Actions</h2>
+                    <button class="action-btn" id="btn-mine">Mine Gold</button>
+                    <button class="action-btn" id="btn-steal" style="display: none;">Steal Gold</button>
+                    <button class="action-btn btn-emergency" id="btn-meeting">Call Emergency Meeting</button>
+                    <button class="action-btn" id="btn-bribe" style="display: none;">Bribe Player</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="task-list">
+            <h2 class="section-title">📝 Tasks</h2>
+            <div id="tasks-container">
+                <!-- Tasks will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal" id="meeting-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Emergency Meeting</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <p>Discuss with your crew and vote who you think is the saboteur.</p>
+            <div class="voting-options" id="voting-options">
+                <!-- Voting options will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="task-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="task-modal-title">Task Name</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="mini-game" id="mini-game-container">
+                <!-- Mini-game will be loaded here -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="bribe-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Bribe Player</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <p>Select a player to bribe with 500 gold from the saboteurs' stash:</p>
+            <div class="voting-options" id="bribe-options">
+                <!-- Bribe options will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="role-modal">
+        <div class="modal-content">
+            <div class="role-reveal">
+                <div class="role-icon" id="role-icon">👨‍🚀</div>
+                <h2 class="role-title" id="role-title">Miner</h2>
+                <p class="role-description" id="role-description">
+                    Your goal is to complete tasks to mine gold and identify both Saboteurs before time runs out or before over 50% of the gold is stolen.
+                </p>
+                <button class="btn-primary" id="btn-start-game">Start Game</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="game-over-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="game-over-title">Game Over</h2>
+            </div>
+            <div id="game-over-content">
+                <!-- Game over content will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification">
+        <div class="notification-title" id="notification-title">Notification</div>
+        <div class="notification-message" id="notification-message">This is a notification message.</div>
+    </div>
+
+    <script src="sabotage.js"></script>
+</body>
+</html>

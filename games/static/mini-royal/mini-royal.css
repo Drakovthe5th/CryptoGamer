@@ -4,6 +4,7 @@
     height: 100vh;
     overflow: hidden;
     background: #000;
+    font-family: Arial, sans-serif;
 }
 
 #game-canvas {
@@ -27,6 +28,7 @@
     align-items: center;
     background: rgba(0, 0, 0, 0.8);
     z-index: 10;
+    color: white;
 }
 
 .hidden {
@@ -42,6 +44,10 @@
     align-items: center;
     gap: 20px;
     z-index: 5;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: 1px solid #ff0;
 }
 
 .circle-timer {
@@ -57,20 +63,24 @@
     transform: translate(-50%, -50%);
     color: #ff0;
     font-weight: bold;
+    font-size: 16px;
 }
 
 .circle-progress {
     width: 100%;
     height: 100%;
-    border: 3px solid #ff0;
     border-radius: 50%;
-    border-top-color: transparent;
-    animation: rotate 1s linear infinite;
+    background: conic-gradient(#ff0 100%, transparent 100%);
 }
 
-@keyframes rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.player-count {
+    color: #fff;
+    font-weight: bold;
+}
+
+.map-name {
+    color: #ff0;
+    font-weight: bold;
 }
 
 .controls {
@@ -80,15 +90,36 @@
     transform: translateX(-50%);
 }
 
-#shoot-btn {
+.yellow-btn {
+    background: #ff0;
+    color: #000;
+    border: none;
     padding: 15px 30px;
     font-size: 1.2em;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.yellow-btn:hover {
+    background: #ffd700;
+    transform: scale(1.05);
+}
+
+.yellow-btn:disabled {
+    background: #666;
+    color: #999;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .players-list {
     margin: 20px 0;
     max-height: 300px;
     overflow-y: auto;
+    width: 300px;
+    text-align: center;
 }
 
 .player-item {
@@ -99,13 +130,46 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    justify-content: center;
 }
 
-.player-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
+.player-emoji {
+    font-size: 24px;
+}
+
+.waiting-text {
+    margin: 20px 0;
+    font-style: italic;
+}
+
+.map-selection {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.map-options {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0;
+}
+
+.map-option {
+    padding: 10px 15px;
+    background: #222;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.map-option:hover {
+    background: #333;
+    transform: scale(1.05);
+}
+
+.map-option.selected {
     background: #ff0;
+    color: #000;
+    font-weight: bold;
 }
 
 .stats {
@@ -118,4 +182,116 @@
     padding: 10px 20px;
     background: #222;
     border-radius: 5px;
+    font-weight: bold;
+}
+
+.ad-reward {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.ad-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    justify-content: center;
+}
+
+.ad-buttons .yellow-btn {
+    padding: 10px 20px;
+}
+
+/* Glowing balls background */
+.miniapp-body {
+    background: #000;
+    overflow: hidden;
+    position: relative;
+}
+
+.miniapp-body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.glowing-ball {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,0,0.8), transparent);
+    animation: float 6s infinite ease-in-out;
+    pointer-events: none;
+}
+
+@keyframes float {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+    50% { transform: translate(20px, 20px) scale(1.2); opacity: 1; }
+}
+
+/* Create multiple glowing balls */
+.glowing-ball:nth-child(1) {
+    top: 20%;
+    left: 10%;
+    width: 50px;
+    height: 50px;
+    animation-delay: 0s;
+}
+
+.glowing-ball:nth-child(2) {
+    top: 60%;
+    left: 80%;
+    width: 70px;
+    height: 70px;
+    animation-delay: 1s;
+}
+
+.glowing-ball:nth-child(3) {
+    top: 40%;
+    left: 40%;
+    width: 40px;
+    height: 40px;
+    animation-delay: 2s;
+}
+
+.glowing-ball:nth-child(4) {
+    top: 80%;
+    left: 20%;
+    width: 60px;
+    height: 60px;
+    animation-delay: 3s;
+}
+
+.glowing-ball:nth-child(5) {
+    top: 30%;
+    left: 70%;
+    width: 45px;
+    height: 45px;
+    animation-delay: 4s;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .top-bar {
+        flex-direction: column;
+        gap: 10px;
+        padding: 5px 10px;
+    }
+    
+    .map-options {
+        flex-direction: column;
+    }
+    
+    .yellow-btn {
+        padding: 12px 20px;
+        font-size: 1em;
+    }
+    
+    #game-canvas {
+        width: 95%;
+        height: auto;
+    }
 }

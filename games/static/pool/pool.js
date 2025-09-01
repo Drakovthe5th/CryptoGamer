@@ -1,287 +1,149 @@
 class PoolGame {
     constructor() {
-        this.gameId = null;
+        this.gameState = {
+            players: [],
+            currentTurn: null,
+            pot: 0,
+            balls: [],
+            status: 'lobby'
+        };
+        
         this.playerId = null;
-        this.playerName = null;
-        this.websocket = null;
-        this.connected = false;
-        this.gameState = 'waiting';
-        this.players = [];
-        this.bets = {};
-        this.pot = 0;
-        this.currentPlayerIndex = 0;
-        this.isMyTurn = false;
+        this.gameId = null;
+        this.socket = null;
+        this.isAiming = false;
+        this.currentPower = 0;
         
-        // Game elements
-        this.tableElement = null;
-        this.ballsElement = null;
-        this.cueElement = null;
-        this.interfaceElement = null;
-        
-        // Initialize the game
         this.init();
     }
     
     init() {
-        // Get player info from Telegram Mini App
-        this.playerId = Telegram.WebApp.initDataUnsafe.user?.id || 'guest_' + Math.random().toString(36).substr(2, 9);
-        this.playerName = Telegram.WebApp.initDataUnsafe.user?.first_name || 'Player';
-        
-        // Set up UI event listeners
+        this.initializeTelegramWebApp();
         this.setupEventListeners();
+        this.showScreen('lobby-screen');
+        this.updateStarsBalance();
+    }
+    
+    initializeTelegramWebApp() {
+        // Initialize Telegram WebApp
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
         
-        // Initialize game graphics (simplified for this example)
-        this.initGraphics();
+        // Get user data from Telegram
+        const user = Telegram.WebApp.initDataUnsafe.user;
+        if (user) {
+            this.playerId = user.id.toString();
+            this.playerName = user.first_name || 'Player';
+        } else {
+            // Fallback for development
+            this.playerId = 'dev_' + Math.random().toString(36).substr(2, 9);
+            this.playerName = 'Developer';
+        }
         
-        // Show main menu
-        this.showMainMenu();
+        console.log('Player initialized:', this.playerId, this.playerName);
     }
     
     setupEventListeners() {
-        // Main menu events
-        document.getElementById('create-game-btn').addEventListener('click', () => this.createGame());
-        document.getElementById('join-game-btn').addEventListener('click', () => this.showJoinGameDialog());
-        document.getElementById('join-game-submit').addEventListener('click', () => this.joinGame());
+        // Game control buttons
+        document.getElementById('take-shot-btn').addEventListener('click', () => this.takeShot());
+        document.getElementById('forfeit-btn').addEventListener('click', () => this.forfeitGame());
+        document.getElementById('chat-btn').addEventListener('click', () => this.openChat());
+        
+        // Bet amount input
+        document.getElementById('bet-amount').addEventListener('input', (e) => {
+            const value = Math.max(1, Math.min(100, parseInt(e.target.value) || 1));
+            e.target.value = value;
+        });
+        
+        // Game ID input
         document.getElementById('game-id-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.joinGame();
+            if (e.key === 'Enter') {
+                this.joinGame();
+            }
         });
         
-        // Betting interface events
-        document.getElementById('place-bet-btn').addEventListener('click', () => this.placeBet());
-        document.getElementById('bet-amount').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.placeBet();
-        });
-        
-        // Game control events
-        document.getElementById('leave-game-btn').addEventListener('click', () => this.leaveGame());
-        document.getElementById('send-chat-btn').addEventListener('click', () => this.sendChatMessage());
+        // Chat input
         document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.sendChatMessage();
-        });
-    }
-    
-    initGraphics() {
-        // This is a simplified implementation
-        // In a real game, you would use a canvas or WebGL for the pool table
-        
-        this.tableElement = document.getElementById('pool-table');
-        this.ballsElement = document.getElementById('pool-balls');
-        this.cueElement = document.getElementById('pool-cue');
-        this.interfaceElement = document.getElementById('game-interface');
-        
-        // Set up mouse/touch controls for aiming and shooting
-        this.setupControls();
-    }
-    
-    setupControls() {
-        let isDragging = false;
-        let startX, startY;
-        let power = 0;
-        
-        this.tableElement.addEventListener('mousedown', (e) => {
-            if (!this.isMyTurn) return;
-            
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            
-            // Show power meter
-            document.getElementById('power-meter').style.display = 'block';
-        });
-        
-        this.tableElement.addEventListener('mousemove', (e) => {
-            if (!isDragging || !this.isMyTurn) return;
-            
-            // Calculate angle based on mouse position relative to cue ball
-            const rect = this.tableElement.getBoundingClientRect();
-            const cueBall = document.getElementById('cue-ball');
-            const cueBallRect = cueBall.getBoundingClientRect();
-            const cueBallX = cueBallRect.left + cueBallRect.width / 2;
-            const cueBallY = cueBallRect.top + cueBallRect.height / 2;
-            
-            const angle = Math.atan2(e.clientY - cueBallY, e.clientX - cueBallX);
-            
-            // Update cue position
-            this.cueElement.style.transform = `rotate(${angle}rad)`;
-            
-            // Calculate power based on drag distance
-            const distance = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
-            power = Math.min(distance / 100, 1); // Normalize to 0-1
-            
-            // Update power meter
-            document.getElementById('power-level').style.width = `${power * 100}%`;
-        });
-        
-        this.tableElement.addEventListener('mouseup', (e) => {
-            if (!isDragging || !this.isMyTurn) return;
-            
-            isDragging = false;
-            
-            // Hide power meter
-            document.getElementById('power-meter').style.display = 'none';
-            
-            // Take shot with calculated angle and power
-            const rect = this.tableElement.getBoundingClientRect();
-            const cueBall = document.getElementById('cue-ball');
-            const cueBallRect = cueBall.getBoundingClientRect();
-            const cueBallX = cueBallRect.left + cueBallRect.width / 2;
-            const cueBallY = cueBallRect.top + cueBallRect.height / 2;
-            
-            const angle = Math.atan2(e.clientY - cueBallY, e.clientX - cueBallX);
-            
-            this.takeShot(angle, power);
-        });
-        
-        // Add touch events for mobile devices
-        this.tableElement.addEventListener('touchstart', (e) => {
-            if (!this.isMyTurn) return;
-            e.preventDefault();
-            
-            isDragging = true;
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
-            
-            document.getElementById('power-meter').style.display = 'block';
-        });
-        
-        this.tableElement.addEventListener('touchmove', (e) => {
-            if (!isDragging || !this.isMyTurn) return;
-            e.preventDefault();
-            
-            const rect = this.tableElement.getBoundingClientRect();
-            const cueBall = document.getElementById('cue-ball');
-            const cueBallRect = cueBall.getBoundingClientRect();
-            const cueBallX = cueBallRect.left + cueBallRect.width / 2;
-            const cueBallY = cueBallRect.top + cueBallRect.height / 2;
-            
-            const angle = Math.atan2(e.touches[0].clientY - cueBallY, e.touches[0].clientX - cueBallX);
-            this.cueElement.style.transform = `rotate(${angle}rad)`;
-            
-            const distance = Math.sqrt(Math.pow(e.touches[0].clientX - startX, 2) + Math.pow(e.touches[0].clientY - startY, 2));
-            power = Math.min(distance / 100, 1);
-            
-            document.getElementById('power-level').style.width = `${power * 100}%`;
-        });
-        
-        this.tableElement.addEventListener('touchend', (e) => {
-            if (!isDragging || !this.isMyTurn) return;
-            
-            isDragging = false;
-            document.getElementById('power-meter').style.display = 'none';
-            
-            const rect = this.tableElement.getBoundingClientRect();
-            const cueBall = document.getElementById('cue-ball');
-            const cueBallRect = cueBall.getBoundingClientRect();
-            const cueBallX = cueBallRect.left + cueBallRect.width / 2;
-            const cueBallY = cueBallRect.top + cueBallRect.height / 2;
-            
-            const angle = Math.atan2(e.changedTouches[0].clientY - cueBallY, e.changedTouches[0].clientX - cueBallX);
-            this.takeShot(angle, power);
+            if (e.key === 'Enter') {
+                this.sendChatMessage();
+            }
         });
     }
     
     connectWebSocket() {
-        // Determine WebSocket URL based on environment
+        // Create WebSocket connection with authentication
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws/pool`;
+        const wsUrl = `${protocol}//${window.location.host}/ws/pool?user_id=${this.playerId}&hash=${this.generateAuthHash()}`;
         
-        this.websocket = new WebSocket(wsUrl);
+        this.socket = new WebSocket(wsUrl);
         
-        this.websocket.onopen = () => {
-            this.connected = true;
+        this.socket.onopen = () => {
             console.log('WebSocket connected');
+            this.hideError();
         };
         
-        this.websocket.onmessage = (event) => {
-            this.handleMessage(JSON.parse(event.data));
+        this.socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                this.handleWebSocketMessage(data);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
         };
         
-        this.websocket.onclose = () => {
-            this.connected = false;
+        this.socket.onclose = () => {
             console.log('WebSocket disconnected');
-            this.showError('Connection lost. Trying to reconnect...');
+            this.showError('Connection lost. Reconnecting...');
             
-            // Try to reconnect after 5 seconds
-            setTimeout(() => this.connectWebSocket(), 5000);
+            // Try to reconnect after 3 seconds
+            setTimeout(() => this.connectWebSocket(), 3000);
         };
         
-        this.websocket.onerror = (error) => {
+        this.socket.onerror = (error) => {
             console.error('WebSocket error:', error);
             this.showError('Connection error');
         };
     }
     
-    handleMessage(data) {
-        console.log('Received message:', data);
-        
-        switch(data.action) {
-            case 'game_created':
-                this.handleGameCreated(data);
-                break;
-            case 'player_joined':
-                this.handlePlayerJoined(data);
-                break;
-            case 'betting_started':
-                this.handleBettingStarted(data);
-                break;
-            case 'bet_placed':
-                this.handleBetPlaced(data);
-                break;
-            case 'game_started':
-                this.handleGameStarted(data);
-                break;
-            case 'shot_taken':
-                this.handleShotTaken(data);
-                break;
-            case 'game_ended':
-                this.handleGameEnded(data);
-                break;
-            case 'player_left':
-                this.handlePlayerLeft(data);
-                break;
-            case 'chat_message':
-                this.handleChatMessage(data);
-                break;
-            case 'game_status':
-                this.handleGameStatus(data);
-                break;
-            case 'error':
-                this.handleError(data);
-                break;
-        }
+    generateAuthHash() {
+        // Simplified auth hash - in production, use proper Telegram WebApp validation
+        return btoa(this.playerId + ':' + Date.now()).slice(0, 20);
     }
     
-    sendMessage(data) {
-        if (this.connected) {
-            this.websocket.send(JSON.stringify(data));
-        } else {
-            this.showError('Not connected to server');
+    handleWebSocketMessage(data) {
+        if (data.error) {
+            this.showError(data.error);
+            return;
+        }
+        
+        if (data.action === 'player_joined') {
+            this.updateWaitingScreen(data.game_state);
+        } else if (data.action === 'game_started') {
+            this.startGame(data.game_state);
+        } else if (data.action === 'game_state_update') {
+            this.updateGameState(data.game_state, data.shot_result);
+        } else if (data.action === 'player_forfeited') {
+            this.showGameOver(data.winner, true);
+        } else if (data.action === 'game_state') {
+            this.updateGameState(data.game_state);
         }
     }
     
     createGame() {
-        if (!this.connected) {
+        const betAmount = parseInt(document.getElementById('bet-amount').value);
+        
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
             this.connectWebSocket();
             
             // Wait for connection before creating game
-            setTimeout(() => {
-                this.sendMessage({
-                    action: 'create_game',
-                    player_id: this.playerId,
-                    player_name: this.playerName,
-                    max_players: 2, // Default to 1v1
-                    game_type: '1v1'
-                });
-            }, 1000);
-        } else {
-            this.sendMessage({
-                action: 'create_game',
-                player_id: this.playerId,
-                player_name: this.playerName,
-                max_players: 2,
-                game_type: '1v1'
-            });
+            setTimeout(() => this.createGame(), 1000);
+            return;
         }
+        
+        this.socket.send(JSON.stringify({
+            action: 'create_game',
+            bet_amount: betAmount
+        }));
     }
     
     joinGame() {
@@ -292,383 +154,551 @@ class PoolGame {
             return;
         }
         
-        if (!this.connected) {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
             this.connectWebSocket();
             
             // Wait for connection before joining game
-            setTimeout(() => {
-                this.sendMessage({
-                    action: 'join_game',
-                    game_id: gameId,
-                    player_id: this.playerId,
-                    player_name: this.playerName
-                });
-            }, 1000);
-        } else {
-            this.sendMessage({
-                action: 'join_game',
-                game_id: gameId,
-                player_id: this.playerId,
-                player_name: this.playerName
-            });
-        }
-        
-        // Hide join dialog
-        this.hideJoinGameDialog();
-    }
-    
-    placeBet() {
-        const amount = parseInt(document.getElementById('bet-amount').value);
-        
-        if (isNaN(amount) || amount <= 0) {
-            this.showError('Please enter a valid bet amount');
+            setTimeout(() => this.joinGame(), 1000);
             return;
         }
         
-        this.sendMessage({
-            action: 'place_bet',
-            game_id: this.gameId,
-            player_id: this.playerId,
-            amount: amount
-        });
-    }
-    
-    takeShot(angle, power) {
-        this.sendMessage({
-            action: 'take_shot',
-            game_id: this.gameId,
-            player_id: this.playerId,
-            angle: angle,
-            power: power
-        });
-    }
-    
-    leaveGame() {
-        this.sendMessage({
-            action: 'leave_game',
-            game_id: this.gameId,
-            player_id: this.playerId
-        });
+        this.socket.send(JSON.stringify({
+            action: 'join_game',
+            game_id: gameId
+        }));
         
-        // Return to main menu
-        this.showMainMenu();
-    }
-    
-    sendChatMessage() {
-        const message = document.getElementById('chat-input').value.trim();
-        
-        if (!message) return;
-        
-        this.sendMessage({
-            action: 'chat_message',
-            game_id: this.gameId,
-            player_id: this.playerId,
-            message: message
-        });
-        
-        // Clear input
-        document.getElementById('chat-input').value = '';
-    }
-    
-    requestGameStatus() {
-        this.sendMessage({
-            action: 'get_game_status',
-            game_id: this.gameId
-        });
+        this.hideJoinDialog();
     }
     
     startGame() {
-        this.sendMessage({
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            this.showError('Not connected to server');
+            return;
+        }
+        
+        this.socket.send(JSON.stringify({
             action: 'start_game',
-            game_id: this.gameId,
-            player_id: this.playerId
+            game_id: this.gameId
+        }));
+    }
+    
+    takeShot() {
+        if (!this.isAiming || this.currentPower < 0.1) {
+            return;
+        }
+        
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            this.showError('Not connected to server');
+            return;
+        }
+        
+        this.socket.send(JSON.stringify({
+            action: 'take_shot',
+            shot_data: {
+                angle: this.gameState.cueAngle || 0,
+                power: this.currentPower
+            }
+        }));
+        
+        this.isAiming = false;
+        this.currentPower = 0;
+        this.updatePowerMeter(0);
+    }
+    
+    forfeitGame() {
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+            this.showError('Not connected to server');
+            return;
+        }
+        
+        if (confirm('Are you sure you want to forfeit the game?')) {
+            this.socket.send(JSON.stringify({
+                action: 'forfeit'
+            }));
+        }
+    }
+    
+    leaveGame() {
+        if (this.socket) {
+            this.socket.close();
+        }
+        
+        this.gameId = null;
+        this.gameState = {
+            players: [],
+            currentTurn: null,
+            pot: 0,
+            balls: [],
+            status: 'lobby'
+        };
+        
+        this.showScreen('lobby-screen');
+        this.updateStarsBalance();
+    }
+    
+    updateGameState(gameState, shotResult = null) {
+        this.gameState = gameState;
+        
+        // Update UI elements
+        this.updatePlayersDisplay();
+        this.updatePotDisplay();
+        this.updateTurnDisplay();
+        this.updateBallsPosition();
+        
+        // Animate shot result if available
+        if (shotResult) {
+            this.animateShotResult(shotResult);
+        }
+        
+        // Enable/disable shot button based on turn
+        const isMyTurn = this.gameState.currentTurn === this.playerId;
+        document.getElementById('take-shot-btn').disabled = !isMyTurn;
+        
+        // Setup aiming if it's player's turn
+        if (isMyTurn) {
+            this.setupAiming();
+        }
+    }
+    
+    setupAiming() {
+        const table = document.querySelector('.pool-table-container');
+        const powerLevel = document.getElementById('power-level');
+        const powerPercent = document.getElementById('power-percent');
+        
+        const handleStart = (x, y) => {
+            this.isAiming = true;
+            this.currentPower = 0;
+            this.updatePowerMeter(0);
+        };
+        
+        const handleMove = (x, y) => {
+            if (!this.isAiming) return;
+            
+            // Calculate power based on distance (simplified)
+            const rect = table.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            const distance = Math.sqrt(
+                Math.pow(x - centerX, 2) + 
+                Math.pow(y - centerY, 2)
+            );
+            
+            this.currentPower = Math.min(distance / 100, 1);
+            this.updatePowerMeter(this.currentPower);
+            
+            // Update cue angle
+            const cueBall = this.gameState.balls.find(b => b.type === 'cue');
+            if (cueBall) {
+                const angle = Math.atan2(y - cueBall.y, x - cueBall.x);
+                this.gameState.cueAngle = angle;
+                this.updateCueStick(angle);
+            }
+        };
+        
+        const handleEnd = () => {
+            if (this.isAiming && this.currentPower > 0.1) {
+                this.takeShot();
+            }
+            this.isAiming = false;
+        };
+        
+        // Mouse events
+        table.addEventListener('mousedown', (e) => {
+            handleStart(e.clientX, e.clientY);
+        });
+        
+        table.addEventListener('mousemove', (e) => {
+            handleMove(e.clientX, e.clientY);
+        });
+        
+        table.addEventListener('mouseup', handleEnd);
+        
+        // Touch events
+        table.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleStart(touch.clientX, touch.clientY);
+        });
+        
+        table.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleMove(touch.clientX, touch.clientY);
+        });
+        
+        table.addEventListener('touchend', handleEnd);
+    }
+    
+    updatePowerMeter(power) {
+        const powerLevel = document.getElementById('power-level');
+        const powerPercent = document.getElementById('power-percent');
+        
+        powerLevel.style.width = `${power * 100}%`;
+        powerPercent.textContent = `${Math.round(power * 100)}%`;
+    }
+    
+    updateCueStick(angle) {
+        const cueStick = document.getElementById('cue-stick');
+        const cueBall = this.gameState.balls.find(b => b.type === 'cue');
+        
+        if (cueBall && cueStick) {
+            const x = cueBall.x - 20 * Math.cos(angle);
+            const y = cueBall.y - 20 * Math.sin(angle);
+            
+            cueStick.style.left = `${x - 150}px`;
+            cueStick.style.top = `${y - 5}px`;
+            cueStick.style.transform = `rotate(${angle}rad)`;
+            cueStick.style.display = 'block';
+        }
+    }
+    
+    updateBallsPosition() {
+        const ballsContainer = document.getElementById('balls-container');
+        ballsContainer.innerHTML = '';
+        
+        this.gameState.balls.forEach(ball => {
+            if (!ball.potted) {
+                const ballElement = document.createElement('div');
+                ballElement.className = 'pool-ball';
+                ballElement.style.left = `${ball.x - 16}px`;
+                ballElement.style.top = `${ball.y - 16}px`;
+                
+                if (ball.type === 'cue') {
+                    ballElement.style.backgroundImage = 'url(assets/images/ball-cue.png)';
+                } else {
+                    ballElement.style.backgroundImage = `url(assets/images/ball-${ball.number}.png)`;
+                }
+                
+                ballsContainer.appendChild(ballElement);
+            }
+        });
+        
+        // Update cue stick position
+        if (this.gameState.currentTurn === this.playerId) {
+            const cueBall = this.gameState.balls.find(b => b.type === 'cue');
+            if (cueBall) {
+                this.updateCueStick(this.gameState.cueAngle || 0);
+            }
+        } else {
+            document.getElementById('cue-stick').style.display = 'none';
+        }
+    }
+    
+    animateShotResult(shotResult) {
+        // Simple animation for shot result
+        if (shotResult.ball_potted) {
+            // Add particle effect for potted ball
+            this.createParticleEffect();
+        }
+    }
+
+    createParticleEffect() {
+        // Simple particle effect for visual feedback
+        const table = document.querySelector('.pool-table-container');
+        const particles = document.createElement('div');
+        particles.className = 'particle-effect';
+        particles.style.position = 'absolute';
+        particles.style.top = '50%';
+        particles.style.left = '50%';
+        particles.style.transform = 'translate(-50%, -50%)';
+        particles.style.zIndex = '8';
+        particles.style.pointerEvents = 'none';
+        
+        for (let i = 0; i < 15; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.position = 'absolute';
+            particle.style.width = '8px';
+            particle.style.height = '8px';
+            particle.style.background = '#ffcc00';
+            particle.style.borderRadius = '50%';
+            particle.style.opacity = '0';
+            
+            // Random direction and distance
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 30 + Math.random() * 70;
+            const duration = 0.5 + Math.random() * 0.5;
+            
+            particle.style.animation = `
+                particleMove ${duration}s ease-out forwards,
+                particleFade ${duration}s ease-out forwards
+            `;
+            
+            particle.style.setProperty('--angle', angle);
+            particle.style.setProperty('--distance', distance + 'px');
+            
+            particles.appendChild(particle);
+        }
+        
+        table.appendChild(particles);
+        
+        // Remove particles after animation
+        setTimeout(() => {
+            table.removeChild(particles);
+        }, 1000);
+    }
+
+    updatePlayersDisplay() {
+        const playersDisplay = document.getElementById('players-display');
+        playersDisplay.innerHTML = '';
+        
+        this.gameState.players.forEach(playerId => {
+            const isCurrentPlayer = this.gameState.currentTurn === playerId;
+            const isMe = playerId === this.playerId;
+            
+            const playerElement = document.createElement('div');
+            playerElement.className = `player-display ${isCurrentPlayer ? 'current-player' : ''}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'player-avatar';
+            avatar.textContent = isMe ? 'YOU' : playerId.charAt(0).toUpperCase();
+            
+            const name = document.createElement('div');
+            name.className = 'player-name';
+            name.textContent = isMe ? 'You' : `Player ${playerId.substr(0, 4)}`;
+            
+            const bet = document.createElement('div');
+            bet.className = 'player-bet';
+            bet.textContent = this.gameState.bets && this.gameState.bets[playerId] 
+                ? `${this.gameState.bets[playerId]}⭐` 
+                : '0⭐';
+            
+            playerElement.appendChild(avatar);
+            playerElement.appendChild(name);
+            playerElement.appendChild(bet);
+            
+            playersDisplay.appendChild(playerElement);
         });
     }
-    
-    handleGameCreated(data) {
-        this.gameId = data.game_id;
-        this.showLobby();
-        
-        // Update UI
-        document.getElementById('game-id-display').textContent = data.game_id;
-        document.getElementById('game-status').textContent = 'Waiting for players...';
+
+    updatePotDisplay() {
+        const potAmount = document.getElementById('pot-amount');
+        potAmount.textContent = this.gameState.pot || '0';
     }
-    
-    handlePlayerJoined(data) {
-        this.players = data.players;
-        this.updatePlayersList();
+
+    updateTurnDisplay() {
+        const turnDisplay = document.getElementById('turn-display');
         
-        // If I'm the game creator and all players have joined, show start button
-        if (this.players.length > 0 && this.players[0].id === this.playerId && this.players.length === this.maxPlayers) {
-            document.getElementById('start-game-btn').style.display = 'block';
+        if (this.gameState.currentTurn === this.playerId) {
+            turnDisplay.textContent = 'Your turn! Aim and shoot.';
+            turnDisplay.style.color = '#ffcc00';
+        } else if (this.gameState.currentTurn) {
+            turnDisplay.textContent = `${this.gameState.currentTurn}'s turn...`;
+            turnDisplay.style.color = '#ccc';
+        } else {
+            turnDisplay.textContent = 'Waiting for game to start...';
+            turnDisplay.style.color = '#ccc';
         }
     }
-    
-    handleBettingStarted(data) {
-        this.gameState = 'betting';
-        this.showBettingInterface();
-    }
-    
-    handleBetPlaced(data) {
-        this.bets[data.player_id] = data.amount;
-        this.pot = data.pot;
+
+    updateWaitingScreen(gameState) {
+        this.gameState = gameState;
+        this.gameId = gameState.game_id;
         
-        this.updateBetsDisplay();
+        // Update waiting screen info
+        document.getElementById('waiting-game-id').textContent = this.gameId;
+        document.getElementById('waiting-bet-amount').textContent = gameState.required_bet || gameState.bet_amount;
+        document.getElementById('waiting-pot').textContent = gameState.pot;
         
-        // If it's me who placed the bet, hide betting interface
-        if (data.player_id === this.playerId) {
-            document.getElementById('betting-interface').style.display = 'none';
-        }
-    }
-    
-    handleGameStarted(data) {
-        this.gameState = 'playing';
-        this.pot = data.pot;
-        this.currentPlayerIndex = data.current_player;
-        this.isMyTurn = (this.players[this.currentPlayerIndex].id === this.playerId);
-        
-        this.showGameInterface();
-        this.updateGameStatus();
-    }
-    
-    handleShotTaken(data) {
-        // Update game state based on shot result
-        this.currentPlayerIndex = data.next_player;
-        this.isMyTurn = (this.players[this.currentPlayerIndex].id === this.playerId);
-        
-        // Animate the shot (simplified)
-        this.animateShot(data.angle, data.power, data.result);
-        
-        this.updateGameStatus();
-    }
-    
-    handleGameEnded(data) {
-        this.gameState = 'ended';
-        
-        // Show winner and pot
-        const winnerName = this.players.find(p => p.id === data.winner)?.name || 'Unknown';
-        
-        document.getElementById('game-result').innerHTML = `
-            <h2>Game Over!</h2>
-            <p>Winner: ${winnerName}</p>
-            <p>Pot: ${data.pot} Stars</p>
-        `;
-        
-        document.getElementById('game-result').style.display = 'block';
-        
-        // Return to main menu after 5 seconds
-        setTimeout(() => {
-            this.showMainMenu();
-        }, 5000);
-    }
-    
-    handlePlayerLeft(data) {
-        this.players = data.players;
-        this.updatePlayersList();
-        
-        // If too many players left, end the game
-        if (this.players.length < 2 && this.gameState === 'playing') {
-            this.showError('Not enough players. Game ending...');
-            
-            // Return to main menu after 3 seconds
-            setTimeout(() => {
-                this.showMainMenu();
-            }, 3000);
-        }
-    }
-    
-    handleChatMessage(data) {
-        this.addChatMessage(data.player_id, data.message, data.timestamp);
-    }
-    
-    handleGameStatus(data) {
-        // Update game state with received status
-        this.gameState = data.status.state;
-        this.players = data.status.players;
-        this.bets = data.status.bets;
-        this.pot = data.status.pot;
-        this.currentPlayerIndex = data.status.current_player_index;
-        this.isMyTurn = (this.players[this.currentPlayerIndex].id === this.playerId);
-        
-        // Update UI based on current state
-        if (this.gameState === 'WAITING_FOR_PLAYERS') {
-            this.showLobby();
-        } else if (this.gameState === 'WAITING_FOR_BETS') {
-            this.showBettingInterface();
-        } else if (this.gameState === 'IN_PROGRESS') {
-            this.showGameInterface();
-        } else if (this.gameState === 'COMPLETED') {
-            this.handleGameEnded({
-                winner: data.status.winner,
-                pot: data.status.pot
-            });
-        }
-        
-        this.updatePlayersList();
-        this.updateBetsDisplay();
-        this.updateGameStatus();
-    }
-    
-    handleError(data) {
-        this.showError(data.message);
-    }
-    
-    animateShot(angle, power, result) {
-        // Simplified animation - in a real game, you would implement proper physics
-        const cueBall = document.getElementById('cue-ball');
-        
-        // Calculate movement based on angle and power
-        const distance = power * 200; // Scale power to pixels
-        const dx = Math.cos(angle) * distance;
-        const dy = Math.sin(angle) * distance;
-        
-        // Animate cue ball
-        cueBall.style.transition = 'transform 0.5s ease-out';
-        cueBall.style.transform = `translate(${dx}px, ${dy}px)`;
-        
-        // Reset after animation
-        setTimeout(() => {
-            cueBall.style.transition = '';
-            cueBall.style.transform = '';
-        }, 500);
-    }
-    
-    updatePlayersList() {
-        const playersList = document.getElementById('players-list');
+        // Update players list
+        const playersList = document.getElementById('waiting-players-list');
         playersList.innerHTML = '';
         
-        this.players.forEach(player => {
-            const li = document.createElement('li');
-            li.textContent = player.name;
-            if (player.id === this.playerId) {
-                li.classList.add('me');
-            }
-            playersList.appendChild(li);
+        gameState.players.forEach(playerId => {
+            const playerElement = document.createElement('div');
+            playerElement.className = 'player-badge';
+            playerElement.textContent = playerId === this.playerId ? 'You' : `Player ${playerId.substr(0, 4)}`;
+            playersList.appendChild(playerElement);
         });
-    }
-    
-    updateBetsDisplay() {
-        const betsList = document.getElementById('bets-list');
-        betsList.innerHTML = '';
         
-        for (const playerId in this.bets) {
-            const player = this.players.find(p => p.id === playerId);
-            if (player) {
-                const li = document.createElement('li');
-                li.textContent = `${player.name}: ${this.bets[playerId]} Stars`;
-                betsList.appendChild(li);
-            }
-        }
-        
-        document.getElementById('pot-amount').textContent = this.pot;
-    }
-    
-    updateGameStatus() {
-        const statusElement = document.getElementById('game-status');
-        
-        if (this.gameState === 'WAITING_FOR_PLAYERS') {
-            statusElement.textContent = `Waiting for players (${this.players.length}/${this.maxPlayers})`;
-        } else if (this.gameState === 'WAITING_FOR_BETS') {
-            statusElement.textContent = 'Waiting for bets';
-        } else if (this.gameState === 'IN_PROGRESS') {
-            const currentPlayer = this.players[this.currentPlayerIndex];
-            statusElement.textContent = `Current turn: ${currentPlayer.name}`;
-            
-            // Highlight current player
-            document.querySelectorAll('#players-list li').forEach((li, index) => {
-                if (index === this.currentPlayerIndex) {
-                    li.classList.add('current');
-                } else {
-                    li.classList.remove('current');
-                }
-            });
-        } else if (this.gameState === 'COMPLETED') {
-            statusElement.textContent = 'Game completed';
-        }
-        
-        // Update turn indicator
-        if (this.isMyTurn) {
-            document.getElementById('turn-indicator').style.display = 'block';
+        // Enable start button if user is the first player (game creator)
+        const startButton = document.querySelector('.start-game');
+        if (gameState.players.length >= 2 && gameState.players[0] === this.playerId) {
+            startButton.disabled = false;
         } else {
-            document.getElementById('turn-indicator').style.display = 'none';
+            startButton.disabled = true;
+        }
+        
+        this.showScreen('waiting-screen');
+    }
+
+    startGame(gameState) {
+        this.gameState = gameState;
+        this.showScreen('game-screen');
+        this.updateGameState(gameState);
+        
+        // Setup aiming for the first turn
+        if (this.gameState.currentTurn === this.playerId) {
+            this.setupAiming();
         }
     }
-    
-    addChatMessage(playerId, message, timestamp) {
-        const chatMessages = document.getElementById('chat-messages');
-        const player = this.players.find(p => p.id === playerId);
-        const playerName = player ? player.name : 'Unknown';
+
+    showGameOver(winner, isForfeit = false) {
+        const winnerDisplay = document.getElementById('winner-display');
+        const finalPot = document.getElementById('final-pot');
         
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('chat-message');
-        if (playerId === this.playerId) {
-            messageElement.classList.add('me');
+        if (winner === this.playerId) {
+            winnerDisplay.textContent = 'You won!';
+            winnerDisplay.style.color = '#ffcc00';
+        } else {
+            winnerDisplay.textContent = `${winner} won!`;
+            winnerDisplay.style.color = '#ff6b00';
         }
         
-        const time = new Date(timestamp).toLocaleTimeString();
-        messageElement.innerHTML = `
-            <span class="player-name">${playerName}</span>
-            <span class="message-time">${time}</span>
-            <div class="message-text">${message}</div>
-        `;
+        finalPot.textContent = this.gameState.pot;
+        
+        this.showScreen('game-over-screen');
+    }
+
+    showScreen(screenId) {
+        // Hide all screens
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+        
+        // Show the requested screen
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    showJoinDialog() {
+        document.getElementById('join-screen').classList.add('active');
+    }
+
+    hideJoinDialog() {
+        document.getElementById('join-screen').classList.remove('active');
+    }
+
+    openChat() {
+        document.getElementById('chat-overlay').style.display = 'flex';
+    }
+
+    closeChat() {
+        document.getElementById('chat-overlay').style.display = 'none';
+    }
+
+    sendChatMessage() {
+        const chatInput = document.getElementById('chat-input');
+        const message = chatInput.value.trim();
+        
+        if (message && this.socket && this.socket.readyState === WebSocket.OPEN) {
+            // In a real implementation, you would send chat messages via WebSocket
+            this.addChatMessage(this.playerName, message);
+            chatInput.value = '';
+        }
+    }
+
+    addChatMessage(sender, message) {
+        const chatMessages = document.getElementById('chat-messages');
+        const messageElement = document.createElement('div');
+        messageElement.className = 'chat-message';
+        messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
         
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
-    
-    showMainMenu() {
-        document.getElementById('main-menu').style.display = 'block';
-        document.getElementById('lobby').style.display = 'none';
-        document.getElementById('game-interface').style.display = 'none';
-        
-        // Reset game state
-        this.gameId = null;
-        this.gameState = 'waiting';
-        this.players = [];
-        this.bets = {};
-        this.pot = 0;
-    }
-    
-    showLobby() {
-        document.getElementById('main-menu').style.display = 'none';
-        document.getElementById('lobby').style.display = 'block';
-        document.getElementById('game-interface').style.display = 'none';
-        
-        this.updatePlayersList();
-    }
-    
-    showBettingInterface() {
-        document.getElementById('betting-interface').style.display = 'block';
-    }
-    
-    showGameInterface() {
-        document.getElementById('main-menu').style.display = 'none';
-        document.getElementById('lobby').style.display = 'none';
-        document.getElementById('game-interface').style.display = 'block';
-    }
-    
-    showJoinGameDialog() {
-        document.getElementById('join-game-dialog').style.display = 'block';
-    }
-    
-    hideJoinGameDialog() {
-        document.getElementById('join-game-dialog').style.display = 'none';
-    }
-    
-    showError(message) {
-        // Show error message in UI
-        const errorElement = document.getElementById('error-message');
-        errorElement.textContent = message;
-        errorElement.style.display = 'block';
-        
-        // Hide after 3 seconds
-        setTimeout(() => {
-            errorElement.style.display = 'none';
-        }, 3000);
-    }
-}
 
-// Initialize the game when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    window.poolGame = new PoolGame();
+    showError(message) {
+        const errorDisplay = document.getElementById('error-display');
+        errorDisplay.textContent = message;
+        errorDisplay.style.display = 'block';
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            this.hideError();
+        }, 5000);
+    }
+
+    hideError() {
+        document.getElementById('error-display').style.display = 'none';
+    }
+
+    updateStarsBalance() {
+        // This would typically fetch from your backend
+        // For now, we'll use a placeholder
+        document.getElementById('stars-balance').textContent = '100';
+    }
+
+    // UI helper functions
+    function toggleMenu() {
+        const menu = document.getElementById('menu-overlay');
+        menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    // Global functions for HTML onclick handlers
+    window.createGame = function() {
+        window.poolGame.createGame();
+    };
+
+    window.joinGame = function() {
+        window.poolGame.joinGame();
+    };
+
+    window.startGame = function() {
+        window.poolGame.startGame();
+    };
+
+    window.leaveGame = function() {
+        window.poolGame.leaveGame();
+    };
+
+    window.showJoinDialog = function() {
+        window.poolGame.showJoinDialog();
+    };
+
+    window.hideJoinDialog = function() {
+        window.poolGame.hideJoinDialog();
+    };
+
+    window.returnToLobby = function() {
+        window.poolGame.leaveGame();
+    };
+
+    window.sendChatMessage = function() {
+        window.poolGame.sendChatMessage();
+    };
+
+    window.closeChat = function() {
+        window.poolGame.closeChat();
+    };
+
+    // Initialize the game when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+        window.poolGame = new PoolGame();
+        
+        // Add CSS for particle animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes particleMove {
+                from {
+                    transform: translate(0, 0);
+                }
+                to {
+                    transform: translate(
+                        calc(cos(var(--angle)) * var(--distance)),
+                        calc(sin(var(--angle)) * var(--distance))
+                    );
+                }
+            }
+            
+            @keyframes particleFade {
+                0% {
+                    opacity: 0;
+                    transform: scale(0.5);
+                }
+                50% {
+                    opacity: 1;
+                    transform: scale(1.2);
+                }
+                100% {
+                    opacity: 0;
+                    transform: scale(0.8);
+                }
+            }
+            
+            .particle {
+                will-change: transform, opacity;
+            }
+        `;
+        document.head.appendChild(style);
 });

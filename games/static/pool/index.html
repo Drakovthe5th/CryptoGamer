@@ -4,83 +4,154 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CryptoGamer - Pool</title>
-    <link rel="stylesheet" href="/static/pool/pool.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="pool.css">
 </head>
 <body>
-    <div id="pool-game">
-        <!-- Main Menu -->
-        <div id="main-menu">
-            <h1>Pool Game</h1>
-            <button id="create-game-btn" class="menu-btn">Create Game</button>
-            <button id="join-game-btn" class="menu-btn">Join Game</button>
+    <div class="pool-game-container">
+        <!-- Background Elements -->
+        <div class="background-elements">
+            <div class="glowing-orb orb-1"></div>
+            <div class="glowing-orb orb-2"></div>
+            <div class="glowing-orb orb-3"></div>
         </div>
-
-        <!-- Lobby -->
-        <div id="lobby" style="display: none;">
-            <div id="game-id-display">Game ID: </div>
-            <h2>Players</h2>
-            <ul id="players-list"></ul>
-            <div id="game-status">Waiting for players...</div>
-            <button id="start-game-btn" class="menu-btn">Start Game</button>
-            <button id="leave-game-btn" class="menu-btn">Leave Game</button>
+        
+        <!-- Game Header -->
+        <div class="game-header">
+            <button class="back-button" onclick="window.history.back()">←</button>
+            <h1>POOL GAME</h1>
+            <button class="menu-button" onclick="toggleMenu()">☰</button>
         </div>
-
-        <!-- Game Interface -->
-        <div id="game-interface" style="display: none;">
-            <div id="pool-table">
-                <div id="pool-balls">
-                    <div id="cue-ball" style="top: 75%; left: 50%;"></div>
-                    <!-- Other balls would be added dynamically -->
+        
+        <!-- Game Screens -->
+        <div id="lobby-screen" class="screen active">
+            <div class="lobby-content">
+                <h2>Create or Join Game</h2>
+                
+                <div class="bet-selection">
+                    <label for="bet-amount">Bet Amount (Stars):</label>
+                    <input type="number" id="bet-amount" min="1" max="100" value="10">
+                    <div class="balance">Your Balance: <span id="stars-balance">0</span> Stars</div>
                 </div>
-                <div id="pool-cue" style="top: 75%; left: 50%;"></div>
+                
+                <div class="lobby-buttons">
+                    <button class="lobby-btn create-game" onclick="createGame()">CREATE GAME</button>
+                    <button class="lobby-btn join-game" onclick="showJoinDialog()">JOIN GAME</button>
+                </div>
+                
+                <div id="active-games" class="active-games">
+                    <h3>Active Games</h3>
+                    <div class="games-list" id="games-list">
+                        <!-- Active games will be listed here -->
+                    </div>
+                </div>
             </div>
-
-            <div id="power-meter">
-                <div id="power-level"></div>
+        </div>
+        
+        <div id="join-screen" class="screen">
+            <div class="join-content">
+                <h2>Join Game</h2>
+                <input type="text" id="game-id-input" placeholder="Enter Game ID">
+                <div class="join-buttons">
+                    <button class="control-btn" onclick="joinGame()">JOIN</button>
+                    <button class="control-btn secondary" onclick="hideJoinDialog()">CANCEL</button>
+                </div>
             </div>
-
-            <div id="turn-indicator">Your Turn!</div>
-
-            <div id="chat-container">
-                <div id="chat-messages"></div>
-                <div id="chat-input-container">
+        </div>
+        
+        <div id="waiting-screen" class="screen">
+            <div class="waiting-content">
+                <h2>Waiting for Players</h2>
+                <div class="game-info">
+                    <div class="info-item">Game ID: <span id="waiting-game-id"></span></div>
+                    <div class="info-item">Bet: <span id="waiting-bet-amount"></span> Stars</div>
+                    <div class="info-item">Pot: <span id="waiting-pot"></span> Stars</div>
+                </div>
+                
+                <div class="players-waiting">
+                    <h3>Players Joined:</h3>
+                    <div class="players-list" id="waiting-players-list">
+                        <!-- Players will be listed here -->
+                    </div>
+                </div>
+                
+                <button class="control-btn start-game" onclick="startGame()" disabled>START GAME</button>
+                <button class="control-btn secondary" onclick="leaveGame()">LEAVE GAME</button>
+            </div>
+        </div>
+        
+        <div id="game-screen" class="screen">
+            <!-- Pool Table -->
+            <div class="pool-table-container">
+                <img src="assets/images/table.png" alt="Pool Table" class="pool-table-img">
+                <div class="balls-container" id="balls-container">
+                    <!-- Balls will be dynamically added here -->
+                </div>
+                <img src="assets/images/cue.png" alt="Cue Stick" class="cue-stick" id="cue-stick">
+            </div>
+            
+            <!-- Game Interface -->
+            <div class="game-interface">
+                <div class="players-display" id="players-display">
+                    <!-- Players will be dynamically added here -->
+                </div>
+                
+                <div class="game-info">
+                    <div class="pot-display">Pot: <span id="pot-amount">0</span> Stars</div>
+                    <div class="turn-display" id="turn-display">Waiting for game to start...</div>
+                </div>
+                
+                <div class="power-meter">
+                    <div class="power-label">Power:</div>
+                    <div class="power-bar">
+                        <div class="power-level" id="power-level"></div>
+                    </div>
+                    <div class="power-percent" id="power-percent">0%</div>
+                </div>
+                
+                <div class="game-controls">
+                    <button class="control-btn take-shot" id="take-shot-btn" disabled>TAKE SHOT</button>
+                    <button class="control-btn forfeit" id="forfeit-btn">FORFEIT</button>
+                    <button class="control-btn chat" id="chat-btn">CHAT</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="game-over-screen" class="screen">
+            <div class="game-over-content">
+                <h2>Game Over!</h2>
+                <div class="winner-display" id="winner-display"></div>
+                <div class="pot-won">Pot: <span id="final-pot"></span> Stars</div>
+                <button class="control-btn" onclick="returnToLobby()">PLAY AGAIN</button>
+            </div>
+        </div>
+        
+        <!-- Menu Overlay -->
+        <div id="menu-overlay" class="overlay">
+            <div class="menu-content">
+                <h3>Game Menu</h3>
+                <button class="menu-item" onclick="leaveGame()">Leave Game</button>
+                <button class="menu-item" onclick="toggleMenu()">Close</button>
+            </div>
+        </div>
+        
+        <!-- Chat Overlay -->
+        <div id="chat-overlay" class="overlay">
+            <div class="chat-content">
+                <h3>Game Chat</h3>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input">
                     <input type="text" id="chat-input" placeholder="Type a message...">
-                    <button id="send-chat-btn">Send</button>
+                    <button onclick="sendChatMessage()">Send</button>
                 </div>
+                <button class="close-btn" onclick="closeChat()">Close</button>
             </div>
-
-            <button id="leave-game-btn" class="menu-btn" style="position: absolute; top: 20px; right: 20px;">Leave Game</button>
         </div>
-
-        <!-- Betting Interface -->
-        <div id="betting-interface" style="display: none;">
-            <h2>Place Your Bet</h2>
-            <p>All players must bet the same amount</p>
-            <input type="number" id="bet-amount" placeholder="Stars amount" min="1">
-            <button id="place-bet-btn">Place Bet</button>
-            
-            <h3>Current Bets</h3>
-            <ul id="bets-list"></ul>
-            
-            <div id="pot-display">Total Pot: <span id="pot-amount">0</span> Stars</div>
-        </div>
-
-        <!-- Game Results -->
-        <div id="game-result"></div>
-
-        <!-- Join Game Dialog -->
-        <div id="join-game-dialog">
-            <h2>Join Game</h2>
-            <input type="text" id="game-id-input" placeholder="Enter Game ID">
-            <button id="join-game-submit">Join</button>
-            <button onclick="poolGame.hideJoinGameDialog()">Cancel</button>
-        </div>
-
-        <!-- Error Message -->
-        <div id="error-message"></div>
+        
+        <!-- Error Display -->
+        <div id="error-display" class="error-display"></div>
     </div>
-
-    <script src="/static/pool/pool.js"></script>
+    
+    <script src="pool.js"></script>
 </body>
 </html>

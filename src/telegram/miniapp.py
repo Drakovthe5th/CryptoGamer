@@ -765,3 +765,91 @@ async def admin_withdraw_revenue():
     except Exception as e:
         logger.error(f"Revenue withdrawal error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+    
+# Add TONopoly betting handling
+@miniapp_bp.route('/tonopoly/bet', methods=['POST'])
+@validators.validate_json_input({
+    'user_id': {'type': 'int', 'required': True},
+    'game_id': {'type': 'str', 'required': True},
+    'amount': {'type': 'int', 'required': True}
+})
+def tonopoly_place_bet():
+    """Place a bet for a TONopoly game"""
+    data = request.get_json()
+    user_id = data['user_id']
+    game_id = data['game_id']
+    amount = data['amount']
+    
+    try:
+        # Get game from storage
+        game = active_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        # Validate bet
+        if not game.validate_bet(user_id, amount):
+            return jsonify({'error': 'Invalid bet amount'}), 400
+            
+        # Create Stars invoice
+        invoice = create_stars_invoice_service(
+            user_id=user_id,
+            product_id=f"tonopoly_bet_{game_id}",
+            title=f"TONopoly Bet - Game {game_id}",
+            description=f"Bet for TONopoly game",
+            price_stars=amount
+        )
+        
+        return jsonify({
+            'success': True,
+            'invoice': invoice
+        })
+        
+    except Exception as e:
+        logger.error(f"TONopoly bet placement error: {str(e)}")
+        return jsonify({'error': 'Bet placement failed'}), 500
+
+@miniapp_bp.route('/tonopoly/bet/process', methods=['POST'])
+@validators.validate_json_input({
+    'user_id': {'type': 'int', 'required': True},
+    'game_id': {'type': 'str', 'required': True},
+    'credentials': {'type': 'dict', 'required': True}
+})
+def tonopoly_process_bet():
+    """Process a TONopoly bet payment"""
+    data = request.get_json()
+    user_id = data['user_id']
+    game_id = data['game_id']
+    credentials = data['credentials']
+    
+    try:
+        # Get game from storage
+        game = active_games.get(game_id)
+        if not game:
+            return jsonify({'error': 'Game not found'}), 404
+            
+        # Process payment
+        result = process_stars_payment_service(
+            user_id=user_id,
+            form_id=0,  # This would come from the invoice
+            invoice_data={
+                'product_id': f"tonopoly_bet_{game_id}",
+                'title': f"TONopoly Bet - Game {game_id}",
+                'description': f"Bet for TONopoly game",
+                'price_stars': game.bet_amount
+            }
+        )
+        
+        if result['success']:
+            # Record bet payment
+            await game.add_bet_payment(user_id, game.bet_amount)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Bet payment processed successfully'
+            })
+        else:
+            return jsonify({'error': 'Payment processing failed'}), 400
+            
+    except Exception as e:
+        logger.error(f"TONopoly bet processing error: {str(e)}")
+        return jsonify({'error': 'Bet processing failed'}), 500

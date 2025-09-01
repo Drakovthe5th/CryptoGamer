@@ -1,326 +1,586 @@
-/* Pool Game Styles */
-#pool-game {
-    position: relative;
-    width: 100%;
-    height: 100vh;
-    background-color: #1a1a1a;
-    color: white;
+/* Base styles matching CryptoGamer theme */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #000;
+    color: #ffcc00;
     font-family: 'Arial', sans-serif;
     overflow: hidden;
 }
 
-/* Main Menu */
-#main-menu {
+.pool-game-container {
+    min-height: 100vh;
     padding: 20px;
-    text-align: center;
-}
-
-#main-menu h1 {
-    color: #ffcc00;
-    margin-bottom: 30px;
-}
-
-.menu-btn {
-    display: block;
-    width: 200px;
-    margin: 15px auto;
-    padding: 12px 20px;
-    background-color: #ffcc00;
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.menu-btn:hover {
-    background-color: #ffdd33;
-}
-
-/* Lobby */
-#lobby {
-    padding: 20px;
-}
-
-#game-id-display {
-    font-size: 18px;
-    margin-bottom: 20px;
-    text-align: center;
-    background-color: #333;
-    padding: 10px;
-    border-radius: 8px;
-}
-
-#players-list {
-    list-style: none;
-    padding: 0;
-    margin-bottom: 20px;
-}
-
-#players-list li {
-    padding: 10px;
-    margin: 5px 0;
-    background-color: #333;
-    border-radius: 5px;
-}
-
-#players-list li.me {
-    background-color: #444;
-    font-weight: bold;
-}
-
-#players-list li.current {
-    border-left: 4px solid #ffcc00;
-}
-
-#game-status {
-    text-align: center;
-    margin: 20px 0;
-    font-size: 18px;
-}
-
-#start-game-btn {
-    display: none;
-    margin: 20px auto;
-}
-
-/* Game Interface */
-#game-interface {
     position: relative;
-    height: 100%;
 }
 
-#pool-table {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    height: 600px;
-    background-color: #2a7d2a;
-    border: 15px solid #8B4513;
-    border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-}
-
-#pool-balls {
-    position: relative;
+/* Background elements */
+.background-elements {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    pointer-events: none;
+    z-index: 1;
 }
 
-.pool-ball {
+.glowing-orb {
     position: absolute;
-    width: 20px;
-    height: 20px;
     border-radius: 50%;
-    background-color: white;
-    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(255,204,0,0.3) 0%, rgba(255,204,0,0) 70%);
+    animation: float 6s infinite ease-in-out;
 }
 
-#cue-ball {
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background-color: white;
-    transform: translate(-50%, -50%);
+.orb-1 { width: 100px; height: 100px; top: 10%; left: 10%; animation-delay: 0s; }
+.orb-2 { width: 150px; height: 150px; top: 60%; right: 15%; animation-delay: -2s; }
+.orb-3 { width: 80px; height: 80px; bottom: 20%; left: 20%; animation-delay: -4s; }
+
+@keyframes float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
 }
 
-#pool-cue {
-    position: absolute;
-    width: 150px;
-    height: 5px;
-    background-color: #8B4513;
-    transform-origin: 0 50%;
+/* Game header */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    position: relative;
     z-index: 10;
 }
 
-#power-meter {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200px;
-    height: 20px;
-    background-color: #333;
-    border-radius: 10px;
-    display: none;
-}
-
-#power-level {
-    height: 100%;
-    width: 0%;
-    background-color: #ffcc00;
-    border-radius: 10px;
-    transition: width 0.1s;
-}
-
-#turn-indicator {
-    position: absolute;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 10px 20px;
-    background-color: #ffcc00;
+.back-button, .menu-button {
+    background: #ffcc00;
     color: #000;
-    border-radius: 20px;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
     font-weight: bold;
-    display: none;
 }
 
-/* Betting Interface */
-#betting-interface {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.8);
-    padding: 20px;
-    border-radius: 10px;
+.game-header h1 {
+    margin: 0;
+    font-size: 24px;
+    text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+}
+
+/* Screen management */
+.screen {
+    display: none;
+    position: relative;
+    z-index: 5;
+}
+
+.screen.active {
+    display: block;
+}
+
+/* Lobby screen */
+.lobby-content, .waiting-content, .join-content, .game-over-content {
     text-align: center;
-    z-index: 100;
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.lobby-content h2, .waiting-content h2, .join-content h2, .game-over-content h2 {
+    margin-bottom: 20px;
+    color: #ffcc00;
+}
+
+.bet-selection {
+    margin-bottom: 30px;
+}
+
+.bet-selection label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 16px;
 }
 
 #bet-amount {
     width: 100px;
     padding: 10px;
-    margin: 10px;
-    border: none;
-    border-radius: 5px;
+    border: 2px solid #ffcc00;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffcc00;
+    font-size: 16px;
     text-align: center;
 }
 
-#bets-list {
-    list-style: none;
-    padding: 0;
-    margin: 10px 0;
+.balance {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #ccc;
 }
 
-#pot-display {
-    margin: 10px 0;
-    font-weight: bold;
-}
-
-/* Chat Interface */
-#chat-container {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    width: 300px;
-    background-color: rgba(0, 0, 0, 0.7);
-    border-radius: 10px;
-    padding: 10px;
-}
-
-#chat-messages {
-    height: 150px;
-    overflow-y: auto;
-    margin-bottom: 10px;
-}
-
-.chat-message {
-    margin-bottom: 5px;
-    padding: 5px;
-    border-radius: 5px;
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.chat-message.me {
-    background-color: rgba(255, 204, 0, 0.2);
-}
-
-.player-name {
-    font-weight: bold;
-    margin-right: 5px;
-}
-
-.message-time {
-    font-size: 0.8em;
-    color: #aaa;
-}
-
-#chat-input-container {
+.lobby-buttons {
     display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 30px;
 }
 
-#chat-input {
-    flex-grow: 1;
-    padding: 5px;
+.lobby-btn {
+    padding: 15px 30px;
     border: none;
-    border-radius: 5px 0 0 5px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-#send-chat-btn {
-    padding: 5px 10px;
-    background-color: #ffcc00;
+.create-game {
+    background: #ffcc00;
     color: #000;
-    border: none;
-    border-radius: 0 5px 5px 0;
+}
+
+.join-game {
+    background: transparent;
+    color: #ffcc00;
+    border: 2px solid #ffcc00;
+}
+
+.lobby-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 204, 0, 0.3);
+}
+
+.active-games {
+    margin-top: 30px;
+}
+
+.games-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.game-item {
+    background: rgba(255, 204, 0, 0.1);
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #ffcc00;
     cursor: pointer;
 }
 
-/* Game Results */
-#game-result {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.9);
-    padding: 30px;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 200;
-    display: none;
+.game-item:hover {
+    background: rgba(255, 204, 0, 0.2);
 }
 
-/* Join Game Dialog */
-#join-game-dialog {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.9);
+/* Join screen */
+.join-content {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #ffcc00;
+    border-radius: 15px;
     padding: 30px;
-    border-radius: 10px;
-    text-align: center;
-    z-index: 200;
-    display: none;
 }
 
 #game-id-input {
+    width: 100%;
+    padding: 15px;
+    border: 2px solid #ffcc00;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffcc00;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+.join-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+/* Waiting screen */
+.game-info {
+    margin-bottom: 20px;
+}
+
+.info-item {
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.players-waiting {
+    margin-bottom: 20px;
+}
+
+.players-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.player-badge {
+    background: rgba(255, 204, 0, 0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid #ffcc00;
+}
+
+/* Pool table container */
+.pool-table-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    height: 400px;
+    margin: 0 auto 30px;
+    z-index: 5;
+}
+
+.pool-table-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+    box-shadow: 0 0 30px rgba(255, 204, 0, 0.3);
+}
+
+/* Balls container */
+.balls-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.pool-ball {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    transition: all 0.3s ease-out;
+    pointer-events: none;
+    z-index: 6;
+}
+
+/* Cue stick */
+.cue-stick {
+    position: absolute;
+    width: 300px;
+    height: 10px;
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 7;
+    transition: transform 0.1s ease;
+    filter: drop-shadow(2px 2px 3px rgba(0,0,0,0.7));
+}
+
+/* Game interface */
+.game-interface {
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 10;
+}
+
+.players-display {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.player-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(255, 204, 0, 0.1);
     padding: 10px;
-    margin: 10px 0;
-    border: none;
-    border-radius: 5px;
-    width: 200px;
+    border-radius: 10px;
+    border: 2px solid #ffcc00;
+    min-width: 80px;
+}
+
+.player-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-bottom: 5px;
+    background: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.player-name {
+    font-size: 12px;
+    margin-bottom: 3px;
     text-align: center;
 }
 
-/* Error Messages */
-#error-message {
-    position: absolute;
+.player-bet {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.current-player {
+    border-color: #ff6b00;
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.5);
+}
+
+.game-info {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.pot-display, .turn-display {
+    font-size: 18px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 5px rgba(255, 204, 0, 0.5);
+}
+
+/* Power meter */
+.power-meter {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.power-label {
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.power-bar {
+    width: 100%;
+    max-width: 300px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #ffcc00;
+    border-radius: 10px;
+    margin: 0 auto 5px;
+    overflow: hidden;
+}
+
+.power-level {
+    height: 100%;
+    background: linear-gradient(90deg, #ffcc00, #ff6b00);
+    width: 0%;
+    transition: width 0.1s ease;
+    border-radius: 8px;
+}
+
+.power-percent {
+    font-size: 14px;
+}
+
+/* Game controls */
+.game-controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.control-btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.take-shot {
+    background: #ffcc00;
+    color: #000;
+}
+
+.take-shot:disabled {
+    background: #666;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.forfeit {
+    background: transparent;
+    color: #ffcc00;
+    border: 2px solid #ffcc00;
+}
+
+.chat {
+    background: rgba(255, 204, 0, 0.2);
+    color: #ffcc00;
+}
+
+.secondary {
+    background: transparent;
+    color: #ffcc00;
+    border: 2px solid #ffcc00;
+}
+
+.control-btn:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 204, 0, 0.3);
+}
+
+/* Game over screen */
+.game-over-content {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #ffcc00;
+    border-radius: 15px;
+    padding: 40px;
+}
+
+.winner-display {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #ffcc00;
+}
+
+.pot-won {
+    font-size: 20px;
+    margin-bottom: 30px;
+}
+
+/* Overlays */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+.menu-content, .chat-content {
+    background: #1a1a1a;
+    border: 2px solid #ffcc00;
+    border-radius: 15px;
+    padding: 30px;
+    max-width: 400px;
+    width: 90%;
+}
+
+.menu-item {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    margin: 10px 0;
+    background: rgba(255, 204, 0, 0.2);
+    color: #ffcc00;
+    border: 1px solid #ffcc00;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.menu-item:hover {
+    background: rgba(255, 204, 0, 0.3);
+}
+
+.chat-messages {
+    height: 200px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+}
+
+#chat-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ffcc00;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffcc00;
+}
+
+.close-btn {
+    margin-top: 15px;
+    width: 100%;
+}
+
+/* Error display */
+.error-display {
+    position: fixed;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: #ff3333;
+    background: #ff3333;
     color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    z-index: 300;
+    padding: 15px 20px;
+    border-radius: 8px;
+    z-index: 1000;
     display: none;
+    max-width: 80%;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    #pool-table {
-        width: 250px;
-        height: 500px;
+/* Responsive design */
+@media (max-width: 850px) {
+    .pool-table-container {
+        height: 300px;
     }
     
-    #chat-container {
-        width: 250px;
+    .game-header h1 {
+        font-size: 20px;
+    }
+    
+    .lobby-btn {
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+    
+    .control-btn {
+        padding: 10px 15px;
+        font-size: 12px;
+    }
+    
+    .players-display {
+        gap: 10px;
+    }
+    
+    .player-display {
+        min-width: 70px;
+        padding: 8px;
+    }
+}
+
+@media (max-width: 600px) {
+    .pool-table-container {
+        height: 250px;
+    }
+    
+    .game-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .control-btn {
+        width: 200px;
+    }
+    
+    .join-buttons {
+        flex-direction: column;
     }
 }

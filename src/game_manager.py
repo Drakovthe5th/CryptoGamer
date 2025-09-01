@@ -62,7 +62,14 @@ class GameManager:
             'handler': 'handle_edge_surf_completion',
             'base_difficulty': 'hard',
             'score_multiplier': 0.04  # 0.04 GC per second
-        }
+        },
+        'tonopoly': {
+        'name': 'TONopoly',
+        'icon': 'tonopoly_icon.png',
+        'base_reward': 20,
+        'handler': 'handle_tonopoly_completion',
+        'base_difficulty': 'medium',
+        'score_multiplier': 0.1  # 0.1 GC per point
     }
 
     @classmethod
@@ -150,6 +157,24 @@ class GameManager:
             return {'reward': min(reward, 25)}  # Max 25 GC per game
         except KeyError as e:
             logger.error(f"Missing data in edge surf completion: {e}")
+            return {'reward': 0}
+
+    # Add TONopoly completion handler
+    @staticmethod
+    def handle_tonopoly_completion(data):
+        """Handle TONopoly game completion"""
+        try:
+            # Calculate reward based on game performance
+            score = data.get('score', 0)
+            placement = data.get('placement', 1)  # 1st, 2nd, etc.
+            
+            # Base reward with placement multiplier
+            placement_multiplier = max(0.1, 1 - (placement * 0.2))  # 1st: 1x, 2nd: 0.8x, etc.
+            reward = score * GameManager.GAMES['tonopoly']['score_multiplier'] * placement_multiplier
+            
+            return {'reward': min(reward, 100)}  # Max 100 GC per game
+        except KeyError as e:
+            logger.error(f"Missing data in TONopoly completion: {e}")
             return {'reward': 0}
 
 

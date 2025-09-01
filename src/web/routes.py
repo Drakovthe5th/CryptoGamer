@@ -475,6 +475,37 @@ def configure_routes(app):
         except Exception as e:
             return jsonify({'status': 'unavailable', 'error': str(e)}), 500
         
+    # Add TONopoly route
+    @app.route('/tonopoly')
+    def tonopoly_game():
+        return send_file('../static/tonopoly/index.html')
+
+    # Add TONopoly API endpoints
+    @app.route('/api/tonopoly/config', methods=['GET'])
+    def get_tonopoly_config():
+        """Get TONopoly game configuration"""
+        game = TONopolyGame()
+        return jsonify({
+            'success': True,
+            'config': game.get_game_config()
+        })
+
+    @app.route('/api/tonopoly/leaderboard', methods=['GET'])
+    def get_tonopoly_leaderboard():
+        """Get TONopoly leaderboard"""
+        try:
+            # This would typically fetch from database
+            return jsonify({
+                'success': True,
+                'leaderboard': [
+                    {'username': 'Player1', 'score': 15000, 'games_won': 5},
+                    {'username': 'Player2', 'score': 12000, 'games_won': 3},
+                    {'username': 'Player3', 'score': 9000, 'games_won': 2}
+                ]
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+        
 # HELPER FUNCTION
 def get_user_id(request):
     """Extract and validate user ID from Telegram WebApp init data"""
