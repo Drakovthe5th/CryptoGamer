@@ -6,19 +6,42 @@
     <title>CryptoGamer - TONopoly</title>
     <link rel="stylesheet" href="tonopoly.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Lottie for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.7.6/lottie.min.js"></script>
 </head>
 <body>
     <div class="container">
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-content">
+                <img src="assets/loading/loading-spinner.png" alt="Loading" class="loading-spinner">
+                <div class="loading-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="loading-text">Loading TONopoly...</div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Header with user info -->
         <div class="header">
             <div class="player-info">
-                <span class="username" id="username">Player</span>
-                <span class="balance" id="balance">0 gc</span>
+                <img id="player-avatar" src="assets/ui/avatar-default.png" alt="Player" class="avatar">
+                <div class="player-details">
+                    <span class="username" id="username">Player</span>
+                    <div class="balances">
+                        <span class="balance" id="balance-gc">0 gc</span>
+                        <span class="balance" id="balance-stars">0 ★</span>
+                    </div>
+                </div>
             </div>
+            
             <div class="game-info">
                 <span id="game-id">Game: ...</span>
                 <span id="game-status">Lobby</span>
             </div>
+            
             <div class="game-controls">
                 <button id="menu-btn">☰</button>
                 <button id="sound-btn">🔊</button>
@@ -26,91 +49,146 @@
         </div>
         
         <!-- Lobby Screen -->
-        <div id="lobby" class="screen active">
-            <h2>TONopoly Lobby</h2>
-            <div class="players-list" id="players-list">
-                <div class="player-item">
-                    <div class="color-indicator" style="background: #F7931A;"></div>
-                    <span class="player-name">Waiting for players...</span>
+        <div id="lobby" class="screen">
+            <div class="lobby-content">
+                <h2>TONopoly Lobby</h2>
+                <div class="game-logo">
+                    <img src="assets/brands/ton-logo.png" alt="TONopoly" class="logo-img">
+                    <h1>TONopoly</h1>
                 </div>
-            </div>
-            
-            <div class="color-selection">
-                <h3>Choose Your Color</h3>
-                <div class="color-options">
-                    <div class="color-option" data-color="#F7931A" style="background: #F7931A;"></div>
-                    <div class="color-option" data-color="#627EEA" style="background: #627EEA;"></div>
-                    <div class="color-option" data-color="#0088CC" style="background: #0088CC;"></div>
-                    <div class="color-option" data-color="#27AE60" style="background: #27AE60;"></div>
+                
+                <div class="players-list" id="players-list">
+                    <div class="player-item">
+                        <div class="color-indicator" style="background: #F7931A;"></div>
+                        <span class="player-name">Waiting for players...</span>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="betting-section">
-                <h3>Set Bet Amount (Telegram Stars)</h3>
-                <input type="number" id="bet-amount" placeholder="0" min="0" max="1000">
-                <button id="set-bet">Set Bet</button>
-            </div>
-            
-            <div class="lobby-actions">
-                <button id="start-game" disabled>Start Game</button>
-                <button id="invite-friends">Invite Friends</button>
+                
+                <div class="color-selection">
+                    <h3>Choose Your Color</h3>
+                    <div class="color-options">
+                        <div class="color-option" data-color="#F7931A" style="background: #F7931A;">
+                            <img src="assets/brands/bitcoin-logo.png" alt="Bitcoin">
+                        </div>
+                        <div class="color-option" data-color="#627EEA" style="background: #627EEA;">
+                            <img src="assets/brands/ethereum-logo.png" alt="Ethereum">
+                        </div>
+                        <div class="color-option" data-color="#0088CC" style="background: #0088CC;">
+                            <img src="assets/brands/ton-logo.png" alt="TON">
+                        </div>
+                        <div class="color-option" data-color="#27AE60" style="background: #27AE60;">
+                            <img src="assets/brands/usdt-logo.png" alt="Stablecoin">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="betting-section">
+                    <h3>Set Bet Amount (Telegram Stars)</h3>
+                    <div class="bet-amount-selector">
+                        <button class="bet-amount-btn" data-amount="10">10 ★</button>
+                        <button class="bet-amount-btn" data-amount="25">25 ★</button>
+                        <button class="bet-amount-btn" data-amount="50">50 ★</button>
+                        <button class="bet-amount-btn" data-amount="100">100 ★</button>
+                    </div>
+                    <div class="selected-bet">
+                        Selected: <span id="selected-bet-amount">0</span> ★
+                    </div>
+                    <button id="set-bet">Set Bet</button>
+                </div>
+                
+                <div class="lobby-actions">
+                    <button id="start-game" disabled>Start Game</button>
+                    <button id="invite-friends">Invite Friends</button>
+                </div>
             </div>
         </div>
         
         <!-- Game Screen -->
         <div id="game" class="screen">
-            <div class="game-board">
-                <div class="board" id="tonopoly-board">
-                    <!-- Board will be rendered with JavaScript -->
-                </div>
-                
-                <div class="game-controls">
-                    <div class="dice-container">
-                        <div class="dice" id="dice">0</div>
-                        <button id="roll-btn" disabled>Roll Dice</button>
+            <div class="game-container">
+                <div class="game-board-container">
+                    <div class="board" id="tonopoly-board">
+                        <!-- Board will be rendered with JavaScript -->
                     </div>
                     
-                    <div class="piece-selection" id="piece-selection">
-                        <h4>Select a piece to move:</h4>
-                        <div class="piece-options">
-                            <div class="piece-option" data-index="0"></div>
-                            <div class="piece-option" data-index="1"></div>
-                            <div class="piece-option" data-index="2"></div>
-                            <div class="piece-option" data-index="3"></div>
+                    <div class="dice-container">
+                        <div class="dice" id="dice">
+                            <img src="assets/dice/dice-1.png" alt="Dice" id="dice-image">
+                        </div>
+                        <button id="roll-btn" disabled>Roll Dice</button>
+                    </div>
+                </div>
+                
+                <div class="game-ui">
+                    <div class="players-panel">
+                        <div class="player-turn">
+                            <span class="turn-label">Current turn:</span>
+                            <span id="current-player" class="current-player">...</span>
+                        </div>
+                        <div class="players-list" id="game-players-list">
+                            <!-- Player list will be populated by JavaScript -->
                         </div>
                     </div>
                     
-                    <div class="special-actions">
-                        <button id="stake-btn">Stake Coins</button>
-                        <button id="swap-btn">Swap Position</button>
+                    <div class="action-panel">
+                        <div class="piece-selection" id="piece-selection">
+                            <h4>Select a piece to move:</h4>
+                            <div class="piece-options">
+                                <div class="piece-option" data-index="0">
+                                    <div class="piece-preview"></div>
+                                </div>
+                                <div class="piece-option" data-index="1">
+                                    <div class="piece-preview"></div>
+                                </div>
+                                <div class="piece-option" data-index="2">
+                                    <div class="piece-preview"></div>
+                                </div>
+                                <div class="piece-option" data-index="3">
+                                    <div class="piece-preview"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="special-actions">
+                            <button id="stake-btn" class="action-btn">
+                                <img src="assets/ui/button-stake.png" alt="Stake">
+                                <span>Stake Coins</span>
+                            </button>
+                            <button id="swap-btn" class="action-btn" disabled>
+                                <img src="assets/ui/button-swap.png" alt="Swap">
+                                <span>Swap Position</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="game-messages" id="game-messages">
+                        <!-- Game messages will appear here -->
                     </div>
                 </div>
-            </div>
-            
-            <div class="players-panel">
-                <div class="player-turn">Current turn: <span id="current-player">...</span></div>
-                <div class="players-list" id="game-players-list">
-                    <!-- Player list will be populated by JavaScript -->
-                </div>
-            </div>
-            
-            <div class="game-messages" id="game-messages">
-                <!-- Game messages will appear here -->
             </div>
         </div>
         
         <!-- Game Over Screen -->
         <div id="game-over" class="screen">
-            <h2>Game Over!</h2>
-            <div class="winner-info" id="winner-info">
-                <h3>Winner: <span id="winner-name">...</span></h3>
-                <p>Winnings: <span id="winnings-amount">0</span> Telegram Stars</p>
-            </div>
-            
-            <div class="game-over-actions">
-                <button id="play-again">Play Again</button>
-                <button id="back-to-lobby">Back to Lobby</button>
-                <button id="share-result">Share Result</button>
+            <div class="game-over-content">
+                <h2>Game Over!</h2>
+                <div class="winner-info" id="winner-info">
+                    <div class="winner-trophy">
+                        <img src="assets/ui/icon-trophy.png" alt="Trophy">
+                    </div>
+                    <h3>Winner: <span id="winner-name">...</span></h3>
+                    <div class="winnings">
+                        <img src="assets/ui/icon-stars.png" alt="Stars" class="winnings-icon">
+                        <span id="winnings-amount">0</span> Telegram Stars
+                    </div>
+                    <div class="celebration-animation" id="celebration-animation"></div>
+                </div>
+                
+                <div class="game-over-actions">
+                    <button id="play-again">Play Again</button>
+                    <button id="back-to-lobby">Back to Lobby</button>
+                    <button id="share-result">Share Result</button>
+                </div>
             </div>
         </div>
         
@@ -122,14 +200,54 @@
         <!-- Bet Payment Modal -->
         <div id="bet-modal" class="modal">
             <div class="modal-content">
-                <h3>Place Your Bet</h3>
-                <p>Bet amount: <span id="bet-modal-amount">0</span> Telegram Stars</p>
-                <p>Winner takes all minus 5% house fee</p>
-                <button id="pay-bet">Pay with Telegram Stars</button>
-                <button id="cancel-bet">Cancel</button>
+                <div class="modal-header">
+                    <h3>Place Your Bet</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="bet-details">
+                        <img src="assets/ui/icon-stars.png" alt="Stars" class="bet-icon">
+                        <p>Bet amount: <span id="bet-modal-amount">0</span> Telegram Stars</p>
+                        <p class="bet-note">Winner takes all minus 5% house fee</p>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="pay-bet" class="btn-primary">Pay with Telegram Stars</button>
+                        <button id="cancel-bet" class="btn-secondary">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Stake Modal -->
+        <div id="stake-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Stake Coins</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Stake your coins to earn interest but skip a turn</p>
+                    <div class="stake-amount">
+                        <label for="stake-amount-input">Amount to stake:</label>
+                        <input type="number" id="stake-amount-input" min="1" value="100">
+                        <img src="assets/ui/icon-gamecoins.png" alt="Game Coins" class="amount-icon">
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirm-stake" class="btn-primary">Confirm Stake</button>
+                        <button id="cancel-stake" class="btn-secondary">Cancel</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+    
+    <!-- Audio elements for sound effects -->
+    <audio id="dice-roll-sound" src="assets/sounds/dice-roll.mp3" preload="auto"></audio>
+    <audio id="piece-move-sound" src="assets/sounds/piece-move.mp3" preload="auto"></audio>
+    <audio id="capture-sound" src="assets/sounds/capture.mp3" preload="auto"></audio>
+    <audio id="bonus-sound" src="assets/sounds/bonus.mp3" preload="auto"></audio>
+    <audio id="win-sound" src="assets/sounds/win.mp3" preload="auto"></audio>
+    <audio id="background-music" src="assets/sounds/background-music.mp3" loop preload="auto"></audio>
     
     <script src="tonopoly.js"></script>
 </body>

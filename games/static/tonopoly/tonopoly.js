@@ -8,11 +8,21 @@ class TONopolyGame {
         this.playerColor = null;
         this.socket = null;
         this.gameId = this.getGameIdFromUrl() || this.generateGameId();
+        this.assetsLoaded = 0;
+        this.totalAssets = 0;
+        this.soundEnabled = true;
+        this.musicEnabled = false;
         
         this.init();
     }
     
     async init() {
+        // Show loading screen
+        this.showScreen('loading-screen');
+        
+        // Preload assets
+        await this.preloadAssets();
+        
         // Initialize UI
         this.renderLobby();
         this.setupEventListeners();
@@ -30,6 +40,100 @@ class TONopolyGame {
         
         // Join the game
         await this.joinGame();
+        
+        // Hide loading screen
+        this.hideLoadingScreen();
+    }
+    
+    async preloadAssets() {
+        const assets = [
+            // Board assets
+            'assets/board/board.png',
+            'assets/board/board-overlay.png',
+            'assets/board/home-areas.png',
+            'assets/board/finish-path.png',
+            
+            // Piece assets
+            'assets/pieces/piece-bitcoin.png',
+            'assets/pieces/piece-ethereum.png',
+            'assets/pieces/piece-ton.png',
+            'assets/pieces/piece-stablecoin.png',
+            'assets/pieces/piece-shadow.png',
+            
+            // Dice assets
+            'assets/dice/dice-1.png',
+            'assets/dice/dice-2.png',
+            'assets/dice/dice-3.png',
+            'assets/dice/dice-4.png',
+            'assets/dice/dice-5.png',
+            'assets/dice/dice-6.png',
+            'assets/dice/dice-rolling.gif',
+            
+            // UI assets
+            'assets/ui/button-roll.png',
+            'assets/ui/button-stake.png',
+            'assets/ui/button-bet.png',
+            'assets/ui/panel-background.png',
+            'assets/ui/icon-ton.png',
+            'assets/ui/icon-stars.png',
+            'assets/ui/icon-gamecoins.png',
+            'assets/ui/avatar-default.png',
+            'assets/ui/icon-trophy.png',
+            
+            // Space type icons
+            'assets/spaces/space-normal.png',
+            'assets/spaces/space-mining.png',
+            'assets/spaces/space-bear-trap.png',
+            'assets/spaces/space-bull-market.png',
+            'assets/spaces/space-halving.png',
+            'assets/spaces/space-rug-pull.png',
+            'assets/spaces/space-ath.png',
+            
+            // Brand assets
+            'assets/brands/bitcoin-logo.png',
+            'assets/brands/ethereum-logo.png',
+            'assets/brands/ton-logo.png',
+            'assets/brands/usdt-logo.png',
+            
+            // Loading assets
+            'assets/loading/loading-spinner.png',
+            'assets/loading/progress-bar.png',
+        ];
+        
+        this.totalAssets = assets.length;
+        
+        // Preload all assets
+        const loadPromises = assets.map(asset => this.preloadAsset(asset));
+        await Promise.all(loadPromises);
+    }
+    
+    async preloadAsset(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                this.assetsLoaded++;
+                this.updateLoadingProgress();
+                resolve();
+            };
+            img.onerror = () => {
+                console.warn(`Failed to load asset: ${src}`);
+                this.assetsLoaded++;
+                this.updateLoadingProgress();
+                resolve();
+            };
+            img.src = src;
+        });
+    }
+    
+    updateLoadingProgress() {
+        const progress = (this.assetsLoaded / this.totalAssets) * 100;
+        document.querySelector('.progress-fill').style.width = `${progress}%`;
+        document.querySelector('.loading-text').textContent = 
+            `Loading TONopoly... ${Math.round(progress)}%`;
+    }
+    
+    hideLoadingScreen() {
+        document.getElementById('loading-screen').classList.remove('active');
     }
     
     generateGameId() {
@@ -106,6 +210,14 @@ class TONopolyGame {
         };
         
         document.getElementById('roll-btn').disabled = true;
+        
+        // Play dice roll sound
+        this.playSound('dice-roll-sound');
+        
+        // Show rolling animation
+        const diceImage = document.getElementById('dice-image');
+        diceImage.src = 'assets/dice/dice-rolling.gif';
+        
         this.socket.send(JSON.stringify(request));
     }
     
@@ -161,8 +273,11 @@ class TONopolyGame {
                 break;
                 
             case 'dice_rolled':
+                // Update dice image with the rolled value
+                const diceImage = document.getElementById('dice-image');
+                diceImage.src = `assets/dice/dice-${data.dice_value}.png`;
+                
                 this.showMessage(`${this.getPlayerName(data.user_id)} rolled a ${data.dice_value}`, 'info');
-                this.updateDice(data.dice_value);
                 
                 if (data.user_id === this.telegramApp.initDataUnsafe.user.id) {
                     this.showPieceSelection();
@@ -170,7 +285,16 @@ class TONopolyGame {
                 break;
                 
             case 'piece_moved':
+                this.playSound('piece-move-sound');
                 this.showMessage(data.message, 'info');
+                
+                // Check if message contains capture or bonus to play appropriate sound
+                if (data.message.includes('Captured')) {
+                    this.playSound('capture-sound');
+                } else if (data.message.includes('Mined') || data.message.includes('Earn')) {
+                    this.playSound('bonus-sound');
+                }
+                
                 this.updateBoard();
                 break;
                 
@@ -180,6 +304,7 @@ class TONopolyGame {
                 break;
                 
             case 'game_over':
+                this.playSound('win-sound');
                 this.showGameOver(data.winner, data.winnings);
                 break;
                 
@@ -217,18 +342,28 @@ class TONopolyGame {
         
         switch (this.gameState.state) {
             case 0: // LOBBY
-                document.getElementById('lobby').classList.add('active');
+                this.showScreen('lobby');
                 break;
             case 1: // WAITING_FOR_BET
-                document.getElementById('lobby').classList.add('active');
+                this.showScreen('lobby');
                 break;
             case 2: // PLAYING
-                document.getElementById('game').classList.add('active');
+                this.showScreen('game');
                 break;
             case 3: // FINISHED
-                document.getElementById('game-over').classList.add('active');
+                this.showScreen('game-over');
                 break;
         }
+    }
+    
+    showScreen(screenId) {
+        // Hide all screens
+        document.querySelectorAll('.screen').forEach(screen => {
+            screen.classList.remove('active');
+        });
+        
+        // Show the requested screen
+        document.getElementById(screenId).classList.add('active');
     }
     
     updatePlayersList() {
@@ -261,22 +396,11 @@ class TONopolyGame {
         const board = document.getElementById('tonopoly-board');
         board.innerHTML = '';
         
-        // Render board spaces
-        this.gameState.board.forEach(space => {
-            const spaceEl = document.createElement('div');
-            spaceEl.className = `board-space ${space.type}`;
-            spaceEl.style.left = this.calculateSpacePosition(space.position).x + 'px';
-            spaceEl.style.top = this.calculateSpacePosition(space.position).y + 'px';
-            spaceEl.title = space.name;
-            
-            // Add space number for debugging
-            const numberEl = document.createElement('div');
-            numberEl.className = 'space-number';
-            numberEl.textContent = space.position;
-            spaceEl.appendChild(numberEl);
-            
-            board.appendChild(spaceEl);
-        });
+        // Create board background
+        const boardBg = document.createElement('div');
+        boardBg.className = 'board-background';
+        boardBg.style.backgroundImage = "url('assets/board/board.png')";
+        board.appendChild(boardBg);
         
         // Render player pieces
         this.gameState.players.forEach(player => {
@@ -285,30 +409,40 @@ class TONopolyGame {
                     const pieceEl = document.createElement('div');
                     pieceEl.className = `piece ${this.getColorClass(player.color)}`;
                     pieceEl.id = `piece-${player.user_id}-${index}`;
-                    pieceEl.style.left = this.calculatePiecePosition(position, player.color).x + 'px';
-                    pieceEl.style.top = this.calculatePiecePosition(position, player.color).y + 'px';
+                    
+                    // Set piece position
+                    const positionCoords = this.calculatePiecePosition(position, player.color);
+                    pieceEl.style.left = positionCoords.x + 'px';
+                    pieceEl.style.top = positionCoords.y + 'px';
+                    
+                    // Add shadow effect
+                    const shadowEl = document.createElement('div');
+                    shadowEl.className = 'piece-shadow';
+                    shadowEl.style.backgroundImage = "url('assets/pieces/piece-shadow.png')";
+                    shadowEl.style.left = (positionCoords.x + 2) + 'px';
+                    shadowEl.style.top = (positionCoords.y + 2) + 'px';
+                    board.appendChild(shadowEl);
+                    
                     board.appendChild(pieceEl);
                 }
             });
         });
     }
     
-    calculateSpacePosition(position) {
-        // Simplified calculation - would need proper algorithm for circular board
-        const boardSize = 500; // Assuming fixed size for calculation
-        const radius = boardSize / 2 - 20;
-        const angle = (position / 52) * 2 * Math.PI;
-        
-        return {
-            x: radius + radius * Math.cos(angle),
-            y: radius + radius * Math.sin(angle)
-        };
-    }
-    
     calculatePiecePosition(position, color) {
         // This would need a more sophisticated algorithm based on board layout
-        // For now, using the same as space position
-        return this.calculateSpacePosition(position);
+        // For now, using a simple circular positioning
+        const boardSize = 500; // Board size in pixels
+        const radius = boardSize / 2 - 30;
+        
+        // Calculate angle based on position
+        const angle = (position / 57) * 2 * Math.PI;
+        
+        // Calculate coordinates
+        const x = radius + radius * Math.cos(angle);
+        const y = radius + radius * Math.sin(angle);
+        
+        return { x, y };
     }
     
     getColorClass(color) {
@@ -334,12 +468,17 @@ class TONopolyGame {
             currentPlayer.user_id !== currentUser.id;
     }
     
-    updateDice(value) {
-        document.getElementById('dice').textContent = value;
-    }
-    
     updateBetUI(amount) {
-        document.getElementById('bet-amount').value = amount;
+        document.getElementById('selected-bet-amount').textContent = amount;
+        
+        // Highlight selected bet button
+        document.querySelectorAll('.bet-amount-btn').forEach(btn => {
+            if (parseInt(btn.dataset.amount) === amount) {
+                btn.classList.add('selected');
+            } else {
+                btn.classList.remove('selected');
+            }
+        });
         
         // Enable start game button if user is creator and all players have joined
         const user = this.telegramApp.initDataUnsafe.user;
@@ -362,7 +501,11 @@ class TONopolyGame {
             if (player) {
                 const canMove = this.canPieceMove(player, index);
                 option.classList.toggle('available', canMove);
-                option.style.backgroundColor = player.color;
+                
+                // Set piece preview color
+                const preview = option.querySelector('.piece-preview');
+                preview.style.backgroundImage = `url('assets/pieces/piece-${this.getColorClass(player.color)}.png')`;
+                
                 option.onclick = canMove ? () => this.movePiece(index) : null;
             }
         });
@@ -391,12 +534,11 @@ class TONopolyGame {
     
     showBetInvoice(invoiceUrl, amount) {
         document.getElementById('bet-modal-amount').textContent = amount;
-        const modal = document.getElementById('bet-modal');
-        modal.classList.add('active');
+        this.showModal('bet-modal');
         
         document.getElementById('pay-bet').onclick = () => {
             this.telegramApp.openInvoice(invoiceUrl, (status) => {
-                modal.classList.remove('active');
+                this.hideModal('bet-modal');
                 if (status === 'paid') {
                     this.showMessage('Bet payment successful!', 'success');
                 } else {
@@ -406,9 +548,33 @@ class TONopolyGame {
         };
         
         document.getElementById('cancel-bet').onclick = () => {
-            modal.classList.remove('active');
+            this.hideModal('bet-modal');
             this.showMessage('Bet payment cancelled', 'error');
         };
+    }
+    
+    showStakeModal() {
+        this.showModal('stake-modal');
+        
+        document.getElementById('confirm-stake').onclick = () => {
+            const amount = parseInt(document.getElementById('stake-amount-input').value);
+            if (amount > 0) {
+                this.stakeCoins(amount);
+                this.hideModal('stake-modal');
+            }
+        };
+        
+        document.getElementById('cancel-stake').onclick = () => {
+            this.hideModal('stake-modal');
+        };
+    }
+    
+    showModal(modalId) {
+        document.getElementById(modalId).classList.add('active');
+    }
+    
+    hideModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
     }
     
     showGameOver(winnerId, winnings) {
@@ -416,6 +582,51 @@ class TONopolyGame {
         if (winner) {
             document.getElementById('winner-name').textContent = winner.username;
             document.getElementById('winnings-amount').textContent = winnings;
+            
+            // Play celebration animation
+            this.playCelebrationAnimation();
+        }
+    }
+    
+    playCelebrationAnimation() {
+        const container = document.getElementById('celebration-animation');
+        
+        // Load Lottie animation
+        if (typeof lottie !== 'undefined') {
+            lottie.loadAnimation({
+                container: container,
+                renderer: 'svg',
+                loop: true,
+                autoplay: true,
+                path: 'assets/animations/celebration.json'
+            });
+        }
+    }
+    
+    playSound(soundId) {
+        if (!this.soundEnabled) return;
+        
+        const sound = document.getElementById(soundId);
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log('Audio play failed:', e));
+        }
+    }
+    
+    toggleSound() {
+        this.soundEnabled = !this.soundEnabled;
+        const soundBtn = document.getElementById('sound-btn');
+        soundBtn.textContent = this.soundEnabled ? '🔊' : '🔇';
+    }
+    
+    toggleMusic() {
+        this.musicEnabled = !this.musicEnabled;
+        const music = document.getElementById('background-music');
+        
+        if (this.musicEnabled) {
+            music.play().catch(e => console.log('Music play failed:', e));
+        } else {
+            music.pause();
         }
     }
     
@@ -448,7 +659,7 @@ class TONopolyGame {
     
     renderLobby() {
         // Initial lobby rendering
-        document.getElementById('lobby').classList.add('active');
+        this.showScreen('lobby');
     }
     
     setupEventListeners() {
@@ -463,13 +674,26 @@ class TONopolyGame {
             });
         });
         
+        // Bet amount selection
+        document.querySelectorAll('.bet-amount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const amount = parseInt(btn.dataset.amount);
+                document.getElementById('selected-bet-amount').textContent = amount;
+                
+                document.querySelectorAll('.bet-amount-btn').forEach(b => {
+                    b.classList.remove('selected');
+                });
+                btn.classList.add('selected');
+            });
+        });
+        
         // Set bet button
         document.getElementById('set-bet').addEventListener('click', () => {
-            const amount = document.getElementById('bet-amount').value;
+            const amount = document.getElementById('selected-bet-amount').textContent;
             if (amount > 0) {
                 this.setBet(amount);
             } else {
-                this.showMessage('Please enter a valid bet amount', 'error');
+                this.showMessage('Please select a bet amount', 'error');
             }
         });
         
@@ -484,9 +708,19 @@ class TONopolyGame {
             this.rollDice();
         });
         
+        // Stake button
+        document.getElementById('stake-btn').addEventListener('click', () => {
+            this.showStakeModal();
+        });
+        
         // Invite friends button
         document.getElementById('invite-friends').addEventListener('click', () => {
             this.inviteFriends();
+        });
+        
+        // Sound toggle
+        document.getElementById('sound-btn').addEventListener('click', () => {
+            this.toggleSound();
         });
         
         // Game over buttons
@@ -501,6 +735,13 @@ class TONopolyGame {
         document.getElementById('share-result').addEventListener('click', () => {
             this.shareResult();
         });
+        
+        // Modal close buttons
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.closest('.modal').classList.remove('active');
+            });
+        });
     }
     
     async loadUserData() {
@@ -509,8 +750,14 @@ class TONopolyGame {
             const user = this.telegramApp.initDataUnsafe.user;
             document.getElementById('username').textContent = user.username || user.first_name;
             
-            // Example balance - would come from your backend
-            document.getElementById('balance').textContent = '15000 gc';
+            // Set avatar if available
+            if (user.photo_url) {
+                document.getElementById('player-avatar').src = user.photo_url;
+            }
+            
+            // Example balances - would come from your backend
+            document.getElementById('balance-gc').textContent = '15000 gc';
+            document.getElementById('balance-stars').textContent = '250 ★';
             
         } catch (error) {
             console.error('Failed to load user data:', error);
