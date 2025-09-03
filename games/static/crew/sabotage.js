@@ -6,13 +6,17 @@ const gameState = {
     timeLeft: 15 * 60, // 15 minutes in seconds
     vaultGold: 0,
     saboteursStash: 0,
+    crewCredits: 0,
     players: [],
     currentPlayer: {
         id: null,
         name: "Player",
         role: null,
         isAlive: true,
-        room: "cafeteria"
+        room: "cafeteria",
+        character: null,
+        skin: null,
+        state: 'idle'
     },
     tasks: [
         { id: 1, name: "Align Navigation Systems", room: "navigation", progress: 0, completed: false },
@@ -25,6 +29,56 @@ const gameState = {
         { id: 8, name: "Update Admin Records", room: "admin", progress: 0, completed: false },
         { id: 9, name: "Establish Communications", room: "communications", progress: 0, completed: false }
     ],
+    characters: {
+        1: { 
+            name: "Basic Miner", 
+            premium: false, 
+            base: "🚶", 
+            skins: ["😐", "😊", "😎"], 
+            mining: "⛏️",
+            walking: "🚶"
+        },
+        2: { 
+            name: "Advanced Miner", 
+            premium: true, 
+            base: "🚶‍♂️", 
+            skins: ["🥷", "👮", "🦸"], 
+            mining: "⚒️",
+            walking: "🏃‍♂️"
+        },
+        3: { 
+            name: "Animal Miner", 
+            premium: true, 
+            base: "🐵", 
+            skins: ["🐯", "🦁", "🐼"], 
+            mining: "⛏️",
+            walking: "🐒"
+        },
+        4: { 
+            name: "Fantasy Miner", 
+            premium: true, 
+            base: "🧝", 
+            skins: ["🧛", "🧙", "🦹"], 
+            mining: "🔮",
+            walking: "🧝‍♂️"
+        },
+        5: { 
+            name: "Professional Miner", 
+            premium: true, 
+            base: "👨‍💼", 
+            skins: ["👨‍🚀", "👨‍✈️", "🕵️"], 
+            mining: "⛏️",
+            walking: "👨‍💼"
+        },
+        6: { 
+            name: "Special Miner", 
+            premium: true, 
+            base: "🧑", 
+            skins: ["🎅", "🤶", "🦸"], 
+            mining: "✨",
+            walking: "🧑‍🦯"
+        }
+    },
     gameActive: false,
     isMeeting: false
 };
@@ -32,6 +86,7 @@ const gameState = {
 // DOM Elements
 const timeLeftEl = document.getElementById('time-left');
 const vaultGoldEl = document.getElementById('vault-gold');
+const crewCreditsEl = document.getElementById('crew-credits');
 const playersCountEl = document.getElementById('players-count');
 const playersContainerEl = document.getElementById('players-container');
 const tasksContainerEl = document.getElementById('tasks-container');
@@ -39,12 +94,23 @@ const btnMine = document.getElementById('btn-mine');
 const btnSteal = document.getElementById('btn-steal');
 const btnMeeting = document.getElementById('btn-meeting');
 const btnBribe = document.getElementById('btn-bribe');
+const btnBuyCredits = document.getElementById('btn-buy-credits');
+const btnChangeCharacter = document.getElementById('btn-change-character');
 const meetingModal = document.getElementById('meeting-modal');
 const taskModal = document.getElementById('task-modal');
 const bribeModal = document.getElementById('bribe-modal');
+const creditsModal = document.getElementById('credits-modal');
+const characterModal = document.getElementById('character-modal');
 const roleModal = document.getElementById('role-modal');
 const gameOverModal = document.getElementById('game-over-modal');
 const notificationEl = document.getElementById('notification');
+const characterOptionsEl = document.getElementById('character-options');
+const skinOptionsEl = document.getElementById('skin-options');
+const btnConfirmCharacter = document.getElementById('btn-confirm-character');
+
+// Variables for character selection
+let selectedCharacter = null;
+let selectedSkin = null;
 
 // WebSocket event handlers
 socket.addEventListener('open', (event) => {
@@ -113,6 +179,9 @@ function handleGameMessage(data) {
         case 'game_over':
             gameOver(data.result, data.winners, data.rewards);
             break;
+        case 'character_update':
+            updateCharacter(data.player_id, data.character, data.skin);
+            break;
         default:
             console.warn('Unknown message type:', data.type);
     }
@@ -125,12 +194,12 @@ function initGame() {
     
     // In a real implementation, this would come from the backend via WebSocket
     gameState.players = [
-        { id: 1, name: "You", role: "miner", isAlive: true, room: "cafeteria" },
-        { id: 2, name: "SpaceExplorer", role: "miner", isAlive: true, room: "navigation" },
-        { id: 3, name: "MoonWalker", role: "miner", isAlive: true, room: "electrical" },
-        { id: 4, name: "StarGazer", role: "miner", isAlive: true, room: "oxygen" },
-        { id: 5, name: "CosmoKid", role: "saboteur", isAlive: true, room: "weapons" },
-        { id: 6, name: "OrbitQueen", role: "saboteur", isAlive: true, room: "medbay" }
+        { id: 1, name: "You", role: "miner", isAlive: true, room: "cafeteria", character: 1, skin: "😐", state: 'idle' },
+        { id: 2, name: "SpaceExplorer", role: "miner", isAlive: true, room: "navigation", character: 1, skin: "😊", state: 'idle' },
+        { id: 3, name: "MoonWalker", role: "miner", isAlive: true, room: "electrical", character: 1, skin: "😎", state: 'idle' },
+        { id: 4, name: "StarGazer", role: "miner", isAlive: true, room: "oxygen", character: 1, skin: "😐", state: 'idle' },
+        { id: 5, name: "CosmoKid", role: "saboteur", isAlive: true, room: "weapons", character: 2, skin: "🥷", state: 'idle' },
+        { id: 6, name: "OrbitQueen", role: "saboteur", isAlive: true, room: "medbay", character: 3, skin: "🐯", state: 'idle' }
     ];
     
     // Randomly assign role to current player (for demo purposes)
@@ -138,12 +207,25 @@ function initGame() {
     gameState.currentPlayer.role = randomRole;
     gameState.players[0].role = randomRole;
     
+    // Assign character to current player
+    const isPremium = isPremiumUser();
+    gameState.currentPlayer.character = assignCharacter(null, isPremium);
+    gameState.currentPlayer.skin = getRandomSkin(gameState.currentPlayer.character);
+    gameState.players[0].character = gameState.currentPlayer.character;
+    gameState.players[0].skin = gameState.currentPlayer.skin;
+    
     updatePlayersDisplay();
     updateTasksDisplay();
+    loadCreditsBalance();
     showRoleModal();
     
     // Start game timer
     startGameTimer();
+    
+    // Show character change button for premium users
+    if (isPremium) {
+        btnChangeCharacter.style.display = 'block';
+    }
 }
 
 // Add glowing balls to background
@@ -154,6 +236,69 @@ function addGlowingBalls() {
         ball.className = 'glow-ball';
         container.appendChild(ball);
     }
+}
+
+// Function to get a random skin for a character
+function getRandomSkin(characterId) {
+    const character = gameState.characters[characterId];
+    const skinIndex = Math.floor(Math.random() * character.skins.length);
+    return character.skins[skinIndex];
+}
+
+// Function to render a character with skin
+function renderCharacter(characterId, skin, state) {
+    const character = gameState.characters[characterId];
+    const isPremium = character.premium;
+    
+    let displayChar = character.base;
+    if (state === 'mining') {
+        displayChar = character.mining;
+    } else if (state === 'walking') {
+        displayChar = character.walking;
+    }
+    
+    if (isPremium) {
+        return `
+            <div class="character premium ${state}">
+                <div class="character-inner">
+                    <div class="character-base">${displayChar}</div>
+                    <div class="character-skin">${skin}</div>
+                </div>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="character ${state}">
+                ${displayChar}
+            </div>
+        `;
+    }
+}
+
+// Function to check if user is premium
+function isPremiumUser() {
+    // This would check the user's premium status from your backend
+    // For demo purposes, we'll randomly assign
+    return Math.random() > 0.8; // 20% chance of being premium
+}
+
+// Function to assign character to a player
+function assignCharacter(playerId, isPremium = false) {
+    let availableChars = [];
+    
+    if (isPremium) {
+        // Premium users can get any character
+        availableChars = Object.keys(gameState.characters);
+    } else {
+        // Regular users get only non-premium characters
+        availableChars = Object.keys(gameState.characters).filter(
+            charId => !gameState.characters[charId].premium
+        );
+    }
+    
+    // Random selection
+    const randomIndex = Math.floor(Math.random() * availableChars.length);
+    return parseInt(availableChars[randomIndex]);
 }
 
 // Show role modal at game start
@@ -210,7 +355,10 @@ function updatePlayersDisplay() {
         const playerEl = document.createElement('div');
         playerEl.className = 'player-item';
         
+        const characterHTML = renderCharacter(player.character, player.skin, player.state);
+        
         playerEl.innerHTML = `
+            <div class="player-character">${characterHTML}</div>
             <div class="player-avatar">${player.name.charAt(0)}</div>
             <div class="player-info">
                 <div class="player-name">${player.name} ${player.id === 1 ? '(You)' : ''}</div>
@@ -222,25 +370,26 @@ function updatePlayersDisplay() {
         playersContainerEl.appendChild(playerEl);
     });
     
-    // Update player dots on map
+    // Update player positions on map
     updatePlayerPositions();
 }
 
-// Update player positions on map
+// Update player positions to show characters with skins
 function updatePlayerPositions() {
-    // Clear all player dots
-    document.querySelectorAll('.player-dot').forEach(dot => {
-        dot.style.display = 'none';
-    });
+    // Clear all player characters
+    document.querySelectorAll('.room-character').forEach(el => el.remove());
     
-    // Show player dots for each room
+    // Show player characters for each room
     gameState.players.forEach(player => {
         if (player.isAlive) {
             const roomEl = document.querySelector(`.room[data-room="${player.room}"]`);
             if (roomEl) {
-                const dot = roomEl.querySelector('.player-dot');
-                dot.style.display = 'block';
-                dot.className = `player-dot ${player.role === 'saboteur' ? 'saboteur-dot' : 'miner-dot'}`;
+                const characterHTML = renderCharacter(player.character, player.skin, player.state);
+                const characterEl = document.createElement('div');
+                characterEl.className = 'room-character';
+                characterEl.innerHTML = characterHTML;
+                characterEl.title = player.name;
+                roomEl.appendChild(characterEl);
             }
         }
     });
@@ -326,6 +475,122 @@ function endGame(reason) {
     gameOverModal.style.display = 'flex';
 }
 
+// Load credits balance
+async function loadCreditsBalance() {
+    try {
+        // In a real implementation, this would fetch from the backend
+        // For demo purposes, we'll use a mock value
+        const mockCredits = 1500;
+        gameState.crewCredits = mockCredits;
+        crewCreditsEl.textContent = mockCredits.toLocaleString();
+        
+        // Enable/disable join button based on credits
+        const joinButton = document.getElementById('btn-join-game');
+        if (joinButton) {
+            joinButton.disabled = mockCredits < 100;
+        }
+    } catch (error) {
+        console.error('Error loading credits balance:', error);
+        showNotification('Error', 'Failed to load credits balance');
+    }
+}
+
+// Handle credit purchase
+async function handleCreditPurchase(starsAmount) {
+    try {
+        // In a real implementation, this would call the backend API
+        // For demo purposes, we'll simulate the purchase
+        const creditsAmount = starsAmount * 100; // 1 star = 100 credits
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update credits balance
+        gameState.crewCredits += creditsAmount;
+        crewCreditsEl.textContent = gameState.crewCredits.toLocaleString();
+        
+        // Close modal
+        creditsModal.style.display = 'none';
+        
+        // Show success message
+        showNotification('Purchase Successful', `You bought ${creditsAmount.toLocaleString()} Crew Credits!`);
+    } catch (error) {
+        console.error('Error purchasing credits:', error);
+        showNotification('Purchase Failed', 'An error occurred during purchase');
+    }
+}
+
+// Open character selection modal
+function openCharacterSelection() {
+    characterOptionsEl.innerHTML = '';
+    skinOptionsEl.innerHTML = '';
+    skinOptionsEl.style.display = 'none';
+    
+    // Show all available characters
+    Object.entries(gameState.characters).forEach(([id, character]) => {
+        if (character.premium) {
+            const option = document.createElement('div');
+            option.className = 'character-option';
+            option.innerHTML = renderCharacter(parseInt(id), character.skins[0], 'idle');
+            option.dataset.characterId = id;
+            option.addEventListener('click', () => selectCharacter(parseInt(id)));
+            characterOptionsEl.appendChild(option);
+        }
+    });
+    
+    characterModal.style.display = 'flex';
+}
+
+// Select a character
+function selectCharacter(characterId) {
+    selectedCharacter = characterId;
+    const character = gameState.characters[characterId];
+    
+    // Update UI to show selected character
+    document.querySelectorAll('.character-option').forEach(opt => {
+        opt.classList.remove('selected');
+        if (parseInt(opt.dataset.characterId) === characterId) {
+            opt.classList.add('selected');
+        }
+    });
+    
+    // Show skin options
+    skinOptionsEl.innerHTML = '';
+    skinOptionsEl.style.display = 'grid';
+    
+    character.skins.forEach(skin => {
+        const option = document.createElement('div');
+        option.className = 'skin-option';
+        option.innerHTML = renderCharacter(characterId, skin, 'idle');
+        option.dataset.skin = skin;
+        option.addEventListener('click', () => {
+            document.querySelectorAll('.skin-option').forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+            selectedSkin = skin;
+        });
+        skinOptionsEl.appendChild(option);
+    });
+}
+
+// Update character state
+function updateCharacterState(playerId, state) {
+    const player = gameState.players.find(p => p.id === playerId);
+    if (player) {
+        player.state = state;
+        
+        // Update DOM if this is the current player
+        if (playerId === gameState.currentPlayer.id) {
+            const characterEl = document.querySelector('.character');
+            if (characterEl) {
+                characterEl.className = `character character-${player.character} ${state}`;
+            }
+        }
+        
+        // Update player in list
+        updatePlayersDisplay();
+    }
+}
+
 // Event Listeners
 document.getElementById('btn-start-game').addEventListener('click', () => {
     roleModal.style.display = 'none';
@@ -333,6 +598,9 @@ document.getElementById('btn-start-game').addEventListener('click', () => {
 });
 
 btnMine.addEventListener('click', () => {
+    // Show mining animation
+    updateCharacterState(gameState.currentPlayer.id, 'mining');
+    
     // Find a task in the current room
     const availableTasks = gameState.tasks.filter(task => 
         task.room === gameState.currentPlayer.room && !task.completed
@@ -376,19 +644,59 @@ btnBribe.addEventListener('click', () => {
     }
 });
 
-// Room click handling
-document.querySelectorAll('.room').forEach(room => {
-    room.addEventListener('click', () => {
-        gameState.currentPlayer.room = room.dataset.room;
-        updatePlayerPositions();
-        showNotification('Room Changed', `You moved to ${room.dataset.room}`);
+btnBuyCredits.addEventListener('click', () => {
+    creditsModal.style.display = 'flex';
+});
+
+btnChangeCharacter.addEventListener('click', () => {
+    openCharacterSelection();
+});
+
+btnConfirmCharacter.addEventListener('click', () => {
+    if (selectedCharacter && selectedSkin) {
+        // Update player's character
+        gameState.currentPlayer.character = selectedCharacter;
+        gameState.currentPlayer.skin = selectedSkin;
         
         // Send to server
         socket.send(JSON.stringify({
-            type: 'move_player',
-            room: room.dataset.room,
+            type: 'update_character',
+            character: selectedCharacter,
+            skin: selectedSkin,
             player_id: gameState.currentPlayer.id
         }));
+        
+        // Close modal
+        characterModal.style.display = 'none';
+        
+        // Update display
+        updatePlayersDisplay();
+        
+        showNotification('Character Updated', 'Your character has been updated!');
+    }
+});
+
+// Room click handling
+document.querySelectorAll('.room').forEach(room => {
+    room.addEventListener('click', () => {
+        // Show walking animation
+        updateCharacterState(gameState.currentPlayer.id, 'walking');
+        
+        setTimeout(() => {
+            gameState.currentPlayer.room = room.dataset.room;
+            updatePlayerPositions();
+            showNotification('Room Changed', `You moved to ${room.dataset.room}`);
+            
+            // Return to idle state after moving
+            updateCharacterState(gameState.currentPlayer.id, 'idle');
+            
+            // Send to server
+            socket.send(JSON.stringify({
+                type: 'move_player',
+                room: room.dataset.room,
+                player_id: gameState.currentPlayer.id
+            }));
+        }, 800); // Match animation duration
     });
 });
 
@@ -396,6 +704,14 @@ document.querySelectorAll('.room').forEach(room => {
 document.querySelectorAll('.close-modal').forEach(btn => {
     btn.addEventListener('click', () => {
         btn.closest('.modal').style.display = 'none';
+    });
+});
+
+// Credit purchase options
+document.querySelectorAll('.credit-option').forEach(option => {
+    option.querySelector('button').addEventListener('click', () => {
+        const starsAmount = parseInt(option.dataset.stars);
+        handleCreditPurchase(starsAmount);
     });
 });
 
@@ -432,6 +748,9 @@ function openTaskModal(task) {
         taskModal.style.display = 'none';
         showNotification('Task Complete', 'You mined 134 gold for the vault!');
         
+        // Return to idle state after mining
+        updateCharacterState(gameState.currentPlayer.id, 'idle');
+        
         // Send to server
         socket.send(JSON.stringify({
             type: 'complete_task',
@@ -442,6 +761,9 @@ function openTaskModal(task) {
     
     document.getElementById('btn-cancel-task').addEventListener('click', () => {
         taskModal.style.display = 'none';
+        
+        // Return to idle state after canceling
+        updateCharacterState(gameState.currentPlayer.id, 'idle');
     });
     
     taskModal.style.display = 'flex';

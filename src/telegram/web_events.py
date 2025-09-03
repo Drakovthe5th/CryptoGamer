@@ -3,6 +3,8 @@ from flask import request, jsonify
 from src.database import mongo as db
 from src.utils import security
 from src.security import anti_cheat
+from datetime import datetime, timedelta
+from src.integrations.geolocation import geo_manager
 from src.database.mongo import get_user_data, update_user_data
 
 logger = logging.getLogger(__name__)
@@ -153,3 +155,80 @@ def process_telegram_stars_payment(user_id, credentials, title):
     except Exception as e:
         logger.error(f"Payment processing error: {str(e)}")
         return False
+    
+# Add these event types to the handle_web_event function
+async def handle_web_event():
+    """Handle incoming web events from Telegram Mini Apps"""
+    try:
+        data = request.get_json()
+        event_type = data.get('type')
+        event_data = data.get('data', {})
+        
+        # Validate user authentication
+        user_id = event_data.get('user_id')
+        if not user_id or not security.validate_user_session(user_id):
+            return jsonify({'error': 'Invalid user session'}), 401
+        
+        # Add new event handlers for geolocation
+        if event_type == 'get_nearby':
+            return await handle_get_nearby(event_data)
+        elif event_type == 'create_geogroup':
+            return await handle_create_geogroup(event_data)
+        elif event_type == 'update_live_location':
+            return await handle_update_live_location(event_data)
+        elif event_type == 'stop_live_location':
+            return await handle_stop_live_location(event_data)
+        # ... existing event handlers ...
+        
+    except Exception as e:
+        logger.error(f"Web event handling error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# Add new handler functions
+async def handle_get_nearby(data):
+    """Handle nearby users/chats request"""
+    user_id = data['user_id']
+    geo_point = data['geo_point']
+    background = data.get('background', False)
+    self_expires = data.get('self_expires')
+    
+    result = await geo_manager.get_nearby_users_and_chats(
+        user_id, geo_point, background, self_expires
+    )
+    return jsonify(result)
+
+async def handle_create_geogroup(data):
+    """Handle geogroup creation request"""
+    user_id = data['user_id']
+    title = data['title']
+    about = data['about']
+    geo_point = data['geo_point']
+    address = data['address']
+    
+    result = await geo_manager.create_geogroup(
+        user_id, title, about, geo_point, address
+    )
+    return jsonify(result)
+
+async def handle_update_live_location(data):
+    """Handle live location update"""
+    user_id = data['user_id']
+    chat_id = data['chat_id']
+    message_id = data['message_id']
+    geo_point = data['geo_point']
+    heading = data.get('heading')
+    period = data.get('period', 3600)
+    
+    result = await geo_manager.update_live_location(
+        user_id, chat_id, message_id, geo_point, heading, period
+    )
+    return jsonify(result)
+
+async def handle_stop_live_location(data):
+    """Handle stop live location request"""
+    user_id = data['user_id']
+    chat_id = data['chat_id']
+    message_id = data['message_id']
+    
+    result = await geo_manager.stop_live_location(user_id, chat_id, message_id)
+    return jsonify(result)

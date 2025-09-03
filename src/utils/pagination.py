@@ -1,5 +1,9 @@
 import hashlib
 from typing import List, Union
+from src.telegram.stars import *
+from src.features.monetization.gifts import *
+from src.telegram.attachment_menu import AttachmentMenuManager
+from src.telegram.web_events import handle_web_event
 
 class Paginator:
     def __init__(self, limit: int = 20, offset: int = 0, max_id: int = None, min_id: int = None):

@@ -65,6 +65,16 @@ class SabotageGame:
         self.entry_fee_credits = 100  # Crew Credits required to join
         self.sabotage_action_cost = 50  # Cost to perform sabotage actions
         
+        # Character system
+        self.characters = {
+            1: {"name": "Basic Miner", "premium": False, "base": "🚶", "skins": ["😐", "😊", "😎"], "mining": "⛏️", "walking": "🚶"},
+            2: {"name": "Advanced Miner", "premium": True, "base": "🚶‍♂️", "skins": ["🥷", "👮", "🦸"], "mining": "⚒️", "walking": "🏃‍♂️"},
+            3: {"name": "Animal Miner", "premium": True, "base": "🐵", "skins": ["🐯", "🦁", "🐼"], "mining": "⛏️", "walking": "🐒"},
+            4: {"name": "Fantasy Miner", "premium": True, "base": "🧝", "skins": ["🧛", "🧙", "🦹"], "mining": "🔮", "walking": "🧝‍♂️"},
+            5: {"name": "Professional Miner", "premium": True, "base": "👨‍💼", "skins": ["👨‍🚀", "👨‍✈️", "🕵️"], "mining": "⛏️", "walking": "👨‍💼"},
+            6: {"name": "Special Miner", "premium": True, "base": "🧑", "skins": ["🎅", "🤶", "🦸"], "mining": "✨", "walking": "🧑‍🦯"}
+        }
+        
         # Game constants
         self.MINING_RATE = 134  # Gold per minute per miner
         self.STEALING_RATE = 267  # Gold per steal per saboteur
@@ -87,6 +97,23 @@ class SabotageGame:
             }
             sabotage_games.insert_one(game_data)
 
+    def assign_character(self, is_premium: bool):
+        """Assign a character to a player based on premium status"""
+        if is_premium:
+            # Premium users can get any character
+            available_chars = list(self.characters.keys())
+        else:
+            # Regular users get only non-premium characters
+            available_chars = [char_id for char_id, char in self.characters.items() if not char["premium"]]
+        
+        # Random selection
+        character_id = random.choice(available_chars)
+        
+        # Random skin selection
+        skin = random.choice(self.characters[character_id]["skins"])
+        
+        return character_id, skin
+
     async def add_player(self, player_id: str, player_name: str):
         """Add a player to the game lobby after checking Crew Credits"""
         # Check if player has enough Crew Credits
@@ -101,6 +128,10 @@ class SabotageGame:
             upsert=True
         )
         
+        # Check if player is premium and assign character accordingly
+        is_premium = user_data.get('is_premium', False)
+        character_id, skin = self.assign_character(is_premium)
+        
         # Then add player to game
         self.players[player_id] = {
             'id': player_id,
@@ -111,7 +142,10 @@ class SabotageGame:
             'gold_mined': 0,
             'gold_stolen': 0,
             'is_mining': False,
-            'is_stealing': False
+            'is_stealing': False,
+            'character': character_id,
+            'skin': skin,
+            'state': 'idle'
         }
         
         # Update MongoDB
@@ -248,6 +282,7 @@ class SabotageGame:
             player['is_mining'] = True
             player['is_stealing'] = False
             player['last_action_time'] = datetime.now()
+            player['state'] = 'mining'
             
         elif action == "steal":
             if player['role'] not in [PlayerRole.SABOTEUR.value, PlayerRole.TRAITOR.value]:
@@ -256,6 +291,7 @@ class SabotageGame:
             player['is_mining'] = False
             player['is_stealing'] = True
             player['last_action_time'] = datetime.now()
+            player['state'] = 'mining'
             
         elif action == "call_meeting":
             await self.call_emergency_meeting(player_id)
@@ -267,6 +303,20 @@ class SabotageGame:
             target_player_id = kwargs.get('target_player_id')
             await self.offer_bribe(player_id, target_player_id)
             
+        elif action == "update_character":
+            character = kwargs.get('character')
+            skin = kwargs.get('skin')
+            player['character'] = character
+            player['skin'] = skin
+            
+        elif action == "move":
+            player['state'] = 'walking'
+            # After move completes, set back to idle
+            asyncio.get_event_loop().call_later(
+                0.8,  # Match animation duration
+                lambda: setattr(player, 'state', 'idle')
+            )
+        
         # Update MongoDB
         sabotage_games.update_one(
             {'game_id': self.game_id},
@@ -287,6 +337,7 @@ class SabotageGame:
         for player_id in self.players:
             self.players[player_id]['is_mining'] = False
             self.players[player_id]['is_stealing'] = False
+            self.players[player_id]['state'] = 'idle'
             
         # Update MongoDB
         sabotage_games.update_one(

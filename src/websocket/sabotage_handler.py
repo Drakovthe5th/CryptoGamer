@@ -27,6 +27,8 @@ class SabotageWebSocketHandler:
             await self.handle_action(game_id, user_id, data.get('action'), data.get('data'))
         elif message_type == 'vote':
             await self.handle_vote(game_id, user_id, data.get('vote_for'))
+        elif message_type == 'update_character':
+            await self.handle_character_update(game_id, user_id, data.get('character'), data.get('skin'))
     
     async def handle_join(self, websocket, game_id, user_id):
         # Add player to game
@@ -49,6 +51,20 @@ class SabotageWebSocketHandler:
     async def handle_action(self, game_id, user_id, action, action_data):
         if game_id in self.active_games:
             game = self.active_games[game_id]['game']
+            
+            # Update character state based on action
+            if action == "mine":
+                game.players[user_id]['state'] = 'mining'
+            elif action == "steal":
+                game.players[user_id]['state'] = 'mining'  # Use mining animation for stealing
+            elif action == "move":
+                game.players[user_id]['state'] = 'walking'
+                # After move completes, set back to idle
+                asyncio.get_event_loop().call_later(
+                    0.8,  # Match animation duration
+                    lambda: setattr(game.players[user_id], 'state', 'idle')
+                )
+            
             await game.player_action(user_id, action, **action_data)
             
             # Broadcast update to all players
@@ -63,6 +79,19 @@ class SabotageWebSocketHandler:
             await self.broadcast_to_game(game_id, {
                 'type': 'vote_update',
                 'votes': game.votes
+            })
+    
+    async def handle_character_update(self, game_id, user_id, character, skin):
+        if game_id in self.active_games:
+            game = self.active_games[game_id]['game']
+            await game.player_action(user_id, "update_character", character=character, skin=skin)
+            
+            # Broadcast character update
+            await self.broadcast_to_game(game_id, {
+                'type': 'character_update',
+                'player_id': user_id,
+                'character': character,
+                'skin': skin
             })
     
     async def broadcast_game_state(self, game_id):
@@ -101,7 +130,10 @@ class SabotageWebSocketHandler:
             'is_alive': True,
             'last_action_time': None,
             'gold_mined': 0,
-            'gold_stolen': 0
+            'gold_stolen': 0,
+            'character': None,
+            'skin': None,
+            'state': 'idle'
         }
         
         # Update MongoDB

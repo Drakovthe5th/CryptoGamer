@@ -13,6 +13,7 @@ class QuestSystem:
     def __init__(self):
         self.quest_templates = config.QUEST_TEMPLATES
         self.daily_refresh_time = config.QUEST_REFRESH_HOUR
+        self.referral_system = ReferralSystem()
 
     def generate_dynamic_quest(self, user_id, ip_address=None):
         """Create personalized quest for user"""
@@ -425,8 +426,36 @@ class QuestSystem:
         """Generate affiliate-related quests"""
         user_data = get_user_data(user_id)
         referral_count = user_data.get('referral_count', 0)
+        completed_affiliate_quests = user_data.get('completed_affiliate_quests', [])
         
         affiliate_quests = [
+            milestones = [
+            (3, 0.01, 50),
+            (10, 0.03, 150),
+            (50, 0.15, 500),
+            (100, 0.30, 1000)
+            ]
+
+            for target, reward, stars in milestones:
+                quest_id = f"affiliate_ref_{target}"
+                
+                # Skip if already completed
+                if quest_id in completed_affiliate_quests:
+                    continue
+                    
+                affiliate_quests.append({
+                    'id': quest_id,
+                    'type': 'affiliate',
+                    'title': f'Refer {target} Friends',
+                    'description': f'Invite {target} friends to join CryptoGamer',
+                    'tasks': [f'refer_{target}_friends'],
+                    'reward': reward,
+                    'reward_stars': stars,
+                    'target': target,
+                    'current': min(referral_count, target),
+                    'progress': (min(referral_count, target) / target) * 100
+                })
+
             {
                 'type': 'affiliate',
                 'title': 'Refer 3 Friends',

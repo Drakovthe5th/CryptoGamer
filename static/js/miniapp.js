@@ -800,6 +800,283 @@ function initReferralPage() {
   }
 }
 
+// Global navigation state
+let navigationState = {
+    currentPage: 'home',
+    pages: [],
+    notifications: {}
+};
+
+// Initialize navigation
+async function initNavigation() {
+    try {
+        const response = await fetch('/api/navigation/pages', {
+            headers: {
+                'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                navigationState.pages = data.pages;
+                updateNavigationUI();
+                loadNavigationStatus();
+            }
+        }
+    } catch (error) {
+        console.error('Error initializing navigation:', error);
+    }
+}
+
+// Update navigation UI
+function updateNavigationUI() {
+    const navContainer = document.querySelector('.bottom-nav');
+    if (!navContainer) return;
+    
+    // Clear existing navigation
+    navContainer.innerHTML = '';
+    
+    // Add navigation items
+    navigationState.pages.forEach(page => {
+        if (page.floating) return; // Skip floating items (handled separately)
+        
+        const navItem = document.createElement('a');
+        navItem.href = '#';
+        navItem.className = 'nav-item';
+        navItem.dataset.page = page.id;
+        navItem.innerHTML = `
+            <span class="nav-icon">${page.icon}</span>
+            <span class="nav-label">${page.name}</span>
+        `;
+        
+        navItem.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchPage(page.id);
+        });
+        
+        navContainer.appendChild(navItem);
+    });
+    
+    // Set active page
+    setActivePage(navigationState.currentPage);
+}
+
+// Set active page
+function setActivePage(pageId) {
+    // Update navigation state
+    navigationState.currentPage = pageId;
+    
+    // Update UI
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.dataset.page === pageId) {
+            item.classList.add('active');
+        }
+    });
+    
+    // Show the corresponding page
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
+    
+    const activePage = document.getElementById(`${pageId}-page`);
+    if (activePage) {
+        activePage.classList.add('active');
+    }
+    
+    // Load page-specific data
+    loadPageData(pageId);
+}
+
+// Load page-specific data
+function loadPageData(pageId) {
+    switch (pageId) {
+        case 'home':
+            loadHomeData();
+            break;
+        case 'watch':
+            loadWatchData();
+            break;
+        case 'wallet':
+            loadWalletData();
+            break;
+        case 'games':
+            loadGamesData();
+            break;
+        case 'quests':
+            loadQuestsData();
+            break;
+        case 'otc':
+            loadOtcData();
+            break;
+        case 'referrals':
+            loadReferralsData();
+            break;
+        case 'shop':
+            loadShopData();
+            break;
+    }
+}
+
+// Load navigation status (notifications)
+async function loadNavigationStatus() {
+    try {
+        const response = await fetch('/api/navigation/status', {
+            headers: {
+                'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                navigationState.notifications = data.notifications;
+                updateNotificationBadges();
+            }
+        }
+    } catch (error) {
+        console.error('Error loading navigation status:', error);
+    }
+}
+
+// Update notification badges
+function updateNotificationBadges() {
+    navigationState.pages.forEach(page => {
+        const hasNotification = navigationState.notifications[page.id];
+        const navItem = document.querySelector(`.nav-item[data-page="${page.id}"]`);
+        
+        if (navItem) {
+            // Remove existing badge
+            const existingBadge = navItem.querySelector('.notification-badge');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+            
+            // Add new badge if needed
+            if (hasNotification) {
+                const badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                badge.textContent = '';
+                navItem.appendChild(badge);
+            }
+        }
+    });
+}
+
+// Load home page data
+async function loadHomeData() {
+    try {
+        const response = await fetch('/api/home/data', {
+            headers: {
+                'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                updateHomeUI(data);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading home data:', error);
+    }
+}
+
+// Update home UI with data
+function updateHomeUI(data) {
+    // Update bonus popup
+    const bonusPopup = document.getElementById('daily-bonus-popup');
+    if (bonusPopup) {
+        bonusPopup.style.display = data.bonus_available ? 'block' : 'none';
+    }
+    
+    // Update click counter
+    const clickCount = document.getElementById('click-count');
+    if (clickCount) {
+        clickCount.textContent = `${data.user_data.clicks_today}/${data.user_data.click_limit}`;
+    }
+    
+    // Update featured games
+    const gamesGrid = document.querySelector('.game-grid');
+    if (gamesGrid && data.featured_games) {
+        gamesGrid.innerHTML = '';
+        
+        data.featured_games.forEach(game => {
+            const gameCard = document.createElement('div');
+            gameCard.className = 'game-card';
+            gameCard.dataset.gameId = game.id;
+            gameCard.innerHTML = `
+                <div class="game-icon">${game.icon}</div>
+                <div class="game-name">${game.name}</div>
+            `;
+            
+            gameCard.addEventListener('click', () => {
+                launchGame(game.id);
+            });
+            
+            gamesGrid.appendChild(gameCard);
+        });
+    }
+}
+
+// Claim daily bonus
+async function claimDailyBonus() {
+    try {
+        const response = await fetch('/api/home/claim-bonus', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+                // Update UI
+                document.getElementById('daily-bonus-popup').style.display = 'none';
+                document.getElementById('gc-balance').textContent = data.new_balance;
+                
+                // Show success message
+                if (window.Telegram && Telegram.WebApp) {
+                    Telegram.WebApp.showPopup({
+                        title: 'Bonus Claimed!',
+                        message: `You received ${data.bonus_amount} GC`,
+                        buttons: [{type: 'ok'}]
+                    });
+                }
+                
+                // Reload navigation status to update notifications
+                loadNavigationStatus();
+            }
+        }
+    } catch (error) {
+        console.error('Error claiming bonus:', error);
+    }
+}
+
+// Initialize navigation when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Existing initialization code...
+    
+    // Initialize navigation
+    initNavigation();
+    
+    // Set up claim bonus button
+    const claimBonusBtn = document.getElementById('claim-bonus');
+    if (claimBonusBtn) {
+        claimBonusBtn.addEventListener('click', claimDailyBonus);
+    }
+    
+    // Set up click game
+    const clickArea = document.querySelector('.click-area');
+    if (clickArea) {
+        clickArea.addEventListener('click', handleClickEarn);
+    }
+});
+
 // Event listeners
 profileToggle.addEventListener('click', () => {
   profileMenu.classList.add('active');

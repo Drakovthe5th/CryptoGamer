@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Crew: Sabotage - CryptoGamer</title>
+    <title>Crypto Crew: Sabotage</title>
     <link rel="stylesheet" href="sabotage.css">
 </head>
 <body>
@@ -23,6 +23,11 @@
                     <div class="info-label">PLAYERS</div>
                     <div class="info-value" id="players-count">6/6</div>
                 </div>
+                <div class="info-box">
+                    <div class="info-label">CREW CREDITS</div>
+                    <div class="info-value" id="crew-credits">0</div>
+                </div>
+                <button class="action-btn" id="btn-buy-credits">Buy Crew Credits</button>
             </div>
         </header>
         
@@ -91,6 +96,7 @@
                     <button class="action-btn" id="btn-steal" style="display: none;">Steal Gold</button>
                     <button class="action-btn btn-emergency" id="btn-meeting">Call Emergency Meeting</button>
                     <button class="action-btn" id="btn-bribe" style="display: none;">Bribe Player</button>
+                    <button class="action-btn" id="btn-change-character" style="display: none;">Change Character</button>
                 </div>
             </div>
         </div>
@@ -162,6 +168,56 @@
             </div>
             <div id="game-over-content">
                 <!-- Game over content will be added dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="credits-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Buy Crew Credits</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Crew Credits are used exclusively for Crypto Crew: Sabotage.</p>
+                <div class="credit-options">
+                    <div class="credit-option" data-stars="100">
+                        <div class="stars-amount">100 Stars</div>
+                        <div class="credits-amount">10,000 Credits</div>
+                        <button class="btn-primary">Purchase</button>
+                    </div>
+                    <div class="credit-option" data-stars="500">
+                        <div class="stars-amount">500 Stars</div>
+                        <div class="credits-amount">50,000 Credits</div>
+                        <button class="btn-primary">Purchase</button>
+                    </div>
+                    <div class="credit-option" data-stars="1000">
+                        <div class="stars-amount">1000 Stars</div>
+                        <div class="credits-amount">100,000 Credits</div>
+                        <button class="btn-primary">Purchase</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="character-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Select Your Character</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Choose your character and skin:</p>
+                <div class="character-selection">
+                    <div class="character-options" id="character-options">
+                        <!-- Character options will be added dynamically -->
+                    </div>
+                    <div class="skin-options" id="skin-options" style="display: none;">
+                        <!-- Skin options will be added dynamically -->
+                    </div>
+                </div>
+                <button class="btn-primary" id="btn-confirm-character">Confirm Selection</button>
             </div>
         </div>
     </div>

@@ -853,3 +853,389 @@ def tonopoly_process_bet():
     except Exception as e:
         logger.error(f"TONopoly bet processing error: {str(e)}")
         return jsonify({'error': 'Bet processing failed'}), 500
+    
+# miniapp.py - Updated with 7-page structure endpoints
+
+@miniapp_bp.route('/api/home/data', methods=['GET'])
+def get_home_data():
+    """Get home page data including daily bonus status"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        # Get user data
+        user_data = get_user_data(int(user_id))
+        if not user_data:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Check if daily bonus is available
+        last_bonus_claim = user_data.get('last_bonus_claim')
+        bonus_available = True
+        
+        if last_bonus_claim:
+            from datetime import datetime, timedelta
+            last_claim_date = datetime.fromisoformat(last_bonus_claim)
+            if datetime.now() - last_claim_date < timedelta(hours=24):
+                bonus_available = False
+        
+        # Get featured games
+        featured_games = [
+            {'id': 'trivia', 'name': 'Crypto Trivia', 'icon': '❓', 'type': 'free'},
+            {'id': 'spin', 'name': 'Lucky Spin', 'icon': '🎡', 'type': 'free'},
+            {'id': 'clicker', 'name': 'TON Clicker', 'icon': '🖱️', 'type': 'free'},
+            {'id': 'trex', 'name': 'T-Rex Runner', 'icon': '🦖', 'type': 'free'}
+        ]
+        
+        return jsonify({
+            'success': True,
+            'bonus_available': bonus_available,
+            'bonus_amount': 0.05,  # 0.05 TON
+            'featured_games': featured_games,
+            'user_data': {
+                'game_coins': user_data.get('game_coins', 0),
+                'clicks_today': user_data.get('clicks_today', 0),
+                'click_limit': user_data.get('is_premium', False) and 200 or 100
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting home data: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/home/claim-bonus', methods=['POST'])
+def claim_daily_bonus():
+    """Claim daily bonus"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        # Check if bonus already claimed today
+        user_data = get_user_data(int(user_id))
+        last_bonus_claim = user_data.get('last_bonus_claim')
+        
+        if last_bonus_claim:
+            from datetime import datetime, timedelta
+            last_claim_date = datetime.fromisoformat(last_bonus_claim)
+            if datetime.now() - last_claim_date < timedelta(hours=24):
+                return jsonify({
+                    'success': False,
+                    'error': 'Bonus already claimed today'
+                }), 400
+        
+        # Award bonus (0.05 TON = 100 GC)
+        bonus_gc = 100
+        new_balance = user_data.get('game_coins', 0) + bonus_gc
+        
+        # Update user data
+        update_user_data(int(user_id), {
+            'game_coins': new_balance,
+            'last_bonus_claim': datetime.now().isoformat()
+        })
+        
+        return jsonify({
+            'success': True,
+            'bonus_amount': bonus_gc,
+            'new_balance': new_balance,
+            'message': 'Daily bonus claimed successfully!'
+        })
+    except Exception as e:
+        logger.error(f"Error claiming bonus: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/watch/ads', methods=['GET'])
+def get_available_ads():
+    """Get available video ads"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        # This would typically come from an ad network API
+        available_ads = [
+            {'id': 'ad_1', 'duration': 30, 'reward': 50},
+            {'id': 'ad_2', 'duration': 45, 'reward': 75},
+            {'id': 'ad_3', 'duration': 60, 'reward': 100}
+        ]
+        
+        return jsonify({
+            'success': True,
+            'ads': available_ads
+        })
+    except Exception as e:
+        logger.error(f"Error getting ads: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/watch/reward', methods=['POST'])
+def reward_ad_view():
+    """Reward user for watching an ad"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        data = request.get_json()
+        ad_id = data.get('ad_id')
+        
+        if not ad_id:
+            return jsonify({'error': 'Ad ID required'}), 400
+            
+        # Get user data
+        user_data = get_user_data(int(user_id))
+        
+        # Calculate reward (this would normally come from ad data)
+        reward = 50  # Default reward
+        
+        # Apply weekend bonus if applicable
+        from datetime import datetime
+        if datetime.now().weekday() in [5, 6]:  # Saturday or Sunday
+            reward = int(reward * 1.2)  # 20% bonus
+        
+        # Update user balance
+        new_balance = user_data.get('game_coins', 0) + reward
+        ads_watched = user_data.get('ads_watched', 0) + 1
+        
+        update_user_data(int(user_id), {
+            'game_coins': new_balance,
+            'ads_watched': ads_watched,
+            'ads_today': user_data.get('ads_today', 0) + 1
+        })
+        
+        return jsonify({
+            'success': True,
+            'reward': reward,
+            'new_balance': new_balance,
+            'message': f'You earned {reward} GC for watching the ad!'
+        })
+    except Exception as e:
+        logger.error(f"Error rewarding ad view: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/games/list', methods=['GET'])
+def get_games_list():
+    """Get list of all games"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        # Get user data to check premium status
+        user_data = get_user_data(int(user_id))
+        is_premium = user_data.get('is_premium', False)
+        
+        # Free games
+        free_games = [
+            {'id': 'trivia', 'name': 'Crypto Trivia', 'icon': '❓', 'type': 'free', 'reward': 'Up to 100 GC per game'},
+            {'id': 'spin', 'name': 'Lucky Spin', 'icon': '🎡', 'type': 'free', 'reward': 'Up to 500 GC per spin'},
+            {'id': 'clicker', 'name': 'TON Clicker', 'icon': '🖱️', 'type': 'free', 'reward': '1 GC per 10 clicks'},
+            {'id': 'trex', 'name': 'T-Rex Runner', 'icon': '🦖', 'type': 'free', 'reward': 'Up to 200 GC per game'},
+            {'id': 'edge-surf', 'name': 'Edge Surf', 'icon': '🏄', 'type': 'free', 'reward': 'Up to 150 GC per game'}
+        ]
+        
+        # Premium games (only available to premium users)
+        premium_games = [
+            {'id': 'sabotage', 'name': 'Crypto Crew: Sabotage', 'icon': '🕵️', 'type': 'premium', 'reward': 'Up to 8000 GC per game', 'premium_required': True},
+            {'id': 'chess', 'name': 'Chess Masters', 'icon': '♟️', 'type': 'premium', 'reward': 'Up to 5000 GC per game', 'premium_required': True},
+            {'id': 'pool', 'name': 'Pool Masters', 'icon': '🎱', 'type': 'premium', 'reward': 'Up to 5000 GC per game', 'premium_required': True},
+            {'id': 'poker', 'name': 'Poker Royale', 'icon': '🃏', 'type': 'premium', 'reward': 'Up to 10000 GC per game', 'premium_required': True}
+        ]
+        
+        # Include premium games only if user has premium
+        games = free_games + (premium_games if is_premium else [])
+        
+        return jsonify({
+            'success': True,
+            'games': games,
+            'is_premium': is_premium
+        })
+    except Exception as e:
+        logger.error(f"Error getting games list: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/quests/list', methods=['GET'])
+def get_quests_list():
+    """Get list of quests and missions"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        # Get user data for progress tracking
+        user_data = get_user_data(int(user_id))
+        
+        # Daily quests
+        daily_quests = [
+            {
+                'id': 'daily_bonus',
+                'name': 'Claim Daily Bonus',
+                'description': 'Claim your daily bonus of 0.05 TON',
+                'reward': 100,  # GC
+                'completed': user_data.get('last_bonus_claim') is not None and 
+                            (datetime.now() - datetime.fromisoformat(user_data.get('last_bonus_claim'))).days < 1,
+                'type': 'daily'
+            },
+            {
+                'id': 'watch_ads',
+                'name': 'Watch 3 Ads',
+                'description': 'Watch video ads to earn extra rewards',
+                'reward': 150,
+                'completed': user_data.get('ads_today', 0) >= 3,
+                'progress': user_data.get('ads_today', 0),
+                'target': 3,
+                'type': 'daily'
+            },
+            {
+                'id': 'play_games',
+                'name': 'Play 2 Games',
+                'description': 'Play any 2 games to complete this quest',
+                'reward': 200,
+                'completed': user_data.get('games_today', 0) >= 2,
+                'progress': user_data.get('games_today', 0),
+                'target': 2,
+                'type': 'daily'
+            }
+        ]
+        
+        # Social media quests
+        social_quests = [
+            {
+                'id': 'follow_twitter',
+                'name': 'Follow on Twitter',
+                'description': 'Follow our Twitter account',
+                'reward': 2000,
+                'completed': user_data.get('quests', {}).get('follow_twitter', False),
+                'type': 'social'
+            },
+            {
+                'id': 'join_telegram',
+                'name': 'Join Telegram Channel',
+                'description': 'Join our official Telegram channel',
+                'reward': 2000,
+                'completed': user_data.get('quests', {}).get('join_telegram', False),
+                'type': 'social'
+            },
+            {
+                'id': 'post_twitter',
+                'name': 'Post on Twitter',
+                'description': 'Create a post about CryptoGamer on Twitter',
+                'reward': 3000,
+                'completed': user_data.get('quests', {}).get('post_twitter', False),
+                'type': 'social'
+            }
+        ]
+        
+        return jsonify({
+            'success': True,
+            'daily_quests': daily_quests,
+            'social_quests': social_quests
+        })
+    except Exception as e:
+        logger.error(f"Error getting quests list: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/otc/rates', methods=['GET'])
+def get_otc_rates():
+    """Get OTC exchange rates"""
+    try:
+        # This would typically fetch from an external API
+        rates = {
+            'TON_USD': 6.80,
+            'TON_KES': 950,
+            'TON_EUR': 6.20,
+            'TON_USDT': 6.75
+        }
+        
+        return jsonify({
+            'success': True,
+            'rates': rates
+        })
+    except Exception as e:
+        logger.error(f"Error getting OTC rates: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/otc/swap', methods=['POST'])
+def swap_ton_cash():
+    """Swap TON for cash"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        data = request.get_json()
+        amount = data.get('amount')
+        currency = data.get('currency')
+        payment_details = data.get('payment_details')
+        
+        if not amount or not currency or not payment_details:
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        # Validate amount
+        user_data = get_user_data(int(user_id))
+        ton_equivalent = amount / 2000  # Convert GC to TON
+        
+        if user_data.get('game_coins', 0) < amount:
+            return jsonify({'error': 'Insufficient balance'}), 400
+            
+        # Process swap (this would typically integrate with OTC partner)
+        # For now, we'll just simulate the transaction
+        
+        # Update user balance
+        new_balance = user_data.get('game_coins', 0) - amount
+        update_user_data(int(user_id), {
+            'game_coins': new_balance,
+            'otc_transactions': user_data.get('otc_transactions', []) + [{
+                'date': datetime.now().isoformat(),
+                'amount': amount,
+                'currency': currency,
+                'status': 'processing'
+            }]
+        })
+        
+        return jsonify({
+            'success': True,
+            'message': f'Swap request for {amount} GC ({ton_equivalent:.6f} TON) to {currency} submitted',
+            'transaction_id': f"otc_{datetime.now().timestamp()}",
+            'new_balance': new_balance
+        })
+    except Exception as e:
+        logger.error(f"Error processing OTC swap: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/api/referrals/data', methods=['GET'])
+def get_referral_data():
+    """Get referral data for user"""
+    try:
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
+        user_data = get_user_data(int(user_id))
+        
+        referral_code = user_data.get('referral_code', f'ref_{user_id}')
+        referral_link = f"https://t.me/CryptoGameMinerBot?start={referral_code}"
+        
+        referrals = user_data.get('referrals', [])
+        referral_count = len(referrals)
+        
+        # Calculate referral earnings (20% of referred users' earnings)
+        ref_earnings = user_data.get('ref_earnings', 0)
+        
+        # Check milestone progress
+        milestones = [
+            {'count': 3, 'reward': 0.01, 'reached': referral_count >= 3},
+            {'count': 10, 'reward': 0.03, 'reached': referral_count >= 10},
+            {'count': 50, 'reward': 0.25, 'reached': referral_count >= 50},
+            {'count': 100, 'reward': 1.00, 'reached': referral_count >= 100}
+        ]
+        
+        return jsonify({
+            'success': True,
+            'referral_code': referral_code,
+            'referral_link': referral_link,
+            'referral_count': referral_count,
+            'referral_earnings': ref_earnings,
+            'milestones': milestones
+        })
+    except Exception as e:
+        logger.error(f"Error getting referral data: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500

@@ -1,3 +1,4 @@
+# src/telegram/stars.py
 import logging
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,6 +11,158 @@ from telethon import functions, types
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
+
+# Add subscription management functionality
+async def get_active_subscriptions(user_id):
+    """Get user's active Telegram Stars subscriptions"""
+    try:
+        async with telegram_client:
+            status = await telegram_client(
+                functions.payments.GetStarsSubscriptionsRequest(
+                    peer=types.InputPeerSelf()
+                )
+            )
+            return status.subscriptions
+    except Exception as e:
+        logger.error(f"Error getting subscriptions: {str(e)}")
+        return []
+
+async def create_subscription_invoice(bot_id, title, description, price_stars, period_days=30):
+    """Create a subscription invoice for recurring payments"""
+    try:
+        period_seconds = period_days * 24 * 60 * 60
+        
+        async with telegram_client:
+            # Create recurring invoice
+            invoice = types.Invoice(
+                recurring=True,
+                subscription_period=period_seconds,
+                currency="XTR",
+                prices=[types.LabeledPrice(label=title, amount=price_stars)]
+            )
+            
+            # Get payment form
+            payment_form = await telegram_client(
+                functions.payments.GetPaymentFormRequest(
+                    invoice=invoice,
+                    theme_params=types.DataJSON(
+                        data=json.dumps({
+                            "bg_color": "#000000",
+                            "text_color": "#ffffff",
+                            "hint_color": "#aaaaaa",
+                            "link_color": "#ffcc00",
+                            "button_color": "#ffcc00",
+                            "button_text_color": "#000000"
+                        })
+                    )
+                )
+            )
+            
+            return {
+                'form_id': payment_form.form_id,
+                'invoice': invoice.to_dict(),
+                'url': f"https://t.me/invoice/{payment_form.form_id}",
+                'title': title,
+                'description': description,
+                'price': price_stars,
+                'currency': 'XTR',
+                'period_days': period_days
+            }
+    except Exception as e:
+        logger.error(f"Error creating subscription invoice: {str(e)}")
+        return None
+
+# Add gift payment functionality
+async def send_star_gift(recipient_id, stars_amount, message=None):
+    """Send Telegram Stars as a gift to another user"""
+    try:
+        async with telegram_client:
+            purpose = types.InputStorePaymentStarsGift(
+                user_id=types.InputUser(user_id=recipient_id, access_hash=0),  # Access hash should be retrieved properly
+                stars=stars_amount,
+                currency="XTR",
+                amount=stars_amount * 100  # Convert to cents
+            )
+            
+            invoice = types.InputInvoiceStars(purpose=purpose)
+            
+            payment_form = await telegram_client(
+                functions.payments.GetPaymentFormRequest(
+                    invoice=invoice,
+                    theme_params=types.DataJSON(
+                        data=json.dumps({
+                            "bg_color": "#000000",
+                            "text_color": "#ffffff",
+                            "hint_color": "#aaaaaa",
+                            "link_color": "#ffcc00",
+                            "button_color": "#ffcc00",
+                            "button_text_color": "#000000"
+                        })
+                    )
+                )
+            )
+            
+            return {
+                'form_id': payment_form.form_id,
+                'invoice': invoice.to_dict(),
+                'stars_amount': stars_amount
+            }
+    except Exception as e:
+        logger.error(f"Error creating star gift: {str(e)}")
+        return None
+
+# Add premium game access functionality
+async def create_premium_access_invoice(game_name, price_stars, duration_days):
+    """Create invoice for premium game access"""
+    try:
+        async with telegram_client:
+            purpose = types.InputStorePaymentPremiumSubscription(
+                amount=price_stars,
+                currency="XTR",
+                period=duration_days * 24 * 60 * 60
+            )
+            
+            invoice = types.InputInvoiceStars(
+                purpose=purpose,
+                title=f"Premium Access: {game_name}",
+                description=f"{duration_days}-day premium access to {game_name}",
+                photo=types.InputWebDocument(
+                    url=f"{Config.STATIC_URL}/games/{game_name}/preview.png",
+                    size=0,
+                    mime_type="image/png",
+                    attributes=[]
+                )
+            )
+            
+            payment_form = await telegram_client(
+                functions.payments.GetPaymentFormRequest(
+                    invoice=invoice,
+                    theme_params=types.DataJSON(
+                        data=json.dumps({
+                            "bg_color": "#000000",
+                            "text_color": "#ffffff",
+                            "hint_color": "#aaaaaa",
+                            "link_color": "#ffcc00",
+                            "button_color": "#ffcc00",
+                            "button_text_color": "#000000"
+                        })
+                    )
+                )
+            )
+            
+            return {
+                'form_id': payment_form.form_id,
+                'invoice': invoice.to_dict(),
+                'url': f"https://t.me/invoice/{payment_form.form_id}",
+                'title': f"Premium Access: {game_name}",
+                'description': f"{duration_days}-day premium access",
+                'price': price_stars,
+                'currency': 'XTR',
+                'duration_days': duration_days
+            }
+    except Exception as e:
+        logger.error(f"Error creating premium access invoice: {str(e)}")
+        return None
 
 # Add the missing functions that miniapp.py expects
 async def create_stars_invoice(user_id, product_id, title, description, price_stars, photo_url=None):
@@ -455,3 +608,4 @@ async def handle_stars_webhook(payload):
     except Exception as e:
         logger.error(f"Error processing Stars webhook: {str(e)}")
         return {"status": "error", "message": str(e)}
+    

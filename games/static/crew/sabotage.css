@@ -506,6 +506,206 @@ header {
     line-height: 1.5;
 }
 
+/* Character Styles */
+.character {
+    position: relative;
+    display: inline-block;
+    font-size: 32px;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.character-inner {
+    position: relative;
+    display: inline-block;
+}
+
+.character-base {
+    position: relative;
+    z-index: 1;
+}
+
+.character-skin {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+    opacity: 0.9;
+}
+
+.character-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    opacity: 0.8;
+}
+
+/* Character animations */
+@keyframes walk {
+    0% { transform: translateX(-5px) rotate(-5deg); }
+    50% { transform: translateX(0) rotate(0deg); }
+    100% { transform: translateX(5px) rotate(5deg); }
+}
+
+@keyframes mine {
+    0% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(-10deg); }
+    50% { transform: scale(1.2) rotate(0deg); }
+    75% { transform: scale(1.1) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes idle {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+    100% { transform: translateY(0); }
+}
+
+.character.walking {
+    animation: walk 0.8s infinite;
+}
+
+.character.mining {
+    animation: mine 0.6s infinite;
+}
+
+.character.idle {
+    animation: idle 2s infinite;
+}
+
+/* Room character positioning */
+.room-character {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+}
+
+/* Player list character display */
+.player-character {
+    font-size: 24px;
+    margin-right: 10px;
+    position: relative;
+    display: inline-block;
+}
+
+/* Premium character styling */
+.character.premium {
+    filter: drop-shadow(0 0 3px gold);
+}
+
+/* Special animations for premium characters */
+.character.premium.walking {
+    animation: walk 0.6s infinite, glow 2s infinite alternate;
+}
+
+.character.premium.mining {
+    animation: mine 0.5s infinite, glow 1.5s infinite alternate;
+}
+
+@keyframes glow {
+    0% { filter: drop-shadow(0 0 3px gold); }
+    100% { filter: drop-shadow(0 0 8px gold); }
+}
+
+/* Character selection styles */
+.character-selection {
+    margin: 20px 0;
+}
+
+.character-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.character-option {
+    padding: 15px;
+    background-color: rgba(40, 40, 70, 0.5);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.character-option:hover {
+    background-color: rgba(40, 40, 70, 0.8);
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.character-option.selected {
+    border-color: var(--accent);
+    box-shadow: var(--accent-glow);
+}
+
+.skin-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.skin-option {
+    padding: 10px;
+    background-color: rgba(40, 40, 70, 0.5);
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.skin-option:hover {
+    background-color: rgba(40, 40, 70, 0.8);
+    transform: translateY(-2px);
+    border-color: var(--accent);
+}
+
+.skin-option.selected {
+    border-color: var(--accent);
+    box-shadow: var(--accent-glow);
+}
+
+/* Credit Purchase Styles */
+.credit-options {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.credit-option {
+    background-color: rgba(40, 40, 70, 0.5);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.credit-option:hover {
+    border-color: var(--accent);
+    box-shadow: var(--accent-glow);
+}
+
+.stars-amount {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--accent);
+    margin-bottom: 5px;
+}
+
+.credits-amount {
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
 /* Glowing balls animation */
 @keyframes glow {
     0% { opacity: 0.3; transform: scale(0.8); }
@@ -568,6 +768,18 @@ header {
     
     .voting-options {
         grid-template-columns: 1fr;
+    }
+    
+    .credit-options {
+        grid-template-columns: 1fr;
+    }
+    
+    .character-options {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .skin-options {
+        grid-template-columns: repeat(3, 1fr);
     }
     
     header {

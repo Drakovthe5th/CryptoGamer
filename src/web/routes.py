@@ -23,6 +23,8 @@ from src.utils.validators import validate_ton_address
 from src.telegram.config_manager import config_manager
 from src.features.monetization.gifts import gift_manager
 from src.features.monetization.giveaways import giveaway_manager
+from src.features.referrals import ReferralSystem, referral_system
+from games.tonopoly_game import TONopolyGame
 from config import config
 import logging
 import os
@@ -505,6 +507,81 @@ def configure_routes(app):
             })
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/navigation/pages', methods=['GET'])
+    def get_navigation_pages():
+        """Get navigation structure for the miniapp"""
+        try:
+            user_id = get_user_id(request)
+            if not user_id:
+                return jsonify({'error': 'Unauthorized'}), 401
+                
+            # Get user data to check premium status
+            user_data = get_user_data(int(user_id))
+            is_premium = user_data.get('is_premium', False)
+            
+            pages = [
+                {'id': 'home', 'name': 'Home', 'icon': '🏠', 'url': '/miniapp/home'},
+                {'id': 'watch', 'name': 'Watch', 'icon': '📺', 'url': '/miniapp/watch'},
+                {'id': 'wallet', 'name': 'Wallet', 'icon': '💰', 'url': '/miniapp/wallet'},
+                {'id': 'games', 'name': 'Games', 'icon': '🎮', 'url': '/miniapp/games'},
+                {'id': 'quests', 'name': 'Quests', 'icon': '📋', 'url': '/miniapp/quests'},
+                {'id': 'otc', 'name': 'Trade', 'icon': '💱', 'url': '/miniapp/otc'},
+                {'id': 'referrals', 'name': 'Invite', 'icon': '👥', 'url': '/miniapp/referrals'},
+                {'id': 'shop', 'name': 'Shop', 'icon': '🛒', 'url': '/miniapp/shop', 'floating': True}
+            ]
+            
+            return jsonify({
+                'success': True,
+                'pages': pages,
+                'user_premium': is_premium
+            })
+        except Exception as e:
+            logger.error(f"Error getting navigation pages: {str(e)}")
+            return jsonify({'error': 'Internal server error'}), 500
+
+    @app.route('/api/navigation/status', methods=['GET'])
+    def get_navigation_status():
+        """Get navigation status (notifications, etc)"""
+        try:
+            user_id = get_user_id(request)
+            if not user_id:
+                return jsonify({'error': 'Unauthorized'}), 401
+                
+            user_data = get_user_data(int(user_id))
+            
+            # Check for daily bonus availability
+            last_bonus_claim = user_data.get('last_bonus_claim')
+            bonus_available = True
+            
+            if last_bonus_claim:
+                from datetime import datetime, timedelta
+                last_claim_date = datetime.fromisoformat(last_bonus_claim)
+                if datetime.now() - last_claim_date < timedelta(hours=24):
+                    bonus_available = False
+            
+            # Check for completed quests
+            completed_quests = 0
+            # This would check actual quest completion status
+            
+            return jsonify({
+                'success': True,
+                'notifications': {
+                    'home': bonus_available,
+                    'quests': completed_quests > 0,
+                    'count': (1 if bonus_available else 0) + completed_quests
+                }
+            })
+        except Exception as e:
+            logger.error(f"Error getting navigation status: {str(e)}")
+            return jsonify({'error': 'Internal server error'}), 500
+        
+    @app.route('/api/affiliate/stats')
+    def affiliate_stats():
+        user_id = get_authenticated_user_id()  # Implement your auth logic
+        stats = referral_system.get_referral_stats(user_id)
+        stats['referral_link'] = f"https://t.me/yourbotname?start=ref_{user_id}"
+        return jsonify(stats)
         
 # HELPER FUNCTION
 def get_user_id(request):

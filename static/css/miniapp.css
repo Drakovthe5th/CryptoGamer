@@ -889,3 +889,33 @@ select, input {
     font-size: 24px;
   }
 }
+
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    background-color: #ff4757;
+    border-radius: 50%;
+    border: 2px solid #1a1a2e;
+}
+
+.nav-item {
+    position: relative;
+}
+
+/* Update navigation styles for better spacing */
+.bottom-nav {
+    padding: 10px 5px;
+}
+
+.nav-item {
+    padding: 8px 5px;
+    font-size: 0.8rem;
+}
+
+.nav-icon {
+    font-size: 1.4rem;
+    margin-bottom: 2px;
+}

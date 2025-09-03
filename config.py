@@ -22,6 +22,14 @@ REWARD_RATES = {
     'poker': {'base': 25, 'per_victory': 20}
 }
 
+# Payment Configuration
+STRIPE_API_KEY = os.getenv('STRIPE_API_KEY')
+TELEGRAM_STARS_PROVIDER_TOKEN = os.getenv('TELEGRAM_STARS_PROVIDER_TOKEN')
+TELEGRAM_PAYMENTS_PROVIDER_TOKEN = os.getenv('TELEGRAM_PAYMENTS_PROVIDER_TOKEN')
+TON_PAYMENT_ADDRESS = os.getenv('TON_PAYMENT_ADDRESS')
+USDT_PAYMENT_ADDRESS = os.getenv('USDT_PAYMENT_ADDRESS')
+ALLOW_TIPS = True
+
 MAX_GAME_REWARD = 1.0
 MAX_DAILY_GAME_COINS = 20000
 
@@ -44,6 +52,24 @@ class Config:
         # Telegram Payments Configuration
         self.TELEGRAM_STARS_PROVIDER_TOKEN = os.getenv('TELEGRAM_STARS_PROVIDER_TOKEN')
         self.TELEGRAM_PAYMENTS_TEST_MODE = os.getenv('TELEGRAM_PAYMENTS_TEST_MODE', 'false').lower() == 'true'
+
+        # Telegram API Configuration
+        TELEGRAM_API_ID = 'your_api_id'
+        TELEGRAM_API_HASH = 'your_api_hash'
+        TELEGRAM_BOT_TOKEN = 'your_bot_token'
+        
+        # Stars Configuration
+        MAX_STARS_PURCHASE = 10000
+        MAX_STARS_TRANSACTION = 50000
+        STARS_TO_CREDITS_RATE = 10
+        
+        # Affiliate Programs
+        STARREF_MIN_COMMISSION = 50  # 5%
+        STARREF_MAX_COMMISSION = 200  # 20%
+        
+        # Pagination
+        DEFAULT_PAGE_LIMIT = 20
+        MAX_PAGE_LIMIT = 100
         
         # Telegram Stars Configuration
         TELEGRAM_STARS_TEST_MODE = False  # Set to True for testing

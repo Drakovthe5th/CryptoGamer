@@ -61,6 +61,8 @@ CryptoGamer
 |                         |           --> pool.css
 |                         |           -->pool.js
 |                         |____/poker --> index.html
+|                         |
+|                         |____/referrals --> invites.html
 |                         | 
 |                         |
 |                         |--->index.html

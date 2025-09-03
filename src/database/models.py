@@ -23,6 +23,9 @@ class User:
         self.crew_credits = data.get('crew_credits', 0)
         self.telegram_stars = data.get('telegram_stars', 0)
         self.stars_transactions = data.get('stars_transactions', [])
+        affiliate_programs = ListField(DictField(), default=[])
+        stars_balance = FloatField(default=0)
+        telegram_stars = IntField(default=0)
 
     def to_dict(self):
         return {
