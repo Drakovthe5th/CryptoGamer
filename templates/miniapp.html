@@ -10,6 +10,9 @@
     
     <!-- Telegram Web Events Script -->
     <script src="/static/js/telegram-web-events.js"></script>
+
+    <!-- TON Connect SDK -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#1a1a2e">
@@ -504,13 +507,21 @@
           </div>
         </div>
         
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px;">
-          <button class="btn btn-primary" onclick="showWithdrawalForm()">
-            📤 Withdraw
-          </button>
-          <button class="btn btn-primary" onclick="connectWallet()">
-            🔗 Connect Wallet
-          </button>
+        <div class="wallet-section">
+            <div id="wallet-disconnected" class="wallet-status">
+                <p>Connect your wallet to withdraw earnings</p>
+                <div id="ton-connect-button"></div>
+                <button class="btn btn-primary" onclick="connectTONWallet()">
+                    🔗 Connect Wallet
+                </button>
+            </div>
+            
+            <div id="wallet-connected" class="wallet-status hidden">
+                <p>Wallet connected: <span id="wallet-address"></span></p>
+                <button class="btn" onclick="disconnectWallet()">
+                    Disconnect
+                </button>
+            </div>
         </div>
       </div>
 

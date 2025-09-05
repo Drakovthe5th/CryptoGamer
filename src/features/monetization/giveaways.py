@@ -2,6 +2,7 @@ from telethon import functions, types
 from src.integrations.telegram import telegram_client
 from src.database.mongo import db, get_user_data, update_user_data
 from datetime import datetime
+from src.utils.user_helpers import get_user_boost_peer
 from src.telegram.keyboards import InlineKeyboardButton, InlineKeyboardMarkup
 from datetime import timedelta
 import random

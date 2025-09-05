@@ -1,6 +1,7 @@
 import time
 import statistics
 from src.database.mongo import get_user_activity
+from src.utils.validators import is_rate_limited, validate_credentials_format, detect_suspicious_payment_pattern
 
 class AntiCheatSystem:
     def detect_farming(self, user_id):

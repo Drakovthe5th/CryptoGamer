@@ -3,16 +3,22 @@ import hashlib
 import hmac
 import logging
 import asyncio
+import json
+from urllib.parse import parse_qs
 from flask import Blueprint, request, jsonify
 from src.database import mongo as db
 from src.telegram.auth import validate_init_data
 from src.utils import security, validators
 from src.security import anti_cheat
 from src.features import quests
-from src.utils.validators import validate_json_input
-from src.database.mongo import get_user_data
+from src.telegram.stars import process_stars_purchase
+from src.telegram.web_events import handle_web_event
+from games.games import active_games
+from src.utils.validators import validate_json_input, validate_telegram_init_data, validate_user_data
+from src.database.mongo import get_user_data, update_user_data
 from src.features.monetization.ad_revenue import AdRevenue
 from config import config
+from config import Config
 from src.telegram.config_manager import config_manager
 import logging
 from fastapi import APIRouter

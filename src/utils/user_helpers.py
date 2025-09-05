@@ -7,7 +7,10 @@ import logging
 import re
 import requests
 import geoip2.database
-# Removed problematic import
+# src/utils/user_helpers.py
+from telethon.tl import types
+from src.database.mongo import get_user_data, db
+
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -117,6 +120,40 @@ def update_participation_score(user_id, activity_type):
         {'user_id': user_id},
         {'$inc': {'participation_score': weight}}
     )
+
+async def get_user_boost_peer(user_id: int):
+    """
+    Get user's boost peer information for giveaways
+    """
+    try:
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return None
+            
+        # Check if user has a preferred boost channel/peer
+        boost_peer = user_data.get('boost_peer')
+        if boost_peer:
+            # Convert stored peer data to InputPeer type
+            if boost_peer['type'] == 'channel':
+                return types.InputPeerChannel(
+                    channel_id=boost_peer['id'],
+                    access_hash=boost_peer.get('access_hash', 0)
+                )
+            elif boost_peer['type'] == 'user':
+                return types.InputPeerUser(
+                    user_id=boost_peer['id'],
+                    access_hash=boost_peer.get('access_hash', 0)
+                )
+            elif boost_peer['type'] == 'chat':
+                return types.InputPeerChat(chat_id=boost_peer['id'])
+        
+        # Default to user's own peer if no boost peer is set
+        return types.InputPeerUser(user_id=user_id, access_hash=0)
+        
+    except Exception as e:
+        logger.error(f"Error getting user boost peer: {str(e)}")
+        # Fallback to user's own peer
+        return types.InputPeerUser(user_id=user_id, access_hash=0)
 
 # Cache results to reduce API calls (max 256 entries, 1 hour TTL)
 @lru_cache(maxsize=256)

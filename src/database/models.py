@@ -1,10 +1,31 @@
 import os
 from pymongo import MongoClient
 from datetime import datetime
-from typing import Optional
-from datetime import datetime
+from typing import Optional, List, Dict, Any
 import enum
+from bson import ObjectId
+from pydantic import BaseModel, Field
+from config import Config
 from src.utils.pagination import Paginator
+
+# MongoDB connection
+client = MongoClient(os.getenv("MONGODB_URI", "mmongodb+srv://render-user:eSLeOZeG0tawLzxm@cluster0.fbmvdmj.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"))
+db = client.telegram_games
+
+class PyObjectId(ObjectId):
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError("Invalid objectid")
+        return ObjectId(v)
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type="string")
 
 class User:
     def __init__(self, data):
@@ -23,9 +44,19 @@ class User:
         self.crew_credits = data.get('crew_credits', 0)
         self.telegram_stars = data.get('telegram_stars', 0)
         self.stars_transactions = data.get('stars_transactions', [])
-        affiliate_programs = ListField(DictField(), default=[])
-        stars_balance = FloatField(default=0)
-        telegram_stars = IntField(default=0)
+        self.affiliate_programs = data.get('affiliate_programs', [])
+        self.stars_balance = data.get('stars_balance', 0)
+        self.active_chess_games = data.get('active_chess_games', [])
+        self.chess_stats = data.get('chess_stats', {
+            "wins": 0,
+            "losses": 0,
+            "draws": 0,
+            "total_stakes": 0,
+            "total_winnings": 0
+        })
+        self.subscriptions = data.get('subscriptions', [])
+        self.daily_earnings = data.get('daily_earnings', {})
+        self.boost_peer = data.get('boost_peer')
 
     def to_dict(self):
         return {
@@ -43,7 +74,14 @@ class User:
             'created_at': self.created_at,
             'crew_credits': self.crew_credits,
             'telegram_stars': self.telegram_stars,
-            'stars_transactions': self.stars_transactions
+            'stars_transactions': self.stars_transactions,
+            'affiliate_programs': self.affiliate_programs,
+            'stars_balance': self.stars_balance,
+            'active_chess_games': self.active_chess_games,
+            'chess_stats': self.chess_stats,
+            'subscriptions': self.subscriptions,
+            'daily_earnings': self.daily_earnings,
+            'boost_peer': self.boost_peer
         }
 
 class Quest:
@@ -189,17 +227,6 @@ class SabotagePlayer:
         self.gold_stolen = data.get('gold_stolen', 0)
         self.joined_at = data.get('joined_at', datetime.now())
 
-# In your User model, add these fields:
-stars_balance: int = 0  # Telegram Stars balance
-active_chess_games: List[str] = []  # List of active chess game IDs
-chess_stats: Dict[str, Any] = {  # Chess statistics
-    "wins": 0,
-    "losses": 0,
-    "draws": 0,
-    "total_stakes": 0,
-    "total_winnings": 0
-}
-
 class ChessGameStatus(enum.Enum):
     WAITING = "waiting"
     IN_PROGRESS = "in_progress"
@@ -231,34 +258,6 @@ class ChessMove(BaseModel):
     fen_after: str  # Board state after move
     player_id: int  # Who made the move
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
-def get_leaderboard(self, limit=10, offset=0, max_id=None, min_id=None, hash_val=None):
-    """Get paginated leaderboard with hash validation"""
-    # Base query
-    query = User.select().order_by(User.points.desc())
-    
-    # Apply filters
-    if max_id is not None:
-        query = query.where(User.id < max_id)
-    if min_id is not None:
-        query = query.where(User.id > min_id)
-    
-    # Get results
-    results = query.offset(offset).limit(limit)
-    
-    # Generate hash for validation
-    id_list = [user.id for user in results]
-    calculated_hash = Paginator.generate_hash(id_list)
-    
-    # Check if not modified
-    if hash_val and hash_val == calculated_hash:
-        return {'not_modified': True}
-    
-    return {
-        'users': [user.to_dict() for user in results],
-        'hash': calculated_hash,
-        'has_more': len(results) == limit
-    }
 
 class PoolGameResult:
     def __init__(self, data):
@@ -305,3 +304,32 @@ class PokerHandResult:
         self.winners = data.get('winners', [])
         self.winning_hand = data.get('winning_hand')
         self.timestamp = data.get('timestamp', datetime.now())
+
+# Leaderboard function
+def get_leaderboard(limit=10, offset=0, max_id=None, min_id=None, hash_val=None):
+    """Get paginated leaderboard with hash validation"""
+    # Base query
+    query = {}
+    
+    # Apply filters
+    if max_id is not None:
+        query['_id'] = {'$lt': ObjectId(max_id)}
+    if min_id is not None:
+        query['_id'] = {'$gt': ObjectId(min_id)}
+    
+    # Get results
+    results = list(db.users.find(query).sort('points', -1).skip(offset).limit(limit))
+    
+    # Generate hash for validation
+    id_list = [str(user['_id']) for user in results]
+    calculated_hash = Paginator.generate_hash(id_list)
+    
+    # Check if not modified
+    if hash_val and hash_val == calculated_hash:
+        return {'not_modified': True}
+    
+    return {
+        'users': [User(user).to_dict() for user in results],
+        'hash': calculated_hash,
+        'has_more': len(results) == limit
+    }

@@ -23,8 +23,10 @@ from src.utils.validators import validate_ton_address
 from src.telegram.config_manager import config_manager
 from src.features.monetization.gifts import gift_manager
 from src.features.monetization.giveaways import giveaway_manager
+from src.telegram.auth import authenticate_wallet
 from src.features.referrals import ReferralSystem, referral_system
 from games.tonopoly_game import TONopolyGame
+from src.telegram.auth import get_authenticated_user_id
 from config import config
 import logging
 import os
@@ -578,9 +580,12 @@ def configure_routes(app):
         
     @app.route('/api/affiliate/stats')
     def affiliate_stats():
-        user_id = get_authenticated_user_id()  # Implement your auth logic
+        user_id = get_authenticated_user_id()
+        if not user_id:
+            return jsonify({'error': 'Unauthorized'}), 401
+            
         stats = referral_system.get_referral_stats(user_id)
-        stats['referral_link'] = f"https://t.me/yourbotname?start=ref_{user_id}"
+        stats['referral_link'] = f"https://t.me/Got3dBot?start=ref_{user_id}"
         return jsonify(stats)
         
 # HELPER FUNCTION
@@ -632,7 +637,57 @@ def get_user_id(request):
         logger.error(f"Unexpected error in get_user_id: {str(e)}")
         return None
 
+@app.route('/api/wallet/connect', methods=['POST'])
+def connect_wallet():
+    """
+    Connect a TON wallet to a user account
+    """
+    try:
+        # Authenticate the wallet connection request
+        wallet_auth, error = authenticate_wallet()
+        if error:
+            return jsonify({'success': False, 'error': error})
+        
+        # Save wallet connection to database
+        user_id = wallet_auth['telegram_user_id']
+        wallet_address = wallet_auth['wallet_address']
+        wallet_public_key = wallet_auth['wallet_public_key']
+        
+        # Update user record with wallet info
+        update_user_wallet(user_id, wallet_address, wallet_public_key)
+        
+        logger.info(f"Wallet connected: {wallet_address} for user {user_id}")
+        return jsonify({
+            'success': True,
+            'message': 'Wallet connected successfully',
+            'wallet_address': wallet_address
+        })
+        
+    except Exception as e:
+        logger.error(f"Wallet connection failed: {str(e)}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+def update_user_wallet(user_id, wallet_address, public_key=None):
+    """
+    Update user record with wallet information
+    """
+    # This would typically interact with your database
+    from src.database.mongo import db
     
+    update_data = {
+        'wallet_address': wallet_address,
+        'wallet_connected_at': datetime.utcnow()
+    }
+    
+    if public_key:
+        update_data['wallet_public_key'] = public_key
+    
+    db.users.update_one(
+        {'user_id': user_id},
+        {'$set': update_data},
+        upsert=True
+    ) 
+
 def generate_security_token(user_id):
     """Generate secure session token"""
     timestamp = str(int(time.time()))

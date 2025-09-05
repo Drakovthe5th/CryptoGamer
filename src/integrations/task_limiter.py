@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from src.database.firebase import db
+from src.database.mongo import db, get_user_data, save_user_data
 from config import config
 
 class TaskLimiter:
@@ -50,38 +50,38 @@ class TaskLimiter:
         """Record ad watch and update earnings"""
         self.record_task_completion(user_id, "ad_view")
 
-    MAX_RESETS = 3
+    config.MAX_RESETS = 3
 
     def check_reset_available(user_id, game_type):
-        user = get_user(user_id)
-        if user['daily_resets'].get(game_type, 0) >= MAX_RESETS:
+        user = get_user_data(user_id)
+        if user['daily_resets'].get(game_type, 0) >= config.MAX_RESETS:
             return False
         return True
 
     def record_reset(user_id, game_type):
-        user = get_user(user_id)
+        user = get_user_data(user_id)
         user['daily_resets'][game_type] = user['daily_resets'].get(game_type, 0) + 1
-        save_user(user)
+        save_user_data(user)
 
        # ADDED RESET FUNCTIONALITY
     def can_reset(self, user_id, game_type):
         """Check if user can reset the game"""
-        user = get_user(user_id)
+        user = get_user_data(user_id)
         if not user:
             return False
             
         reset_count = user.daily_resets.get(game_type, 0)
-        return reset_count < self.MAX_RESETS
+        return reset_count < self.config.MAX_RESETS
 
     def record_reset(self, user_id, game_type):
         """Record game reset"""
-        user = get_user(user_id)
+        user = get_user_data(user_id)
         if not user:
             return False
             
         reset_count = user.daily_resets.get(game_type, 0)
         user.daily_resets[game_type] = reset_count + 1
-        save_user(user)
+        save_user_data(user)
         return True
 
 # Global limiter instance

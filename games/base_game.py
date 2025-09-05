@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional, List
 from config import config
 from config import REWARD_RATES, MAX_GAME_REWARD, MAX_DAILY_GAME_COINS
 from src.database.mongo import get_user_data, get_game_session, update_user_data
-from src.utils.security import get_user_id
+from src.utils.security import get_user_id, generate_session_token
 
 logger = logging.getLogger(__name__)
 TON_TO_GC_RATE = 2000  # 2000 Game Coins = 1 TON

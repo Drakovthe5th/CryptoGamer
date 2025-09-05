@@ -1,4 +1,5 @@
 from src.utils.logger import logging
+from telethon import functions, types
 
 logger = logging.getLogger(__name__)
 class AdRevenue:

@@ -14,6 +14,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize Web Events
     initTelegramWebEvents();
+    
+    // Initialize TON Connect
+    initTONConnect();
+    setTimeout(initTONConnect, 1000); // Small delay to ensure Telegram WebApp is initialized
 
     if (user_id) {
       fetch('/api/user/init', {
@@ -177,23 +181,110 @@ function initUserData() {
   }
 }
 
-// Check if wallet is already connected
-function checkWalletConnection() {
-  const savedAddress = localStorage.getItem('ton_wallet_address');
-  if (savedAddress) {
-    updateWalletDisplay(savedAddress);
-  }
+// TON Connect initialization
+let tonConnectUI = null;
+
+function initTONConnect() {
+    try {
+        const manifestUrl = window.location.origin + '/tonconnect-manifest.json';
+        
+        tonConnectUI = new TonConnectUI({
+            manifestUrl: manifestUrl,
+            buttonRootId: 'ton-connect-button',
+            language: 'en',
+            uiPreferences: {
+                theme: Telegram.WebApp.colorScheme || 'dark'
+            }
+        });
+
+        // Handle connection status changes
+        tonConnectUI.onStatusChange(wallet => {
+            if (wallet) {
+                // Wallet connected
+                const address = wallet.account.address;
+                updateWalletDisplay(address);
+                
+                // Send wallet address to server
+                fetch('/api/wallet/connect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Hash': window.Telegram ? Telegram.WebApp.initData : ''
+                    },
+                    body: JSON.stringify({ 
+                        address: address,
+                        provider: wallet.provider,
+                        device: wallet.device
+                    })
+                }).then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Wallet connection saved');
+                    }
+                }).catch(err => console.error('Error saving wallet:', err));
+            } else {
+                // Wallet disconnected
+                walletConnected.classList.add('hidden');
+                walletDisconnected.classList.remove('hidden');
+                
+                // Clear local storage
+                localStorage.removeItem('ton_wallet_address');
+            }
+        });
+
+        // Check initial connection status
+        if (tonConnectUI.wallet) {
+            updateWalletDisplay(tonConnectUI.wallet.account.address);
+        }
+    } catch (error) {
+        console.error('Error initializing TON Connect:', error);
+        // Fallback to manual connection method
+        initManualWalletConnection();
+    }
 }
 
-// Connect TON Wallet
+// Manual wallet connection fallback
+function initManualWalletConnection() {
+    console.log('Using manual wallet connection fallback');
+    
+    // Check if wallet is already connected
+    const savedAddress = localStorage.getItem('ton_wallet_address');
+    if (savedAddress) {
+        updateWalletDisplay(savedAddress);
+    }
+    
+    // Override connect function
+    window.connectTONWallet = function() {
+        if (window.Telegram && Telegram.WebApp) {
+            Telegram.WebApp.openLink('https://t.me/wallet?startattach=wallet_connect');
+        } else {
+            alert('Please open in Telegram to connect your wallet');
+        }
+    };
+}
+
+// Check if wallet is already connected
+function checkWalletConnection() {
+    if (tonConnectUI && tonConnectUI.wallet) {
+        updateWalletDisplay(tonConnectUI.wallet.account.address);
+        return;
+    }
+    
+    // Fallback to localStorage check
+    const savedAddress = localStorage.getItem('ton_wallet_address');
+    if (savedAddress) {
+        updateWalletDisplay(savedAddress);
+    }
+}
+
+// Connect TON Wallet using TON Connect
 function connectTONWallet() {
-  if (window.Telegram && Telegram.WebApp) {
-    // Use the correct Telegram method to connect wallet
-    Telegram.WebApp.sendData(JSON.stringify({
-      type: 'connect_wallet',
-      timestamp: Date.now()
-    }));
-  }
+    if (tonConnectUI) {
+        tonConnectUI.openModal();
+    } else if (window.Telegram && Telegram.WebApp) {
+        // Fallback for Telegram environment
+        Telegram.WebApp.openLink('https://t.me/wallet?startattach=wallet_connect');
+    }
 }
 
 // Handle Telegram wallet connection response
@@ -219,20 +310,30 @@ function handleWalletConnection(data) {
   }
 }
 
+// Update wallet display
 function updateWalletDisplay(address) {
-  const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-  walletAddress.textContent = shortAddress;
-  walletConnected.classList.remove('hidden');
-  walletDisconnected.classList.add('hidden');
+    if (!address) return;
+    
+    const shortAddress = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    walletAddress.textContent = shortAddress;
+    walletConnected.classList.remove('hidden');
+    walletDisconnected.classList.add('hidden');
+    
+    // Save to local storage for fallback
+    localStorage.setItem('ton_wallet_address', address);
 }
 
 // Disconnect wallet
 function disconnectWallet() {
-  localStorage.removeItem('ton_wallet_address');
-  walletConnected.classList.add('hidden');
-  walletDisconnected.classList.remove('hidden');
-  Telegram.WebApp.showAlert('Wallet disconnected successfully');
+    if (tonConnectUI) {
+        tonConnectUI.disconnect();
+    }
+    localStorage.removeItem('ton_wallet_address');
+    walletConnected.classList.add('hidden');
+    walletDisconnected.classList.remove('hidden');
+    Telegram.WebApp.showAlert('Wallet disconnected successfully');
 }
+
 
 // Switch pages
 function switchPage(pageId) {

@@ -3,6 +3,7 @@ from pymongo import MongoClient, ReturnDocument
 from pymongo.errors import PyMongoError
 from datetime import datetime
 import os
+from telethon.tl import types
 import logging
 from datetime import timedelta
 from config import config
@@ -289,6 +290,22 @@ def track_ad_reward(user_id: int, amount: float, source: str, is_weekend: bool):
     except Exception as e:
         logger.error(f"Error tracking ad reward: {str(e)}")
         return False
+    
+def record_ad_engagement(user_id: int, ad_network: str, reward: float, user_agent: str = None, ip_address: str = None):
+    """Record ad engagement details for analytics and anti-cheat"""
+    try:
+        db.ad_engagements.insert_one({
+            "user_id": user_id,
+            "ad_network": ad_network,
+            "reward": reward,
+            "user_agent": user_agent,
+            "ip_address": ip_address,
+            "timestamp": SERVER_TIMESTAMP
+        })
+        return True
+    except Exception as e:
+        logger.error(f"Error recording ad engagement: {str(e)}")
+        return False
 
 # Security operations
 def add_whitelist(user_id: int, address: str):
@@ -490,6 +507,63 @@ def get_user_rank(user_id: int):
             return rank
     return -1
 
+
+def get_user_boost_peer(user_id: int):
+    """
+    Get user's boost peer information for giveaways
+    Returns an InputPeer object for Telegram API calls
+    """
+    try:
+        user_data = get_user_data(user_id)
+        if not user_data:
+            # Fallback to user's own peer
+            return types.InputPeerUser(user_id=user_id, access_hash=0)
+            
+        # Check if user has a preferred boost channel/peer
+        boost_peer = user_data.get('boost_peer')
+        if boost_peer:
+            # Convert stored peer data to InputPeer type
+            if boost_peer['type'] == 'channel':
+                return types.InputPeerChannel(
+                    channel_id=boost_peer['id'],
+                    access_hash=boost_peer.get('access_hash', 0)
+                )
+            elif boost_peer['type'] == 'user':
+                return types.InputPeerUser(
+                    user_id=boost_peer['id'],
+                    access_hash=boost_peer.get('access_hash', 0)
+                )
+            elif boost_peer['type'] == 'chat':
+                return types.InputPeerChat(chat_id=boost_peer['id'])
+        
+        # Default to user's own peer if no boost peer is set
+        return types.InputPeerUser(user_id=user_id, access_hash=0)
+        
+    except Exception as e:
+        logger.error(f"Error getting user boost peer: {str(e)}")
+        # Fallback to user's own peer
+        return types.InputPeerUser(user_id=user_id, access_hash=0)
+    
+def set_user_boost_peer(user_id: int, peer_type: str, peer_id: int, access_hash: int = 0) -> bool:
+    """
+    Set user's preferred boost peer for giveaways
+    """
+    try:
+        peer_data = {
+            'type': peer_type,
+            'id': peer_id,
+            'access_hash': access_hash
+        }
+        
+        result = db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"boost_peer": peer_data}}
+        )
+        
+        return result.modified_count > 0
+    except Exception as e:
+        logger.error(f"Error setting user boost peer: {str(e)}")
+        return False
 
 def update_user_data(user_id: int, update_data: dict, upsert: bool = False) -> bool:
     """

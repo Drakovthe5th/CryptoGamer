@@ -1,12 +1,20 @@
 import logging
 import time
 import hmac
+import jwt
 import hashlib
 import urllib.parse
 from datetime import datetime, timedelta
-from flask import request
+from functools import wraps
+from flask import request, jsonify
+from src.telegram.auth import get_authenticated_user_id
+from src.database.mongo import get_user_data
 from config import config
 from src.database.mongo import get_user_activity, get_withdrawal_history
+
+class SecurityException(Exception):
+    """Custom exception for security-related errors"""
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +197,24 @@ def is_abnormal_activity(user_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error checking abnormal activity: {str(e)}")
         return False
+    
+def wallet_connection_required(f):
+    """
+    Decorator to ensure user has a connected wallet
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = get_authenticated_user_id()
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        # Check if user has connected wallet
+        user_data = get_user_data(user_id)
+        if not user_data or not user_data.get('wallet_address'):
+            return jsonify({'success': False, 'error': 'Wallet not connected'}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 def secure_mask(value, show_first=6, show_last=4, min_length=10):
     """
@@ -212,6 +238,38 @@ def secure_mask(value, show_first=6, show_last=4, min_length=10):
         return str_value[:show_first] + "..." if length > show_first else str_value
     
     return f"{str_value[:show_first]}...{str_value[-show_last:]}"
+
+# Add to security.py
+def generate_session_token(user_id: int) -> str:
+    """
+    Generate a secure session token for game sessions
+    
+    Args:
+        user_id: Telegram user ID
+        
+    Returns:
+        str: JWT token containing user ID and expiration
+    """
+    try:
+        # Create payload with user ID and expiration
+        payload = {
+            'user_id': user_id,
+            'exp': datetime.utcnow() + timedelta(hours=24)  # 24-hour expiration
+        }
+        
+        # Generate JWT token
+        token = jwt.encode(
+            payload,
+            config.SECRET_KEY,
+            algorithm='HS256'
+        )
+        
+        return token
+        
+    except Exception as e:
+        logger.error(f"Error generating session token: {str(e)}")
+        # Fallback to simple token if JWT fails
+        return f"session_{user_id}_{int(time.time())}"
 
 # Fraud Detection System
 class FraudDetectionSystem:

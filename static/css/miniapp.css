@@ -539,27 +539,21 @@ body {
 }
 
 /* Wallet page styles */
+/* TON Connect Button Styles */
+#ton-connect-button {
+    margin: 10px 0;
+}
+
 .wallet-status {
-  background: rgba(30, 30, 30, 0.7);
-  border-radius: 15px;
-  padding: 20px;
-  margin-bottom: 20px;
-  backdrop-filter: blur(5px);
+    text-align: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    margin: 15px 0;
 }
 
-.hidden {
-  display: none;
-}
-
-#connect-wallet, #disconnect-wallet {
-  background: #ffcc00;
-  color: #000;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 30px;
-  font-weight: bold;
-  cursor: pointer;
-  margin-top: 15px;
+.wallet-status.hidden {
+    display: none;
 }
 
 .withdrawal-info {

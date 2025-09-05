@@ -1,6 +1,7 @@
 # src/database/game_db.py
 from .mongo import db
 from datetime import datetime
+from games.pool_game import save_pool_game_result
 import logging
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def save_game_session(user_id: int, game_id: str, score: int,
 def save_pool_game_result(game_data):
     """Save pool game result to database"""
     try:
-        game_result = PoolGameResult(
+        game_result = save_pool_game_result(
             game_id=game_data['game_id'],
             players=game_data['players'],
             bet_amount=game_data['bet_amount'],

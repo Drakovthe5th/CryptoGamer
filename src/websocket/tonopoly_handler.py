@@ -2,7 +2,7 @@ import json
 import asyncio
 import websockets
 from typing import Dict
-from games.tonopoly_game import TONopolyGame, PlayerColor
+from games.tonopoly_game import TONopolyGame, PlayerColor, TONopolyGameState
 from src.features.monetization.purchases import create_bet_invoice, process_bet_payment
 
 class TONopolyWebSocketHandler:

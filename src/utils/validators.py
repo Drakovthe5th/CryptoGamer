@@ -2,7 +2,10 @@ import hashlib, hmac
 from functools import wraps, lru_cache
 from flask import request, jsonify
 from datetime import datetime, timedelta
-from src.database.mongo import db
+from src.database.mongo import db, get_user_data
+from src.utils.security import is_abnormal_activity
+from urllib.parse import parse_qs
+import datetime
 import re
 from config import config
 import logging
@@ -237,7 +240,7 @@ def validate_purchase_request(user_id: int, product_id: str, amount: int) -> boo
     
     # Validate user exists and is not restricted
     user_data = db.get_user_data(user_id)
-    if not user_data or security.is_abnormal_activity(user_id):
+    if not user_data or is_abnormal_activity(user_id):
         return False
     
     return True
@@ -263,3 +266,194 @@ def can_use_stars(user_data, required_stars):
     """Check if user can use the specified amount of Stars"""
     available_stars = user_data.get('telegram_stars', 0)
     return available_stars >= required_stars, available_stars
+
+# Add these functions to validators.py
+
+def is_rate_limited(key: str, max_attempts: int, period: int) -> bool:
+    """
+    Check if a specific action is rate limited
+    
+    Args:
+        key: Unique identifier for the rate limit bucket
+        max_attempts: Maximum number of attempts allowed
+        period: Time period in seconds for the rate limit
+        
+    Returns:
+        bool: True if rate limited, False otherwise
+    """
+    try:
+        current_time = datetime.time()
+        
+        # Get or create rate limit entry
+        rate_limit = db.rate_limits.find_one({"key": key})
+        
+        if not rate_limit:
+            # Create new rate limit entry
+            db.rate_limits.insert_one({
+                "key": key,
+                "attempts": 1,
+                "first_attempt": current_time,
+                "last_attempt": current_time,
+                "expires_at": current_time + period
+            })
+            return False
+        
+        # Check if rate limit period has expired
+        if current_time > rate_limit["expires_at"]:
+            # Reset rate limit
+            db.rate_limits.update_one(
+                {"key": key},
+                {
+                    "$set": {
+                        "attempts": 1,
+                        "first_attempt": current_time,
+                        "last_attempt": current_time,
+                        "expires_at": current_time + period
+                    }
+                }
+            )
+            return False
+        
+        # Check if max attempts exceeded
+        if rate_limit["attempts"] >= max_attempts:
+            return True
+        
+        # Increment attempt count
+        db.rate_limits.update_one(
+            {"key": key},
+            {
+                "$inc": {"attempts": 1},
+                "$set": {"last_attempt": current_time}
+            }
+        )
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"Rate limit check failed: {str(e)}")
+        # Fail open - don't rate limit if there's an error
+        return False
+
+def validate_credentials_format(credentials: dict) -> bool:
+    """
+    Validate the format of payment credentials
+    
+    Args:
+        credentials: Payment credentials dictionary
+        
+    Returns:
+        bool: True if credentials format is valid, False otherwise
+    """
+    try:
+        # Check for required fields based on payment method
+        if not credentials or not isinstance(credentials, dict):
+            return False
+        
+        # Check for Telegram Stars credentials
+        if "init_data" in credentials and "query_id" in credentials:
+            # Validate Telegram init data format
+            init_data = credentials.get("init_data", "")
+            if not init_data or not isinstance(init_data, str):
+                return False
+                
+            # Validate query ID format
+            query_id = credentials.get("query_id")
+            try:
+                int(query_id)
+            except (ValueError, TypeError):
+                return False
+                
+            return True
+        
+        # Check for Stripe credentials
+        elif "payment_method_id" in credentials and "customer_id" in credentials:
+            # Validate Stripe format
+            payment_method_id = credentials.get("payment_method_id", "")
+            customer_id = credentials.get("customer_id", "")
+            
+            if (not payment_method_id.startswith("pm_") or 
+                not customer_id.startswith("cus_")):
+                return False
+                
+            return True
+        
+        # Check for crypto payment credentials
+        elif "transaction_hash" in credentials and "wallet_address" in credentials:
+            transaction_hash = credentials.get("transaction_hash", "")
+            wallet_address = credentials.get("wallet_address", "")
+            
+            if (len(transaction_hash) < 64 or 
+                not validate_ton_address(wallet_address)):
+                return False
+                
+            return True
+        
+        # Unknown credentials format
+        return False
+        
+    except Exception as e:
+        logger.error(f"Credentials validation failed: {str(e)}")
+        return False
+
+def detect_suspicious_payment_pattern(user_id: int, credentials: dict) -> bool:
+    """
+    Detect suspicious patterns in payment requests
+    
+    Args:
+        user_id: User ID making the payment
+        credentials: Payment credentials
+        
+    Returns:
+        bool: True if suspicious pattern detected, False otherwise
+    """
+    try:
+        # Get user's payment history
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return True  # Suspicious if user doesn't exist
+            
+        payment_history = user_data.get("stars_transactions", [])
+        
+        # Check for rapid successive payments
+        current_time = datetime.time()
+        recent_payments = [
+            p for p in payment_history 
+            if current_time - p.get("timestamp", current_time).timestamp() < 300  # Last 5 minutes
+        ]
+        
+        if len(recent_payments) > 5:  # More than 5 payments in 5 minutes
+            logger.warning(f"Suspicious payment pattern: {len(recent_payments)} payments in 5 minutes for user {user_id}")
+            return True
+        
+        # Check for unusual payment amounts
+        if "amount" in credentials:
+            amount = credentials["amount"]
+            avg_amount = statistics.mean([p.get("amount", 0) for p in payment_history]) if payment_history else 0
+            
+            if amount > avg_amount * 10 and amount > 1000:  # 10x average and over 1000
+                logger.warning(f"Suspicious payment amount: {amount} for user {user_id}")
+                return True
+        
+        # Check for credentials reuse across multiple users
+        if "init_data" in credentials:
+            init_data = credentials["init_data"]
+            
+            # Count how many users have used this init_data recently
+            recent_users = db.users.count_documents({
+                "stars_transactions.init_data": init_data,
+                "user_id": {"$ne": user_id},
+                "stars_transactions.timestamp": {
+                    "$gt": datetime.utcnow() - timedelta(hours=24)
+                }
+            })
+            
+            if recent_users > 3:  # Same init_data used by more than 3 users in 24h
+                logger.warning(f"Suspicious init_data reuse: used by {recent_users} users")
+                return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"Suspicious pattern detection failed: {str(e)}")
+        # Fail closed - treat as suspicious if detection fails
+        return True
