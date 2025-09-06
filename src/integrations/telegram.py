@@ -2,6 +2,7 @@ from telethon import TelegramClient, functions, types
 from telethon.sessions import StringSession
 import requests
 import logging
+import re
 from config import config
 from src.database.mongo import get_user_data
 
@@ -64,6 +65,48 @@ def validate_wallet(wallet_address):
     ]
     
     return any(re.match(pattern, wallet_address) for pattern in ton_patterns)
+
+
+def deduct_stars(user_id: str, amount: int) -> bool:
+    """Deduct stars from user's balance"""
+    try:
+        from src.database.mongo import get_user_data, update_user_data
+        
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return False
+            
+        current_stars = user_data.get('telegram_stars', 0)
+        if current_stars < amount:
+            return False
+            
+        update_user_data(user_id, {
+            'telegram_stars': current_stars - amount
+        })
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error deducting stars: {str(e)}")
+        return False
+
+def add_stars(user_id: str, amount: int) -> bool:
+    """Add stars to user's balance"""
+    try:
+        from src.database.mongo import get_user_data, update_user_data
+        
+        user_data = get_user_data(user_id)
+        if not user_data:
+            return False
+            
+        current_stars = user_data.get('telegram_stars', 0)
+        update_user_data(user_id, {
+            'telegram_stars': current_stars + amount
+        })
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error adding stars: {str(e)}")
+        return False
 class TelegramIntegration:
     def __init__(self):
         self.client = None
