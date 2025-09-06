@@ -18,11 +18,7 @@ from src.utils.validators import validate_json_input, validate_telegram_init_dat
 from src.database.mongo import get_user_data, update_user_data
 from src.features.monetization.ad_revenue import AdRevenue
 from config import config
-from config import Config
 from src.telegram.config_manager import config_manager
-import logging
-from fastapi import APIRouter
-from games.chess_masters import router as chess_router
 from src.telegram.stars import (
     create_stars_invoice as create_stars_invoice_service,
     process_stars_payment as process_stars_payment_service,
@@ -33,7 +29,7 @@ from src.telegram.subscriptions import (
     get_user_subscriptions,
     cancel_subscription
 )
-from datetime import datetime
+from datetime import datetime, timedelta
 
 miniapp_bp = Blueprint('miniapp', __name__)
 logger = logging.getLogger(__name__)
@@ -43,6 +39,10 @@ logger = logging.getLogger(__name__)
 def miniapp_security():
     # Skip OPTIONS requests
     if request.method == 'OPTIONS':
+        return
+    
+    # Skip health check endpoints
+    if request.endpoint in ['miniapp.health_check', 'miniapp.get_telegram_config']:
         return
     
     # Telegram authentication
@@ -103,7 +103,7 @@ def get_user_id(request):
         return None
 
 @miniapp_bp.route('/api/telegram/config', methods=['GET'])
-async def get_telegram_config():
+def get_telegram_config():
     """Get Telegram client configuration"""
     try:
         user_id = get_user_id(request)
@@ -390,7 +390,7 @@ def create_stars_invoice():
     
     try:
         # Get product details
-        product = Config.IN_GAME_ITEMS.get(product_id)
+        product = config.IN_GAME_ITEMS.get(product_id)
         if not product:
             return jsonify({'error': 'Product not found'}), 404
             
@@ -516,9 +516,6 @@ def process_telegram_stars_payment(user_id, credentials, title, amount):
     """Process Telegram Stars payment"""
     from src.telegram.web_events import handle_payment_submit
     return handle_payment_submit(user_id, credentials, title, amount)
-    # Implement actual Telegram Stars payment processing
-    logger.info(f"Processing Stars payment for user {user_id}: {title} - {amount} Stars")
-    return True  # Placeholder - implement actual payment processing
 
 @miniapp_bp.route('/stars/balance', methods=['GET'])
 def get_stars_balance_route():
@@ -722,16 +719,13 @@ async def get_channel_peer():
     return None
 
 @miniapp_bp.route('/admin/revenue/stats', methods=['GET'])
-async def get_admin_revenue_stats():
+def get_admin_revenue_stats():
     """Get ad revenue stats (admin only)"""
     user_id = get_user_id(request)
     if not is_admin(user_id):
         return jsonify({'error': 'Admin access required'}), 403
         
     try:
-        # Get channel/bot peer
-        peer = await get_channel_peer()
-        
         # Get stats (placeholder)
         stats = {
             'revenue': 1000,
@@ -751,7 +745,7 @@ async def get_admin_revenue_stats():
 @validators.validate_json_input({
     'password': {'type': 'str', 'required': True}
 })
-async def admin_withdraw_revenue():
+def admin_withdraw_revenue():
     """Withdraw ad revenue (admin only)"""
     user_id = get_user_id(request)
     if not is_admin(user_id):
@@ -761,8 +755,6 @@ async def admin_withdraw_revenue():
     password = data['password']
     
     try:
-        peer = await get_channel_peer()
-        
         # Placeholder implementation
         return jsonify({
             'success': True,
@@ -847,7 +839,7 @@ def tonopoly_process_bet():
         
         if result['success']:
             # Record bet payment
-            await game.add_bet_payment(user_id, game.bet_amount)
+            game.add_bet_payment(user_id, game.bet_amount)
             
             return jsonify({
                 'success': True,
@@ -880,7 +872,6 @@ def get_home_data():
         bonus_available = True
         
         if last_bonus_claim:
-            from datetime import datetime, timedelta
             last_claim_date = datetime.fromisoformat(last_bonus_claim)
             if datetime.now() - last_claim_date < timedelta(hours=24):
                 bonus_available = False
@@ -921,7 +912,6 @@ def claim_daily_bonus():
         last_bonus_claim = user_data.get('last_bonus_claim')
         
         if last_bonus_claim:
-            from datetime import datetime, timedelta
             last_claim_date = datetime.fromisoformat(last_bonus_claim)
             if datetime.now() - last_claim_date < timedelta(hours=24):
                 return jsonify({
@@ -993,7 +983,6 @@ def reward_ad_view():
         reward = 50  # Default reward
         
         # Apply weekend bonus if applicable
-        from datetime import datetime
         if datetime.now().weekday() in [5, 6]:  # Saturday or Sunday
             reward = int(reward * 1.2)  # 20% bonus
         
@@ -1245,3 +1234,12 @@ def get_referral_data():
     except Exception as e:
         logger.error(f"Error getting referral data: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
+
+@miniapp_bp.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'service': 'miniapp'
+    })

@@ -37,12 +37,20 @@
         - All games will be located in this page.
         - Ads will also be integrated between game sessions.
         - Our games will include free games and premium games where users will have to pay/initiate them using stars and they can also bet against each other using the same stars.
-                 --> FREE GAMES                                   -->PREMIUM GAMES
-                    --> Trivia Quiz                                 ---> Mini Royal
-                    --> Spin                                        ---> Chess Masters
-                    --> Click game                                  ---> Cypto Crew: Sabotage
-                    --> Edge Surf                                   ---> Pool Game
-                    --> T-Rex                                       ---> Poker Game
+                 -->FREE GAMES
+                    -->TriviaQuiz
+                    -->Spin                                 
+                    -->Clickgame                             
+                    -->EdgeSurf                             
+                    -->T-Rex                                 
+
+                -->PREMIUM GAMES
+                    ---> Poker Game
+                    ---> Chess Masters
+                    ---> Cypto Crew: Sabotage
+                    ---> Pool Game
+                    ---> Mini Royal
+
 
     e. QUESTS
         - The quests page will have a multitude of quests to be done.

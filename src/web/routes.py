@@ -587,6 +587,37 @@ def configure_routes(app):
         stats = referral_system.get_referral_stats(user_id)
         stats['referral_link'] = f"https://t.me/Got3dBot?start=ref_{user_id}"
         return jsonify(stats)
+    
+    @app.route('/api/wallet/connect', methods=['POST'])
+    def connect_wallet():
+        """
+        Connect a TON wallet to a user account
+        """
+        try:
+            # Authenticate the wallet connection request
+            wallet_auth, error = authenticate_wallet()
+            if error:
+                return jsonify({'success': False, 'error': error})
+            
+            # Save wallet connection to database
+            user_id = wallet_auth['telegram_user_id']
+            wallet_address = wallet_auth['wallet_address']
+            wallet_public_key = wallet_auth['wallet_public_key']
+            
+            # Update user record with wallet info
+            update_user_wallet(user_id, wallet_address, wallet_public_key)
+            
+            logger.info(f"Wallet connected: {wallet_address} for user {user_id}")
+            return jsonify({
+                'success': True,
+                'message': 'Wallet connected successfully',
+                'wallet_address': wallet_address
+            })
+            
+        except Exception as e:
+            logger.error(f"Wallet connection failed: {str(e)}")
+            return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
         
 # HELPER FUNCTION
 def get_user_id(request):
@@ -636,36 +667,6 @@ def get_user_id(request):
     except Exception as e:
         logger.error(f"Unexpected error in get_user_id: {str(e)}")
         return None
-
-@app.route('/api/wallet/connect', methods=['POST'])
-def connect_wallet():
-    """
-    Connect a TON wallet to a user account
-    """
-    try:
-        # Authenticate the wallet connection request
-        wallet_auth, error = authenticate_wallet()
-        if error:
-            return jsonify({'success': False, 'error': error})
-        
-        # Save wallet connection to database
-        user_id = wallet_auth['telegram_user_id']
-        wallet_address = wallet_auth['wallet_address']
-        wallet_public_key = wallet_auth['wallet_public_key']
-        
-        # Update user record with wallet info
-        update_user_wallet(user_id, wallet_address, wallet_public_key)
-        
-        logger.info(f"Wallet connected: {wallet_address} for user {user_id}")
-        return jsonify({
-            'success': True,
-            'message': 'Wallet connected successfully',
-            'wallet_address': wallet_address
-        })
-        
-    except Exception as e:
-        logger.error(f"Wallet connection failed: {str(e)}")
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 def update_user_wallet(user_id, wallet_address, public_key=None):
     """
