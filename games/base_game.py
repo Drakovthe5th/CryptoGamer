@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from config import config
+from enum import Enum
 from config import REWARD_RATES, MAX_GAME_REWARD, MAX_DAILY_GAME_COINS
 from src.database.mongo import get_user_data, get_game_session, update_user_data
 from src.utils.security import get_user_id, generate_session_token
