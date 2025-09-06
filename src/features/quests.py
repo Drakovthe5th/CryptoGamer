@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 from config import config
+from src.features.referrals import ReferralSystem
 from src.database.mongo import db, update_balance, get_user_data, save_quest_progress
 
 logger = logging.getLogger(__name__)
@@ -429,11 +430,11 @@ class QuestSystem:
         completed_affiliate_quests = user_data.get('completed_affiliate_quests', [])
         
         affiliate_quests = [
-            milestones = [
-            (3, 0.01, 50),
-            (10, 0.03, 150),
-            (50, 0.15, 500),
-            (100, 0.30, 1000)
+                milestones = [
+                (3, 0.01, 50),
+                (10, 0.03, 150),
+                (50, 0.15, 500),
+                (100, 0.30, 1000)
             ]
 
             for target, reward, stars in milestones:

@@ -427,28 +427,22 @@ def create_poker_table():
 def serve_poker():
     return serve_game_page('poker')
 
-@games_bp.route('/api/poker/tables', methods=['GET'])
-def get_poker_tables():
-    """Get list of available poker tables"""
-    game = GAME_REGISTRY.get('poker')
-    if not game:
-        return jsonify({'error': 'Game not found'}), 404
-        
-    tables = game.get_available_tables()
-    return jsonify({'success': True, 'tables': tables})
-
 @games_bp.route('/api/poker/table/<table_id>', methods=['GET'])
 def get_poker_table_state(table_id):
     """Get current state of a poker table"""
     game = GAME_REGISTRY.get('poker')
     if not game:
-        return jsonify({'error': 'Game not found'), 404
+        return jsonify({'error': 'Game not found'}), 404
         
-    table_state = game.get_table_state(table_id)
-    if 'error' in table_state:
-        return jsonify(table_state), 404
-        
-    return jsonify({'success': True, 'table': table_state})
+    try:
+        table_state = game.get_table_state(table_id)
+        if 'error' in table_state:
+            return jsonify(table_state), 404
+            
+        return jsonify({'success': True, 'table': table_state})
+    except Exception as e:
+        logger.error(f"Error getting poker table state for table {table_id}: {str(e)}")
+        return jsonify({'error': 'Failed to get table state'}), 500
 
 @games_bp.route('/api/poker/action', methods=['POST'])
 def poker_action():
@@ -461,18 +455,28 @@ def poker_action():
     if not user_id:
         return jsonify({'error': 'User authentication required'}), 401
     
-    data = request.get_json()
-    action = data.get('action')
-    table_id = data.get('table_id')
-    
-    if not action or not table_id:
-        return jsonify({'error': 'Action and table_id required'}), 400
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'JSON data required'}), 400
+            
+        action = data.get('action')
+        table_id = data.get('table_id')
         
-    result = game.handle_action(user_id, action, data)
-    if 'error' in result:
-        return jsonify(result), 400
+        if not action:
+            return jsonify({'error': 'Action required'}), 400
+        if not table_id:
+            return jsonify({'error': 'Table ID required'}), 400
+            
+        result = game.handle_action(user_id, action, data)
+        if 'error' in result:
+            return jsonify(result), 400
+            
+        return jsonify({'success': True, 'result': result})
         
-    return jsonify({'success': True, 'result': result})
+    except Exception as e:
+        logger.error(f"Error handling poker action for user {user_id}: {str(e)}")
+        return jsonify({'error': 'Failed to process poker action'}), 500
 
 @games_bp.route('/api/reset', methods=['POST'])
 def reset_game():
@@ -885,7 +889,7 @@ def get_game_config(game_name):
         logger.error(f"Error getting game config for {game_name}: {str(e)}")
         return jsonify({'error': 'Failed to get game configuration'}), 500
     
-@games_bp.route('/health')
+@games_bp.route('/health', methods=['GET'])
 def games_health():
     """Health check for games service"""
     try:
@@ -898,7 +902,7 @@ def games_health():
                     'name': game.name,
                     'status': 'healthy',
                     'test_data': bool(test_data),
-                    'active_players': len([p for p in game.players.values() if p.get("active")])
+                    'active_players': len(getattr(game, 'players', {}))
                 }
             except Exception as e:
                 game_status[game_id] = {
@@ -907,9 +911,16 @@ def games_health():
                     'error': str(e)
                 }
         
+        # Add TONopoly games status
+        tonopoly_status = {
+            'active_games': len(active_tonopoly_games),
+            'total_players': sum(len(getattr(game, 'players', [])) for game in active_tonopoly_games.values())
+        }
+        
         return jsonify({
             'status': 'healthy' if all(g['status'] == 'healthy' for g in game_status.values()) else 'degraded',
             'games': game_status,
+            'tonopoly': tonopoly_status,
             'total_games': len(GAME_REGISTRY),
             'timestamp': datetime.utcnow().isoformat()
         })
