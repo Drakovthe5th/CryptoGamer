@@ -7,7 +7,6 @@ from typing import Dict, Any, List, Optional
 from .base_game import BaseGame
 from src.database.mongo import get_user_data, update_user_data
 from src.integrations.telegram import deduct_stars, add_stars
-from src.database.game_db import save_pool_game_result
 
 class PoolGameState(Enum):
     WAITING_FOR_PLAYERS = 0
@@ -292,11 +291,14 @@ class PoolGame(BaseGame):
         game = self.active_games[game_id]
         pot = game["pot"]
         
-        # Add the pot to the winner's Stars balance
-        add_stars(winner, pot)
+        # Update winner's stars balance in database
+        winner_data = get_user_data(winner)
+        update_user_data(winner, {
+            'telegram_stars': winner_data.get('telegram_stars', 0) + pot
+        })
         
-        # Record the game result in the database
-        save_pool_game_result({
+        # Record the game result in the database - use direct database call
+        self._save_pool_game_result({
             'game_id': game_id,
             'players': game["players"],
             'bets': game["bets"],
@@ -314,6 +316,32 @@ class PoolGame(BaseGame):
                 del self.player_games[player]
         
         del self.active_games[game_id]
+
+    def _save_pool_game_result(self, game_data):
+        """Save pool game result to database - direct implementation"""
+        try:
+            from src.database.mongo import db
+            
+            pool_game_result = {
+                'game_id': game_data['game_id'],
+                'players': game_data['players'],
+                'bets': game_data.get('bets', {}),
+                'pot': game_data['pot'],
+                'winner': game_data['winner'],
+                'start_time': game_data['start_time'],
+                'end_time': game_data['end_time'],
+                'shots_taken': game_data.get('shots_taken', 0),
+                'balls_potted': game_data.get('balls_potted', 0),
+                'created_at': datetime.utcnow()
+            }
+            
+            result = db.pool_game_results.insert_one(pool_game_result)
+            return True
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error saving pool game result: {e}")
+            return False
         
     def _refund_bets(self, game_id: str):
         """Refund bets if game is cancelled"""

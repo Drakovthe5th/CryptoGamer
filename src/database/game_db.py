@@ -1,7 +1,6 @@
 # src/database/game_db.py
 from .mongo import db
 from datetime import datetime
-from games.pool_game import save_pool_game_result
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,19 +45,25 @@ def save_game_session(user_id: int, game_id: str, score: int,
 def save_pool_game_result(game_data):
     """Save pool game result to database"""
     try:
-        game_result = save_pool_game_result(
-            game_id=game_data['game_id'],
-            players=game_data['players'],
-            bet_amount=game_data['bet_amount'],
-            pot=game_data['pot'],
-            winner=game_data['winner'],
-            start_time=game_data['start_time'],
-            end_time=game_data['end_time']
-        )
-        game_result.save()
+        # Direct database implementation instead of importing from pool_game
+        pool_game_result = {
+            'game_id': game_data['game_id'],
+            'players': game_data['players'],
+            'bets': game_data.get('bets', {}),
+            'pot': game_data['pot'],
+            'winner': game_data['winner'],
+            'start_time': game_data['start_time'],
+            'end_time': game_data['end_time'],
+            'shots_taken': game_data.get('shots_taken', 0),
+            'balls_potted': game_data.get('balls_potted', 0),
+            'created_at': datetime.utcnow()
+        }
+        
+        result = db.pool_game_results.insert_one(pool_game_result)
+        logger.info(f"Pool game result saved: {result.inserted_id}")
         return True
     except Exception as e:
-        logger.error(f"Error saving game result: {e}")
+        logger.error(f"Error saving pool game result: {e}")
         return False
 
 def get_games_list():
