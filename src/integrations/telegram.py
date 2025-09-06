@@ -4,7 +4,6 @@ import requests
 import logging
 from config import config
 from src.database.mongo import get_user_data
-from src.integrations.ton import validate_wallet
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +44,26 @@ def send_telegram_message(user_id: int, message: str) -> bool:
     except Exception as e:
         logger.error(f"Telegram message exception: {e}")
         return False
+    
+def validate_wallet(wallet_address):
+    """
+    Validate TON wallet address format - local implementation
+    """
+    if not wallet_address or not isinstance(wallet_address, str):
+        return False
+    
+    # Basic TON address validation
+    wallet_address = wallet_address.strip()
+    
+    # Check for common TON address formats
+    ton_patterns = [
+        r'^[0-9a-fA-F]{64}$',  # Raw hex format
+        r'^[0-9a-zA-Z+/=_-]{48}$',  # Base64 format
+        r'^(0|1|2|3):[0-9a-fA-F]{64}$',  # User-friendly format
+        r'^EQ[0-9a-zA-Z+/=_-]{48}$'  # EQ-prefixed format
+    ]
+    
+    return any(re.match(pattern, wallet_address) for pattern in ton_patterns)
 class TelegramIntegration:
     def __init__(self):
         self.client = None

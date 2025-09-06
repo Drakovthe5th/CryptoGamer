@@ -7,7 +7,6 @@ import urllib.parse
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
-from src.telegram.auth import get_authenticated_user_id
 from src.database.mongo import get_user_data
 from config import config
 from src.database.mongo import get_user_activity, get_withdrawal_history
@@ -197,6 +196,37 @@ def is_abnormal_activity(user_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error checking abnormal activity: {str(e)}")
         return False
+    
+def get_authenticated_user_id():
+    """
+    Get authenticated user ID from request - local implementation
+    This avoids circular imports with telegram.auth
+    """
+    try:
+        # Check for Telegram WebApp initData
+        init_data = request.headers.get('X-Telegram-InitData') or request.args.get('initData')
+        if init_data and config.TELEGRAM_TOKEN:
+            # Parse user ID from validated initData
+            if validate_telegram_hash(init_data, config.TELEGRAM_TOKEN):
+                parsed = urllib.parse.parse_qs(init_data)
+                user_data = parsed.get('user', ['{}'])[0]
+                # Extract user ID from JSON-like string
+                import json
+                try:
+                    user_json = json.loads(user_data)
+                    return user_json.get('id')
+                except json.JSONDecodeError:
+                    # Fallback extraction
+                    import re
+                    id_match = re.search(r'"id":\s*(\d+)', user_data)
+                    if id_match:
+                        return int(id_match.group(1))
+        
+        return None
+    except Exception as e:
+        logger.error(f"Error getting authenticated user ID: {str(e)}")
+        return None
+
     
 def wallet_connection_required(f):
     """
