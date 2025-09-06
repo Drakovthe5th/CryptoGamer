@@ -110,6 +110,31 @@ def configure_routes(app):
             })
         except Exception as e:
             return jsonify({'error': str(e)}), 500
+        
+    @app.route('/api/purchase', methods=['POST'])
+    def make_purchase():
+        user_id = get_user_id(request)
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+            
+        data = request.get_json()
+        item_id = data.get('item_id')
+        
+        if not item_id:
+            return jsonify({"error": "Missing item ID"}), 400
+            
+        try:
+            success, message, item = process_purchase(user_id, item_id)
+            if not success:
+                return jsonify({"error": message}), 400
+                
+            return jsonify({
+                "success": True,
+                "message": message,
+                "item": item
+            })
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route('/api/shop/items', methods=['GET'])
     def get_shop_items():

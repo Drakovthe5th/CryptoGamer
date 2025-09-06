@@ -28,6 +28,72 @@ async def create_premium_access_invoice(game_name, price_stars, duration_days):
         )
     return None
 
+def process_purchase(user_id: int, item_id: str):
+    """
+    Process a purchase - returns (success, message, item_data)
+    """
+    try:
+        # Check if this is a stars purchase or regular purchase
+        if item_id.startswith('stars_'):
+            # Handle stars purchase
+            success, message = process_stars_purchase(user_id, item_id.replace('stars_', ''), 'booster')
+            item = BOOSTERS.get(item_id.replace('stars_', ''), {})
+            return success, message, item
+        else:
+            # Handle regular game coins purchase
+            success, message = process_regular_purchase(user_id, item_id)
+            item = BOOSTERS.get(item_id, {})
+            return success, message, item
+            
+    except Exception as e:
+        logger.error(f"Purchase processing failed: {str(e)}")
+        return False, "Purchase processing error", None
+
+def process_regular_purchase(user_id: int, item_id: str):
+    """Process regular game coins purchase - returns (success, message)"""
+    try:
+        # Get user data
+        user_data = db.users.find_one({"user_id": user_id})
+        if not user_data:
+            return False, "User not found"
+            
+        # Get item info
+        item = None
+        if item_id in BOOSTERS:
+            item = BOOSTERS[item_id]
+        # Add other item types here
+        
+        if not item:
+            return False, "Item not found"
+            
+        # Check if user has enough game coins
+        game_coins = user_data.get('game_coins', 0)
+        if game_coins < item.get('cost', 0):
+            return False, "Insufficient game coins"
+            
+        # Deduct game coins and add item to inventory
+        result = db.users.update_one(
+            {"user_id": user_id},
+            {
+                "$inc": {"game_coins": -item['cost']},
+                "$push": {"inventory": {
+                    "item_id": item_id,
+                    "purchased_at": datetime.utcnow(),
+                    **item
+                }}
+            }
+        )
+        
+        if result.modified_count:
+            return True, "Purchase successful"
+        else:
+            return False, "Failed to update inventory"
+            
+    except Exception as e:
+        logger.error(f"Regular purchase failed: {str(e)}")
+        return False, "Purchase error"
+
+
 async def send_star_gift(recipient_id, stars_amount, message=None):
     """Send Telegram Stars as a gift - local implementation"""
     # This would need to be implemented based on your specific gift functionality
