@@ -2,9 +2,37 @@
 from datetime import datetime
 from src.database.mongo import db
 from src.utils.logger import logger
-from src.telegram.stars import create_premium_access_invoice, send_star_gift
 from src.integrations.telegram import telegram_client
 from telethon import functions, types
+
+def get_stars_functions():
+    """Lazy import for stars functions to avoid circular imports"""
+    try:
+        from src.telegram import get_stars_module
+        stars_module = get_stars_module()
+        return stars_module
+    except ImportError as e:
+        logger.error(f"Failed to import stars functions: {str(e)}")
+        return None
+
+async def create_premium_access_invoice(game_name, price_stars, duration_days):
+    """Create invoice for premium game access - local implementation"""
+    stars_module = get_stars_functions()
+    if stars_module and 'create_stars_invoice' in stars_module:
+        return await stars_module['create_stars_invoice'](
+            None,  # user_id not needed for this specific call
+            f"premium_{game_name}",
+            f"Premium Access: {game_name}",
+            f"{duration_days}-day premium access to {game_name}",
+            price_stars
+        )
+    return None
+
+async def send_star_gift(recipient_id, stars_amount, message=None):
+    """Send Telegram Stars as a gift - local implementation"""
+    # This would need to be implemented based on your specific gift functionality
+    logger.warning("Star gift functionality not fully implemented due to circular import constraints")
+    return None
 
 # Add Telegram Stars payment options to boosters
 BOOSTERS = {

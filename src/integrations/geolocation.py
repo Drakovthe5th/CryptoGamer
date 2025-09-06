@@ -3,11 +3,18 @@ from typing import Dict, List, Optional
 from flask import request, jsonify
 from src.database import mongo as db
 from src.utils import security
-from src.telegram import tonclient
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+def get_tonclient():
+    """Lazy import for tonclient to avoid circular imports"""
+    try:
+        from src.integrations.tonclient import get_ton_client
+        return get_ton_client()
+    except ImportError as e:
+        logger.error(f"Failed to import tonclient: {str(e)}")
+        return None
 class GeolocationManager:
     def __init__(self):
         self.active_locations = {}  # user_id -> location_data
@@ -27,7 +34,7 @@ class GeolocationManager:
             }
 
             # Call Telegram API
-            result = await tonclient.invoke_method(
+            result = await get_tonclient().invoke_method(
                 'contacts.getLocated',
                 geo_point=input_geo_point,
                 background=background,
@@ -63,7 +70,7 @@ class GeolocationManager:
                 'accuracy_radius': geo_point.get('accuracy_radius')
             }
 
-            result = await tonclient.invoke_method(
+            result = await get_tonclient().invoke_method(
                 'channels.createChannel',
                 title=title,
                 about=about,
@@ -102,7 +109,7 @@ class GeolocationManager:
                 'period': period
             }
 
-            result = await tonclient.invoke_method(
+            result = await get_tonclient().invoke_method(
                 'messages.editMessage',
                 peer={'_': 'inputPeerChat', 'chat_id': chat_id},
                 id=message_id,
@@ -129,7 +136,7 @@ class GeolocationManager:
                 'geo_point': {'_': 'inputGeoPointEmpty'}
             }
 
-            result = await tonclient.invoke_method(
+            result = await get_tonclient().invoke_method(
                 'messages.editMessage',
                 peer={'_': 'inputPeerChat', 'chat_id': chat_id},
                 id=message_id,
