@@ -1232,6 +1232,42 @@ def get_referral_data():
         logger.error(f"Error getting referral data: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@miniapp_bp.route('/shop', methods=['GET'])
+def miniapp_shop():
+    """Shop main endpoint - returns data for MiniApp to render"""
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user_data = get_user_data(user_id)
+    
+    return jsonify({
+        'success': True,
+        'page': 'shop',
+        'user': {
+            'game_coins': user_data.get('game_coins', 0),
+            'stars_balance': user_data.get('stars_balance', 0),
+            'is_premium': user_data.get('is_premium', False)
+        },
+        'items': config.IN_GAME_ITEMS
+    })
+
+@miniapp_bp.route('/shop/purchase/<item_id>', methods=['POST'])
+def miniapp_purchase_item(item_id):
+    """Purchase item from MiniApp"""
+    user_id = get_user_id(request)
+    if not user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    # Your existing purchase logic here
+    success, message = process_shop_purchase(user_id, item_id)
+    
+    return jsonify({
+        'success': success,
+        'message': message,
+        'item_id': item_id
+    })
+
 @miniapp_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""

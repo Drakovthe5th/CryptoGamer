@@ -761,6 +761,24 @@ function startSocialCycle() {
   }, 30000);
 }
 
+// Load shop data from MiniApp endpoint
+async function loadShop() {
+    try {
+        const response = await fetch('/miniapp/shop', {
+            headers: {
+                'X-Telegram-InitData': window.Telegram.WebApp.initData
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            renderShop(data.items, data.user);
+        }
+    } catch (error) {
+        console.error('Shop loading error:', error);
+    }
+}
+
 // Add to your existing JavaScript
 function loadShopItems() {
   fetch('/api/shop/items')

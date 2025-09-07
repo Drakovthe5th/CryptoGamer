@@ -167,7 +167,19 @@ def configure_routes(app):
     def telegram_webhook():
         if request.headers.get('X-Telegram-Bot-Api-Secret-Token') != config.TELEGRAM_TOKEN:
             return jsonify({"error": "Unauthorized"}), 401
-        return jsonify(success=True), 200
+        
+        # Get the update from Telegram
+        update_data = request.get_json()
+        
+        # Process the update through your dispatcher
+        try:
+            from src.telegram.setup import dispatcher  # Import your dispatcher
+            update = Update.de_json(update_data, dispatcher.bot)
+            dispatcher.process_update(update)
+            return jsonify(success=True), 200
+        except Exception as e:
+            logger.error(f"Error processing update: {str(e)}")
+            return jsonify(error="Processing failed"), 500
 
     @app.route('/api/wallet/connect', methods=['POST'])
     def connect_wallet_endpoint():
