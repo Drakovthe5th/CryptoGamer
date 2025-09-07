@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 from .base_game import BaseGame
 from src.database.mongo import db, get_user_data, update_game_coins
-from src.utils.security import validate_session_token
+from games.games import validate_session_token
 
 logger = logging.getLogger(__name__)
 
