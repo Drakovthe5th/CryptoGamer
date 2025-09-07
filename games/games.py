@@ -646,7 +646,7 @@ def create_tonopoly_game():
             asyncio.run(game.set_bet(user_id, bet_amount))
             
         # Store game in active games
-        active_tonopoly_games[game_id] = game
+        add_active_game("tonopoly", game_id, game)
         
         # Get user data for username
         user_data = get_user_data(user_id)
