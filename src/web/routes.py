@@ -112,7 +112,7 @@ def configure_routes(app):
             return jsonify({'error': str(e)}), 500
         
     @app.route('/api/purchase', methods=['POST'])
-    def make_purchase():
+    def make_purchase_route():
         user_id = get_user_id(request)
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
