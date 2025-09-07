@@ -1128,26 +1128,23 @@ def get_quests_list():
         logger.error(f"Error getting quests list: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@miniapp_bp.route('/api/otc/rates', methods=['GET'])
-def get_otc_rates():
-    """Get OTC exchange rates"""
+@miniapp_bp.route('/otc/rates', methods=['GET'])
+def get_otc_rates_legacy():  # Changed from get_otc_rates
+    """Return exchange rates"""
     try:
         # This would typically fetch from an external API
-        rates = {
-            'TON_USD': 6.80,
-            'TON_KES': 950,
-            'TON_EUR': 6.20,
-            'TON_USDT': 6.75
-        }
-        
         return jsonify({
             'success': True,
-            'rates': rates
+            'rates': {
+                'USD': 5.82,
+                'KES': 750,
+                'USDT': 5.80
+            }
         })
     except Exception as e:
-        logger.error(f"Error getting OTC rates: {str(e)}")
+        logger.error(f"OTC rates error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
-
+    
 @miniapp_bp.route('/api/otc/swap', methods=['POST'])
 def swap_ton_cash():
     """Swap TON for cash"""
