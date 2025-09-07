@@ -26,7 +26,7 @@ from .chess_masters import ChessMasters
 from .pool_game import PoolGame
 from .poker_game import PokerGame
 from .tonopoly_game import TONopolyGame  # Add TONopoly import
-from poker_game import PokerTable
+from .poker_game import PokerTable
 
 logger = logging.getLogger(__name__)
 
