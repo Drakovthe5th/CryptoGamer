@@ -311,6 +311,23 @@ async def main_async():
         if config.ENV == 'production':
             await monitoring_task
 
+# In your main app file
+from src.telegram.setup import setup_handlers, setup_webhook, setup_polling
+from telegram.ext import Application
+import os
+
+# Create application
+application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
+
+# Setup all handlers
+setup_handlers(application)
+
+# For production (webhook)
+setup_webhook(application, "https://yourdomain.com/webhook", os.getenv('TELEGRAM_TOKEN'))
+
+# For development (polling)
+# setup_polling(application)
+
 if __name__ == '__main__':
     # Create and run event loop
     loop = asyncio.new_event_loop()
