@@ -9,10 +9,15 @@ from src.features.quests import get_active_quests
 from src.utils.conversions import game_coins_to_ton
 from src.utils.conversions import ton_to_game_coins
 from games.sabotage_game import SabotageGame
+from games.chess_game import ChessGame
+from games.pool_game import PoolGame
+from games.poker_game import PokerGame
+from games.mini_royal import MiniRoyalGame
 from config import Config
 import datetime
 import random
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +63,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "• 🧠 Playing trivia games\n"
         "• 🎰 Spinning the wheel\n"
         "• 📺 Watching ads\n"
-        "• 🎯 Completing quests\n\n"
+        "• 🎯 Completing quests\n"
+        "• ♟️ Playing premium games\n\n"
         "💰 Withdraw to your TON wallet or convert to cash via our OTC desk!\n\n"
         "🆓 Claim free TON with /faucet\n"
         "🏆 Compete on the /leaderboard\n"
@@ -69,7 +75,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
         [InlineKeyboardButton("🎮 Play Games", callback_data="play")],
         [InlineKeyboardButton("💰 Withdraw", callback_data="withdraw")],
-        [InlineKeyboardButton("🎯 Quests", callback_data="quests")]
+        [InlineKeyboardButton("🎯 Quests", callback_data="quests")],
+        [InlineKeyboardButton("♟️ Premium Games", callback_data="premium_games")]
     ]
     
     await update.message.reply_text(
@@ -94,16 +101,66 @@ async def show_balance(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await update.message.reply_text(text)
 
 async def play_game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Game selection keyboard
+    # Game selection keyboard - Free games
     keyboard = [
         [InlineKeyboardButton("🧠 Trivia Quiz", callback_data="trivia")],
         [InlineKeyboardButton("🎰 Spin Wheel", callback_data="spin")],
+        [InlineKeyboardButton("🖱️ Click Game", callback_data="clicker")],
+        [InlineKeyboardButton("🦖 T-Rex Runner", callback_data="trex")],
+        [InlineKeyboardButton("🏄 Edge Surf", callback_data="edge_surf")],
+        [InlineKeyboardButton("♟️ Premium Games", callback_data="premium_games")],
         [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily")]
     ]
     
     await update.message.reply_text(
         "🎮 Choose a game to play:",
         reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def premium_games(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show premium games selection"""
+    user_id = update.effective_user.id
+    user_data = get_user_data(user_id)
+    
+    # Check if user has premium access
+    has_premium = user_data.get('is_premium', False)
+    
+    keyboard = [
+        [InlineKeyboardButton("🕵️ Crypto Crew: Sabotage", callback_data="sabotage")],
+        [InlineKeyboardButton("🎯 Mini Royal", callback_data="mini_royal")],
+        [InlineKeyboardButton("♟️ Chess Masters", callback_data="chess")],
+        [InlineKeyboardButton("🎱 Pool Game", callback_data="pool")],
+        [InlineKeyboardButton("🃏 Poker Game", callback_data="poker")],
+        [InlineKeyboardButton("⬅️ Back to Free Games", callback_data="play")]
+    ]
+    
+    if not has_premium:
+        text = (
+            "♟️ <b>Premium Games</b>\n\n"
+            "Unlock exclusive premium games with higher rewards!\n\n"
+            "⭐ Premium features:\n"
+            "• Higher earning potential\n"
+            "• Exclusive game modes\n"
+            "• Multiplayer competitions\n"
+            "• Tournament prizes\n\n"
+            "Get premium access through the MiniApp or by purchasing with Telegram Stars!"
+        )
+    else:
+        text = (
+            "♟️ <b>Premium Games</b>\n\n"
+            "Choose from our exclusive premium games:\n\n"
+            "• 🕵️ Crypto Crew: Sabotage - Social deduction game\n"
+            "• 🎯 Mini Royal - Battle royale style game\n"
+            "• ♟️ Chess Masters - Competitive chess\n"
+            "• 🎱 Pool Game - 8-ball pool tournament\n"
+            "• 🃏 Poker Game - Texas Hold'em poker\n\n"
+            "Earn up to 10x more TON in premium games!"
+        )
+    
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
     )
 
 async def withdraw(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -136,6 +193,7 @@ async def miniapp_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Features:\n"
         "• 💎 Real-time TON balance\n"
         "• 🎮 Play TON-earning games\n"
+        "• ♟️ Premium games access\n"
         "• 💸 Seamless withdrawals\n"
         "• 📊 View leaderboards\n\n"
         f"👉 [Launch MiniApp]({miniapp_url})"
@@ -227,12 +285,14 @@ async def weekend_promotion(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎉 WEEKEND SPECIAL 🎉\n\n"
             "All rewards are boosted by 50% this weekend!\n\n"
             "🔥 Earn more TON with every action\n"
+            "♟️ Premium games have 2x rewards!\n"
             "🚀 Available in the MiniApp now!"
         )
     else:
         text = (
             "🔥 Next Weekend Promotion 🔥\n\n"
             "Starting Saturday, all rewards will be boosted by 50%!\n"
+            "Premium games will have 2x rewards!\n"
             "Set a reminder to maximize your TON earnings."
         )
     
@@ -273,7 +333,8 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Common issues:\n"
         "- Withdrawal delays: Can take up to 24 hours\n"
         "- Missing rewards: Check your transaction history\n"
-        "- Game issues: Try reloading the MiniApp\n\n"
+        "- Game issues: Try reloading the MiniApp\n"
+        "- Premium access: Contact support for assistance\n\n"
         "For faster assistance, include your user ID:\n"
         f"<code>{update.effective_user.id}</code>"
     )
@@ -316,7 +377,7 @@ async def my_gifts(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("❌ Could not load your gifts")
 
-# Add sabotage command
+# Premium game commands
 async def sabotage(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start a sabotage game in a group"""
     chat_id = update.effective_chat.id
@@ -350,5 +411,135 @@ async def sabotage(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "A social deduction game where miners try to complete tasks while saboteurs "
         "try to steal gold without getting caught!\n\n"
         "Click 'Join Game' to participate. Game starts when 6 players join.",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def chess_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a chess game"""
+    user_id = update.effective_user.id
+    user_data = get_user_data(user_id)
+    
+    if not user_data.get('is_premium', False):
+        await update.message.reply_text(
+            "♟️ Chess Masters is a premium game!\n\n"
+            "Upgrade to premium to play competitive chess and earn higher rewards.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Get Premium", callback_data="get_premium")],
+                [InlineKeyboardButton("Free Games", callback_data="play")]
+            ])
+        )
+        return
+    
+    # Start chess game
+    game = ChessGame()
+    game_id = game.create_game(user_id)
+    
+    keyboard = [
+        [InlineKeyboardButton("Play Now", callback_data=f"chess_play_{game_id}")],
+        [InlineKeyboardButton("Invite Friend", callback_data=f"chess_invite_{game_id}")]
+    ]
+    
+    await update.message.reply_text(
+        "♟️ Chess Masters\n\n"
+        "Play competitive chess against other players!\n"
+        "• Win up to 5000 GC per game\n"
+        "• ELO rating system\n"
+        "• Tournament rewards\n\n"
+        "Click 'Play Now' to find an opponent!",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def pool_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a pool game"""
+    user_id = update.effective_user.id
+    user_data = get_user_data(user_id)
+    
+    if not user_data.get('is_premium', False):
+        await update.message.reply_text(
+            "🎱 Pool Game is a premium game!\n\n"
+            "Upgrade to premium to play 8-ball pool tournaments.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Get Premium", callback_data="get_premium")],
+                [InlineKeyboardButton("Free Games", callback_data="play")]
+            ])
+        )
+        return
+    
+    keyboard = [
+        [InlineKeyboardButton("Quick Match", callback_data="pool_quick")],
+        [InlineKeyboardButton("Create Tournament", callback_data="pool_tournament")],
+        [InlineKeyboardButton("Practice Mode", callback_data="pool_practice")]
+    ]
+    
+    await update.message.reply_text(
+        "🎱 Pool Masters\n\n"
+        "Play 8-ball pool against other players!\n"
+        "• Win up to 5000 GC per game\n"
+        "• Tournament prizes\n"
+        "• Practice mode available\n\n"
+        "Choose your game mode:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def poker_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a poker game"""
+    user_id = update.effective_user.id
+    user_data = get_user_data(user_id)
+    
+    if not user_data.get('is_premium', False):
+        await update.message.reply_text(
+            "🃏 Poker Game is a premium game!\n\n"
+            "Upgrade to premium to play Texas Hold'em poker.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Get Premium", callback_data="get_premium")],
+                [InlineKeyboardButton("Free Games", callback_data="play")]
+            ])
+        )
+        return
+    
+    keyboard = [
+        [InlineKeyboardButton("Join Table", callback_data="poker_join")],
+        [InlineKeyboardButton("Create Table", callback_data="poker_create")],
+        [InlineKeyboardButton("Tournaments", callback_data="poker_tournaments")]
+    ]
+    
+    await update.message.reply_text(
+        "🃏 Poker Royale\n\n"
+        "Play Texas Hold'em poker with real stakes!\n"
+        "• Win up to 10000 GC per game\n"
+        "• Tournament series\n"
+        "• Sit & Go tables\n\n"
+        "Choose your game:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def mini_royal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start a mini royal game"""
+    user_id = update.effective_user.id
+    user_data = get_user_data(user_id)
+    
+    if not user_data.get('is_premium', False):
+        await update.message.reply_text(
+            "🎯 Mini Royal is a premium game!\n\n"
+            "Upgrade to premium to play battle royale style games.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Get Premium", callback_data="get_premium")],
+                [InlineKeyboardButton("Free Games", callback_data="play")]
+            ])
+        )
+        return
+    
+    keyboard = [
+        [InlineKeyboardButton("Join Game", callback_data="mini_royal_join")],
+        [InlineKeyboardButton("Create Squad", callback_data="mini_royal_squad")]
+    ]
+    
+    await update.message.reply_text(
+        "🎯 Mini Royal\n\n"
+        "Battle royale style game with last-man-standing gameplay!\n"
+        "• Win up to 8000 GC per game\n"
+        "• Squad gameplay\n"
+        "• Unique power-ups\n\n"
+        "Join a game or create your squad:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )

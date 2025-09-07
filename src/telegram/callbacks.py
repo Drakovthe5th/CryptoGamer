@@ -29,6 +29,10 @@ from src.telegram.stars import (
 )
 from src.telegram.subscriptions import handle_stars_subscriptions
 from games.sabotage_game import SabotageGame
+from games.chess_game import ChessGame
+from games.pool_game import PoolGame
+from games.poker_game import PokerGame
+from games.mini_royal import MiniRoyalGame
 import random
 from datetime import datetime, timedelta
 import logging
@@ -48,7 +52,16 @@ CALLBACK_HANDLERS = {
     "gift_send": handle_gift_sending,
     "gift_view": handle_gift_view,
     "gift_save": handle_gift_save,
-    "gift_convert": handle_gift_convert
+    "gift_convert": handle_gift_convert,
+    "premium_games": "handle_premium_games_selection",
+    "sabotage": "handle_sabotage_callback",
+    "chess": "handle_chess_callback",
+    "pool": "handle_pool_callback",
+    "poker": "handle_poker_callback",
+    "mini_royal": "handle_mini_royal_callback",
+    "clicker": "handle_clicker_callback",
+    "trex": "handle_trex_callback",
+    "edge_surf": "handle_edge_surf_callback"
 }
 
 async def dismiss_suggestion(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -315,603 +328,719 @@ async def spin_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Determine win (40% chance)
     if random.random() < 0.4:
-        reward = Config.REWARDS['spin_win']
-        text = "🎉 JACKPOT! You won!"
-    else:
-        reward = Config.REWARDS['spin_loss']
-        text = "😢 Better luck next time!"
-    
-    new_balance = update_balance(user_id, reward)
-    
-    await query.edit_message_text(
-        f"{text}\n"
-        f"💰 You earned: {reward:.6f} TON\n"
-        f"💎 New balance: {game_coins_to_ton(new_balance):.6f} TON"
-    )
-
-# =====================
-# WITHDRAWAL HANDLERS
-# =====================
-
-async def process_withdrawal_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Process withdrawal method selection"""
-    query = update.callback_query
-    await query.answer()
-    data = query.data.split('_')
-    
-    if data[1] == 'cancel':
-        await query.edit_message_text("Withdrawal cancelled.")
-        return
+        # Win amount (0.01 to 0.1 TON)
+        win_amount = random.uniform(0.01, 0.1)
+        new_balance = update_balance(user_id, win_amount)
+        update_leaderboard_points(user_id, 3)
         
-    method = data[1]
-    user_id = query.from_user.id
-    user_data = get_user_data(user_id)
-    balance = user_data.get('balance', 0)
-    
-    MIN_WITHDRAWAL_GC = 200000  # 200,000 GC = 100 TON
-    
-    # Get game coins from user data
-    game_coins = user_data.get('game_coins', 0)
-    
-    if game_coins < MIN_WITHDRAWAL_GC:
         await query.edit_message_text(
-            f"❌ Minimum withdrawal: {MIN_WITHDRAWAL_GC:,} GC (100 TON)\n"
-            f"Your balance: {game_coins:,} GC"
-        )
-        return
-        
-    # Process withdrawal based on method
-    if method == 'ton':
-        context.user_data['withdrawal_method'] = 'ton'
-        context.user_data['withdrawal_amount_gc'] = MIN_WITHDRAWAL_GC
-        await query.edit_message_text(
-            "🌐 Please enter your TON wallet address:",
-            parse_mode='Markdown'
+            f"🎉 You won {win_amount:.6f} TON!\n"
+            f"💰 New balance: {game_coins_to_ton(new_balance):.6f} TON"
         )
     else:
-        # OTC desk cash withdrawal
-        currencies = otc_desk.buy_rates.keys()
-        keyboard = [[InlineKeyboardButton(currency, callback_data=f"cash_{currency}")] 
-                    for currency in currencies]
-        
-        context.user_data['withdrawal_method'] = method
-        context.user_data['withdrawal_amount'] = balance
+        # Small consolation
+        consolation = Config.REWARDS.get('spin_consolation', 0.001)
+        new_balance = update_balance(user_id, consolation)
         
         await query.edit_message_text(
-            f"💱 Select currency for your {balance:.6f} TON:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            f"😢 No win this time, but you earned {consolation:.6f} TON for playing!\n"
+            f"💰 New balance: {game_coins_to_ton(new_balance):.6f} TON"
         )
 
-async def process_otc_currency(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Process currency selection for OTC withdrawal"""
+async def clicker_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start clicker game"""
     query = update.callback_query
     await query.answer()
-    currency = query.data.split('_')[1]
+    
     user_id = query.from_user.id
-    
-    method = context.user_data['withdrawal_method']
-    amount = context.user_data['withdrawal_amount']
-    
     user_data = get_user_data(user_id)
-    payment_details = user_data.get('payment_methods', {}).get(method, {})
     
-    rate = otc_desk.get_buy_rate(currency)
-    if not rate:
-        await query.edit_message_text("❌ Invalid currency selected")
+    # Check game cooldown
+    last_played = user_data.get('last_played', {}).get('clicker')
+    if last_played and (datetime.datetime.now() - last_played).seconds < Config.GAME_COOLDOWN * 60:
+        cooldown = Config.GAME_COOLDOWN * 60 - (datetime.datetime.now() - last_played).seconds
+        await query.edit_message_text(
+            f"⏳ You can play clicker again in {cooldown // 60} minutes!"
+        )
         return
-        
-    fiat_amount = convert_currency(amount, rate)
-    fee = calculate_fee(fiat_amount, Config.OTC_FEE_PERCENT, Config.MIN_OTC_FEE)
-    total = fiat_amount - fee
     
-    deal_data = {
-        'user_id': user_id,
-        'amount_ton': amount,
-        'currency': currency,
-        'payment_method': method,
-        'rate': rate,
-        'fiat_amount': fiat_amount,
-        'fee': fee,
-        'total': total,
-        'status': 'pending',
-        'created_at': SERVER_TIMESTAMP,
-        'payment_details': payment_details
-    }
+    context.user_data['clicker_count'] = 0
+    context.user_data['clicker_start'] = datetime.datetime.now()
     
-    # Get database instance
-    db = get_db()
-    
-    # MongoDB insert
-    result = db.otc_deals.insert_one(deal_data)
-    deal_id = result.inserted_id
-    
-    update_balance(user_id, -amount)
-    
-    payment_info = ""
-    if method == 'M-Pesa':
-        payment_info = f"📱 M-Pesa Number: {payment_details.get('phone', 'N/A')}"
-    elif method == 'PayPal':
-        payment_info = f"💳 PayPal Email: {payment_details.get('email', 'N/A')}"
-    elif method == 'Bank Transfer':
-        payment_info = f"🏦 Bank Account: {payment_details.get('account_number', 'N/A')}"
+    keyboard = [[InlineKeyboardButton("🖱️ CLICK ME!", callback_data="clicker_click")]]
     
     await query.edit_message_text(
-        f"💸 Cash withdrawal processing!\n\n"
-        f"• Deal ID: <code>{deal_id}</code>\n"
-        f"• Amount: {amount:.6f} TON → {currency}\n"
-        f"• Rate: {rate:.2f} {currency}/TON\n"
-        f"• Fee: {fee:.2f} {currency}\n"
-        f"• You Receive: {total:.2f} {currency}\n\n"
-        f"{payment_info}\n\n"
-        f"Payment will be processed within 24 hours.",
-        parse_mode='HTML'
-    )
+        "🖱️ CLICKER GAME!\n\n"
+        "Click as fast as you can for 10 seconds!\n"
+        "Each click earns you 0.0001 TON!\n\n"
+        "Ready? Click the button to start!",
+        reply_markup=InlineKeyboardMarkup(keyboard))
 
-async def complete_ton_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Complete TON withdrawal with provided address"""
-    user_id = update.effective_user.id
-    address = update.message.text.strip()
+async def clicker_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle clicker clicks"""
+    query = update.callback_query
+    await query.answer()
     
-    # Get withdrawal amount from context
-    amount_gc = context.user_data.get('withdrawal_amount_gc', 0)
-    ton_amount = game_coins_to_ton(amount_gc)
+    user_id = query.from_user.id
+    click_count = context.user_data.get('clicker_count', 0)
+    start_time = context.user_data.get('clicker_start')
     
-    if not validate_ton_address(address):
-        await update.message.reply_text("❌ Invalid TON address format. Please try again.")
+    if not start_time:
+        # Game ended
+        await query.edit_message_text("Game session expired! Start a new game.")
         return
     
-    # Process TON withdrawal
-    result = process_ton_withdrawal(user_id, ton_amount, address)
+    elapsed = (datetime.datetime.now() - start_time).seconds
     
-    if result and result.get('status') == 'success':
-        withdrawal_data = {
-            'user_id': user_id,
-            'amount': ton_amount,
-            'address': address,
-            'tx_hash': result.get('tx_hash', ''),
-            'status': 'pending',
-            'created_at': SERVER_TIMESTAMP
-        }
+    if elapsed >= 10:
+        # Game over
+        total_earned = click_count * 0.0001
+        new_balance = update_balance(user_id, total_earned)
+        update_leaderboard_points(user_id, click_count // 10)
         
-        # Get database instance
+        # Update last played time
         db = get_db()
-        
-        # MongoDB insert
-        db.withdrawals.insert_one(withdrawal_data)
-        # Deduct game coins from user
         db.users.update_one(
             {"user_id": user_id},
-            {"$inc": {"game_coins": -amount_gc}}
+            {"$set": {"last_played.clicker": SERVER_TIMESTAMP}}
         )
         
-        await update.message.reply_text(
-            f"✅ Withdrawal of {ton_amount:.6f} TON is processing!\n"
-            f"Transaction: https://tonscan.org/tx/{result.get('tx_hash', '')}"
+        await query.edit_message_text(
+            f"⏰ TIME'S UP!\n"
+            f"🏆 Total clicks: {click_count}\n"
+            f"💰 Earned: {total_earned:.6f} TON\n"
+            f"💎 New balance: {game_coins_to_ton(new_balance):.6f} TON"
         )
-    else:
-        error = result.get('error', 'Withdrawal failed') if result else 'Withdrawal failed'
-        await update.message.reply_text(f"❌ Withdrawal failed: {error}")
-
-# ================
-# QUEST HANDLERS
-# ================
-
-async def quest_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show details of a specific quest"""
-    query = update.callback_query
-    await query.answer()
-    quest_id = query.data.split('_')[1]
-    
-    # Get database instance
-    db = get_db()
-    
-    # Get quest details with ObjectID conversion
-    try:
-        quest_doc = db.quests.find_one({"_id": ObjectId(quest_id)})
-    except:
-        quest_doc = None
-        
-    if not quest_doc:
-        await query.edit_message_text("Quest not found.")
         return
     
-    quest_data = quest_doc
+    # Increment click count
+    context.user_data['clicker_count'] = click_count + 1
+    current_clicks = context.user_data['clicker_count']
     
-    # Format quest details
-    text = f"<b>{quest_data['title']}</b>\n\n"
-    text += f"{quest_data['description']}\n\n"
-    text += f"💎 Reward: {quest_data['reward_ton']:.6f} TON\n"
-    text += f"⭐ Points: {quest_data['reward_points']}\n"
-    
-    # Check if user has completed quest
-    user_id = query.from_user.id
-    user_data = get_user_data(user_id)
-    completed_quests = user_data.get('completed_quests', [])
-    
-    # Convert quest_id to string for comparison
-    if str(quest_id) in completed_quests:
-        text += "✅ You've already completed this quest!"
-        keyboard = []
-    else:
-        text += "Tap below to complete this quest:"
-        keyboard = [[InlineKeyboardButton("Complete Quest", callback_data=f"complete_{quest_id}")]]
-    
-    keyboard.append([InlineKeyboardButton("Back to Quests", callback_data="back_to_quests")])
+    keyboard = [[InlineKeyboardButton(f"🖱️ CLICK ME! ({current_clicks})", callback_data="clicker_click")]]
     
     await query.edit_message_text(
-        text, 
+        f"🖱️ CLICKER GAME!\n\n"
+        f"Clicks: {current_clicks}\n"
+        f"Time left: {10 - elapsed} seconds\n"
+        f"Earned: {current_clicks * 0.0001:.6f} TON",
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def trex_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start T-Rex runner game"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    user_data = get_user_data(user_id)
+    
+    # Check game cooldown
+    last_played = user_data.get('last_played', {}).get('trex')
+    if last_played and (datetime.datetime.now() - last_played).seconds < Config.GAME_COOLDOWN * 60:
+        cooldown = Config.GAME_COOLDOWN * 60 - (datetime.datetime.now() - last_played).seconds
+        await query.edit_message_text(
+            f"⏳ You can play T-Rex again in {cooldown // 60} minutes!"
+        )
+        return
+    
+    keyboard = [[InlineKeyboardButton("🦖 PLAY T-REX RUNNER", callback_data="trex_start")]]
+    
+    await query.edit_message_text(
+        "🦖 T-REX RUNNER!\n\n"
+        "Dodge cacti and earn TON based on your score!\n"
+        "• 0-100 points: 0.001 TON\n"
+        "• 101-500 points: 0.005 TON\n"
+        "• 501-1000 points: 0.01 TON\n"
+        "• 1000+ points: 0.02 TON\n\n"
+        "Play in the MiniApp for the best experience!",
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def edge_surf_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start Edge Surf game"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    user_data = get_user_data(user_id)
+    
+    # Check game cooldown
+    last_played = user_data.get('last_played', {}).get('edge_surf')
+    if last_played and (datetime.datetime.now() - last_played).seconds < Config.GAME_COOLDOWN * 60:
+        cooldown = Config.GAME_COOLDOWN * 60 - (datetime.datetime.now() - last_played).seconds
+        await query.edit_message_text(
+            f"⏳ You can play Edge Surf again in {cooldown // 60} minutes!"
+        )
+        return
+    
+    keyboard = [[InlineKeyboardButton("🏄 PLAY EDGE SURF", callback_data="edge_surf_start")]]
+    
+    await query.edit_message_text(
+        "🏄 EDGE SURF!\n\n"
+        "Surf the edge and collect coins!\n"
+        "• Each coin: 0.0001 TON\n"
+        "• Bonus for high scores\n"
+        "• Compete on leaderboards\n\n"
+        "Play in the MiniApp for the best experience!",
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+# ================
+# PREMIUM GAME HANDLERS
+# ================
+
+async def handle_premium_games_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle premium games selection"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    user_data = get_user_data(user_id)
+    
+    if not user_data.get('is_premium', False):
+        keyboard = [
+            [InlineKeyboardButton("Get Premium", callback_data="get_premium")],
+            [InlineKeyboardButton("Free Games", callback_data="play")]
+        ]
+        
+        await query.edit_message_text(
+            "♟️ Premium Games require premium access!\n\n"
+            "Upgrade to premium to unlock:\n"
+            "• Higher earning potential\n"
+            "• Exclusive game modes\n"
+            "• Multiplayer competitions\n"
+            "• Tournament prizes\n\n"
+            "Get premium through the MiniApp or with Telegram Stars!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+    
+    # Show premium games menu
+    keyboard = [
+        [InlineKeyboardButton("🕵️ Crypto Crew: Sabotage", callback_data="sabotage")],
+        [InlineKeyboardButton("🎯 Mini Royal", callback_data="mini_royal")],
+        [InlineKeyboardButton("♟️ Chess Masters", callback_data="chess")],
+        [InlineKeyboardButton("🎱 Pool Game", callback_data="pool")],
+        [InlineKeyboardButton("🃏 Poker Game", callback_data="poker")],
+        [InlineKeyboardButton("⬅️ Back to Free Games", callback_data="play")]
+    ]
+    
+    await query.edit_message_text(
+        "♟️ <b>Premium Games</b>\n\n"
+        "Choose from our exclusive premium games:\n\n"
+        "• 🕵️ Crypto Crew: Sabotage - Social deduction game\n"
+        "• 🎯 Mini Royal - Battle royale style game\n"
+        "• ♟️ Chess Masters - Competitive chess\n"
+        "• 🎱 Pool Game - 8-ball pool tournament\n"
+        "• 🃏 Poker Game - Texas Hold'em poker\n\n"
+        "Earn up to 10x more TON in premium games!",
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='HTML'
     )
 
-async def complete_quest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Mark a quest as completed for the user"""
+async def handle_sabotage_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle sabotage game callbacks"""
     query = update.callback_query
     await query.answer()
-    quest_id = query.data.split('_')[1]
+    
+    data = query.data
     user_id = query.from_user.id
     
-    # Call the complete_quest function
-    if complete_quest(user_id, quest_id):
-        await query.edit_message_text("✅ Quest completed! Rewards added to your account.")
-    else:
-        await query.edit_message_text("❌ Failed to complete quest. Please try again.")
+    if data == "sabotage":
+        # Start new sabotage game
+        keyboard = [
+            [InlineKeyboardButton("Create Game", callback_data="sabotage_create")],
+            [InlineKeyboardButton("Join Game", callback_data="sabotage_join")],
+            [InlineKeyboardButton("Game Rules", callback_data="sabotage_rules")]
+        ]
+        
+        await query.edit_message_text(
+            "🕵️ Crypto Crew: Sabotage\n\n"
+            "A social deduction game where miners try to complete tasks while saboteurs "
+            "try to steal gold without getting caught!\n\n"
+            "Create a game or join an existing one:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif data == "sabotage_create":
+        # Create new sabotage game
+        game_id = f"sabotage_{user_id}_{int(datetime.datetime.now().timestamp())}"
+        game = SabotageGame(game_id, str(user_id))
+        
+        # Save to database
+        from src.database.mongo import save_sabotage_game
+        save_sabotage_game(game.to_dict())
+        
+        keyboard = [
+            [InlineKeyboardButton("Join Game", callback_data=f"sabotage_join_{game_id}")],
+            [InlineKeyboardButton("Invite Players", callback_data=f"sabotage_invite_{game_id}")]
+        ]
+        
+        await query.edit_message_text(
+            f"🎮 Game Created!\n\n"
+            f"Game ID: {game_id}\n"
+            f"Waiting for players to join...\n\n"
+            f"Share this game ID with friends to invite them!",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif data.startswith("sabotage_join_"):
+        game_id = data.split('_')[2]
+        # Join existing game logic
+        pass
+    
+    elif data == "sabotage_rules":
+        await query.edit_message_text(
+            "📖 Crypto Crew: Sabotage Rules\n\n"
+            "👥 Players: 6-12 players\n"
+            "🎯 Objective: Miners complete tasks, Saboteurs steal gold\n"
+            "⏰ Duration: 15-30 minutes\n\n"
+            "Roles:\n"
+            "• ⛏️ Miners (4-10): Complete tasks to earn gold\n"
+            "• 🕵️ Saboteurs (2): Sabotage tasks and steal gold\n"
+            "• 🔍 Detective (1): Investigate suspicious players\n\n"
+            "Rewards:\n"
+            "• Winning team: 0.05-0.2 TON per player\n"
+            "• MVP: Bonus 0.05 TON\n"
+            "• Detective bonus: Extra 0.03 TON"
+        )
 
-# ===================
-# PAYMENT METHOD HANDLERS
-# ===================
-
-async def select_payment_method(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle payment method selection for OTC"""
+async def handle_chess_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle chess game callbacks"""
     query = update.callback_query
     await query.answer()
-    method = query.data.split('_')[1]
     
-    # Store selected method in context
-    context.user_data['payment_method'] = method
+    data = query.data
+    user_id = query.from_user.id
     
-    # Prompt for details based on method
-    if method == 'M-Pesa':
+    if data == "chess":
+        # Start new chess game
+        game = ChessGame()
+        game_id = game.create_game(user_id)
+        
+        keyboard = [
+            [InlineKeyboardButton("Quick Match", callback_data=f"chess_quick_{game_id}")],
+            [InlineKeyboardButton("Invite Friend", callback_data=f"chess_invite_{game_id}")],
+            [InlineKeyboardButton("Tournaments", callback_data="chess_tournaments")]
+        ]
+        
         await query.edit_message_text(
-            "📱 Please enter your M-Pesa number in the format:\n"
-            "254712345678\n\n"
-            "Or type /cancel to abort"
+            "♟️ Chess Masters\n\n"
+            "Play competitive chess against other players!\n"
+            "• Win up to 5000 GC per game\n"
+            "• ELO rating system\n"
+            "• Tournament rewards\n\n"
+            "Choose your game mode:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
-    elif method == 'PayPal':
+    
+    elif data.startswith("chess_quick_"):
+        game_id = data.split('_')[2]
+        # Quick match logic
+        pass
+    
+    elif data == "chess_tournaments":
+        # Show tournaments
+        keyboard = [
+            [InlineKeyboardButton("Daily Tournament", callback_data="chess_tournament_daily")],
+            [InlineKeyboardButton("Weekly Championship", callback_data="chess_tournament_weekly")],
+            [InlineKeyboardButton("Back to Chess", callback_data="chess")]
+        ]
+        
         await query.edit_message_text(
-            "💳 Please enter your PayPal email address:\n"
-            "example@domain.com\n\n"
-            "Or type /cancel to abort"
-        )
-    elif method == 'Bank':
-        await query.edit_message_text(
-            "🏦 Please enter your bank details in the format:\n"
-            "Bank Name, Account Name, Account Number\n\n"
-            "Example: Equity Bank, John Doe, 123456789\n\n"
-            "Or type /cancel to abort"
+            "🏆 Chess Tournaments\n\n"
+            "Join competitive tournaments with big prizes!\n\n"
+            "Daily Tournament:\n"
+            "• Entry: 100 GC\n"
+            "• Prize pool: 1000 GC\n"
+            "• Starts every day at 12:00 UTC\n\n"
+            "Weekly Championship:\n"
+            "• Entry: 500 GC\n"
+            "• Prize pool: 5000 GC\n"
+            "• Starts every Sunday at 15:00 UTC",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
-async def save_payment_details(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save payment details to user profile"""
-    user_id = update.effective_user.id
-    method = context.user_data.get('payment_method')
-    details = update.message.text.strip()
+async def handle_pool_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle pool game callbacks"""
+    query = update.callback_query
+    await query.answer()
     
-    if not method:
-        await update.message.reply_text("❌ No payment method selected. Please start over.")
+    data = query.data
+    user_id = query.from_user.id
+    
+    if data == "pool":
+        keyboard = [
+            [InlineKeyboardButton("Quick Match", callback_data="pool_quick")],
+            [InlineKeyboardButton("Create Tournament", callback_data="pool_tournament")],
+            [InlineKeyboardButton("Practice Mode", callback_data="pool_practice")]
+        ]
+        
+        await query.edit_message_text(
+            "🎱 Pool Masters\n\n"
+            "Play 8-ball pool against other players!\n"
+            "• Win up to 5000 GC per game\n"
+            "• Tournament prizes\n"
+            "• Practice mode available\n\n"
+            "Choose your game mode:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif data == "pool_quick":
+        # Quick match logic
+        game = PoolGame()
+        game_id = game.create_quick_match(user_id)
+        
+        await query.edit_message_text(
+            "🔍 Finding opponent...\n\n"
+            "You'll be notified when a match is found!\n"
+            "Estimated wait time: 1-3 minutes"
+        )
+    
+    elif data == "pool_tournament":
+        # Tournament creation
+        keyboard = [
+            [InlineKeyboardButton("8 Players (500 GC)", callback_data="pool_tourney_8")],
+            [InlineKeyboardButton("16 Players (1000 GC)", callback_data="pool_tourney_16")],
+            [InlineKeyboardButton("32 Players (2000 GC)", callback_data="pool_tourney_32")]
+        ]
+        
+        await query.edit_message_text(
+            "🏆 Create Tournament\n\n"
+            "Choose tournament size and entry fee:\n\n"
+            "8 Players Tournament:\n"
+            "• Entry: 500 GC\n"
+            "• Prize: 3000 GC (1st: 1500, 2nd: 1000, 3rd: 500)\n\n"
+            "16 Players Tournament:\n"
+            "• Entry: 1000 GC\n"
+            "• Prize: 12000 GC (1st: 6000, 2nd: 4000, 3rd: 2000)\n\n"
+            "32 Players Tournament:\n"
+            "• Entry: 2000 GC\n"
+            "• Prize: 48000 GC (1st: 24000, 2nd: 16000, 3rd: 8000)",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+async def handle_poker_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle poker game callbacks"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    user_id = query.from_user.id
+    
+    if data == "poker":
+        keyboard = [
+            [InlineKeyboardButton("Join Table", callback_data="poker_join")],
+            [InlineKeyboardButton("Create Table", callback_data="poker_create")],
+            [InlineKeyboardButton("Tournaments", callback_data="poker_tournaments")]
+        ]
+        
+        await query.edit_message_text(
+            "🃏 Poker Royale\n\n"
+            "Play Texas Hold'em poker with real stakes!\n"
+            "• Win up to 10000 GC per game\n"
+            "• Tournament series\n"
+            "• Sit & Go tables\n\n"
+            "Choose your game:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif data == "poker_join":
+        # Join poker table
+        game = PokerGame()
+        tables = game.get_available_tables()
+        
+        keyboard = []
+        for table in tables[:5]:  # Show first 5 tables
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"Table {table['id']} - {table['stakes']} GC",
+                    callback_data=f"poker_table_{table['id']}"
+                )
+            ])
+        
+        keyboard.append([InlineKeyboardButton("Refresh", callback_data="poker_join")])
+        
+        await query.edit_message_text(
+            "🃏 Available Poker Tables\n\n"
+            "Choose a table to join:\n"
+            "• Small Stakes: 100-500 GC\n"
+            "• Medium Stakes: 500-2000 GC\n"
+            "• High Stakes: 2000-10000 GC\n\n"
+            "Click refresh to see updated tables:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif data == "poker_tournaments":
+        # Show poker tournaments
+        keyboard = [
+            [InlineKeyboardButton("Daily Freeroll", callback_data="poker_tourney_daily")],
+            [InlineKeyboardButton("Weekly Championship", callback_data="poker_tourney_weekly")],
+            [InlineKeyboardButton("High Roller", callback_data="poker_tourney_high")]
+        ]
+        
+        await query.edit_message_text(
+            "🏆 Poker Tournaments\n\n"
+            "Join exciting poker tournaments!\n\n"
+            "Daily Freeroll:\n"
+            "• Free entry\n"
+            "• Prize pool: 1000 GC\n"
+            "• Starts every 4 hours\n\n"
+            "Weekly Championship:\n"
+            "• Entry: 2000 GC\n"
+            "• Prize pool: 50000 GC\n"
+            "• Every Sunday at 18:00 UTC\n\n"
+            "High Roller:\n"
+            "• Entry: 10000 GC\n"
+            "• Prize pool: 200000 GC\n"
+            "• Every Saturday at 20:00 UTC",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+async def handle_mini_royal_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle mini royal game callbacks"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    user_id = query.from_user.id
+    
+    if data == "mini_royal":
+        keyboard = [
+            [InlineKeyboardButton("Solo Queue", callback_data="mini_royal_solo")],
+            [InlineKeyboardButton("Squad Mode", callback_data="mini_royal_squad")],
+            [InlineKeyboardButton("Custom Game", callback_data="mini_royal_custom")]
+        ]
+        
+        await query.edit_message_text(
+            "🎯 Mini Royal\n\n"
+            "Battle royale style game with last-man-standing gameplay!\n"
+            "• Win up to 8000 GC per game\n"
+            "• Squad gameplay\n"
+            "• Unique power-ups\n\n"
+            "Choose your game mode:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif data == "mini_royal_solo":
+        # Solo queue
+        game = MiniRoyalGame()
+        game_id = game.join_solo_queue(user_id)
+        
+        await query.edit_message_text(
+            "🔍 Finding solo match...\n\n"
+            "You'll join a game with 99 other players!\n"
+            "Estimated wait time: 2-5 minutes\n\n"
+            "Prepare for battle! ⚔️"
+        )
+    
+    elif data == "mini_royal_squad":
+        # Squad mode
+        keyboard = [
+            [InlineKeyboardButton("Create Squad", callback_data="mini_royal_create_squad")],
+            [InlineKeyboardButton("Join Squad", callback_data="mini_royal_join_squad")],
+            [InlineKeyboardButton("Find Random Squad", callback_data="mini_royal_random_squad")]
+        ]
+        
+        await query.edit_message_text(
+            "👥 Squad Mode\n\n"
+            "Team up with friends or find random teammates!\n"
+            "• Squads of 4 players\n"
+            "• Team coordination bonuses\n"
+            "• Shared victory rewards\n\n"
+            "Choose an option:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+# ================
+# WITHDRAWAL HANDLERS
+# ================
+
+async def withdraw_ton(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle TON withdrawal request"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    user_data = get_user_data(user_id)
+    
+    # Check if user has TON address set
+    if not user_data.get('ton_address'):
+        context.user_data['awaiting_ton'] = True
+        await query.edit_message_text(
+            "🌐 Please send your TON address in the following format:\n"
+            "`EQAhF...` (standard TON wallet address)\n\n"
+            "Or type /cancel to abort",
+            parse_mode='Markdown'
+        )
         return
     
-    # Validate and save details
-    if method == 'M-Pesa':
-        if not validate_mpesa_number(details):
-            await update.message.reply_text("❌ Invalid M-Pesa number format. Please try again.")
-            return
-        payment_data = {'phone': details}
-    elif method == 'PayPal':
-        if not validate_email(details):
-            await update.message.reply_text("❌ Invalid email format. Please try again.")
-            return
-        payment_data = {'email': details}
-    elif method == 'Bank':
-        parts = details.split(',')
-        if len(parts) < 3:
-            await update.message.reply_text("❌ Invalid format. Please provide all required details.")
-            return
-        payment_data = {
-            'bank_name': parts[0].strip(),
-            'account_name': parts[1].strip(),
-            'account_number': parts[2].strip()
-        }
-    
-    # Get database instance
-    db = get_db()
-    
-    # Update user profile with MongoDB
-    db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {f"payment_methods.{method}": payment_data}}
-    )
-    
-    await update.message.reply_text(
-        f"✅ {method} details saved successfully!\n"
-        "You can now use this method for OTC withdrawals."
-    )
-
-# ================
-# ERROR HANDLERS
-# ================
-
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle errors in the telegram bot"""
-    logger.error("Exception while handling an update:", exc_info=context.error)
-    
-    # Send error message to user
-    if update and isinstance(update, Update) and update.effective_message:
-        await update.effective_message.reply_text(
-            "⚠️ An error occurred. Please try again later or contact support."
+    # Check balance
+    balance = user_data.get('game_coins', 0)
+    if balance < Config.MIN_WITHDRAWAL:
+        await query.edit_message_text(
+            f"❌ Minimum withdrawal: {Config.MIN_WITHDRAWAL} GC\n"
+            f"Your balance: {balance:,} GC"
         )
+        return
     
-    # Notify admin with detailed error
-    if Config.ADMIN_ID:
-        try:
-            error_trace = context.error.__traceback__ if context.error else None
-            error_details = f"⚠️ Bot error:\n{context.error}\n\nTraceback:\n{error_trace}"
-            
-            # Truncate if too long
-            if len(error_details) > 3000:
-                error_details = error_details[:3000] + "..."
-                
-            await context.bot.send_message(
-                chat_id=Config.ADMIN_ID,
-                text=error_details
-            )
-        except Exception as e:
-            logger.error(f"Failed to notify admin about error: {e}")
-
-# Add these callback handlers
-async def affiliate_program(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show affiliate program information"""
-    query = update.callback_query
-    await query.answer()
+    # Process withdrawal
+    ton_amount = game_coins_to_ton(balance)
+    success = process_ton_withdrawal(user_id, user_data['ton_address'], ton_amount)
     
-    # Get affiliate stats
-    stats = await telegram_client.get_affiliate_stats()
-    
-    if stats:
-        text = "🤝 Affiliate Program\n\n"
-        text += f"• Total Referrals: {stats.participants}\n"
-        text += f"• Total Earnings: {stats.revenue} Stars\n"
-        text += f"• Commission Rate: {stats.commission_permille}‰\n\n"
-        text += "Share your referral link to earn commissions!"
-        
-        keyboard = [
-            [InlineKeyboardButton("📋 Copy Referral Link", callback_data="affiliate_copy_link")],
-            [InlineKeyboardButton("📊 View Detailed Stats", callback_data="affiliate_stats")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
-        ]
-    else:
-        text = "Join our affiliate program to earn commissions!\n\n"
-        text += "Share your unique referral link and earn Stars when your friends make purchases."
-        
-        keyboard = [
-            [InlineKeyboardButton("🚀 Join Affiliate Program", callback_data="affiliate_join")],
-            [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
-        ]
-    
-    await query.edit_message_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-async def join_affiliate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Join the affiliate program"""
-    query = update.callback_query
-    await query.answer()
-    
-    result = await telegram_client.join_affiliate_program("CryptoGamerBot")
-    
-    if result:
-        # Get the referral link
-        referral_link = result.connected_bots[0].url
+    if success:
+        # Reset balance
+        update_balance(user_id, -balance)
         
         await query.edit_message_text(
-            f"✅ You've joined our affiliate program!\n\n"
-            f"Your referral link:\n`{referral_link}`\n\n"
-            f"Share this link to earn commissions on your friends' purchases.",
-            parse_mode='Markdown',
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📋 Copy Link", callback_data=f"copy_{referral_link}")],
-                [InlineKeyboardButton("📊 View Stats", callback_data="affiliate_stats")]
-            ])
+            f"✅ Withdrawal processed!\n"
+            f"💎 Sent: {ton_amount:.6f} TON\n"
+            f"📬 To: {user_data['ton_address'][:8]}...{user_data['ton_address'][-6:]}\n\n"
+            f"Transaction should arrive within 15 minutes."
         )
     else:
         await query.edit_message_text(
-            "❌ Could not join affiliate program at this time. Please try again later.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⬅️ Back", callback_data="affiliate_program")]
-            ])
+            "❌ Withdrawal failed!\n"
+            "Please try again later or contact support."
         )
 
-async def handle_giveaway_creation(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show giveaway creation options"""
+async def withdraw_cash(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle cash withdrawal request"""
     query = update.callback_query
     await query.answer()
     
+    user_id = query.from_user.id
+    user_data = get_user_data(user_id)
+    
+    # Check if user has payment method set
+    has_payment_method = any([
+        user_data.get('mpesa_number'),
+        user_data.get('paypal_email'),
+        user_data.get('bank_details')
+    ])
+    
+    if not has_payment_method:
+        context.user_data['awaiting_payment_method'] = True
+        keyboard = [
+            [InlineKeyboardButton("📱 M-Pesa", callback_data="set_mpesa")],
+            [InlineKeyboardButton("💳 PayPal", callback_data="set_paypal")],
+            [InlineKeyboardButton("🏦 Bank", callback_data="set_bank")]
+        ]
+        
+        await query.edit_message_text(
+            "💸 Please set up a payment method first:\n\n"
+            "Choose your preferred withdrawal method:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+    
+    # Show currency options
     keyboard = [
-        [InlineKeyboardButton("🎁 Premium Giveaway", callback_data="giveaway_premium")],
-        [InlineKeyboardButton("⭐ Stars Giveaway", callback_data="giveaway_stars")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="back_to_main")]
+        [InlineKeyboardButton("💵 USD", callback_data="cash_usd")],
+        [InlineKeyboardButton("💶 EUR", callback_data="cash_eur")],
+        [InlineKeyboardButton("KES", callback_data="cash_kes")],
+        [InlineKeyboardButton("💎 TON (Crypto)", callback_data="withdraw_ton")]
     ]
     
     await query.edit_message_text(
-        "🎉 Create a Giveaway\n\n"
-        "Choose the type of giveaway to create:",
+        "💱 Select currency for cash withdrawal:\n\n"
+        "Conversion rates:\n"
+        "• 1 TON ≈ $2.10 USD\n"
+        "• 1 TON ≈ €1.95 EUR\n"
+        "• 1 TON ≈ 300 KES\n\n"
+        "Processing fee: 5%",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-async def handle_premium_giveaway(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle premium giveaway creation"""
+async def handle_cash_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Process cash withdrawal selection"""
     query = update.callback_query
     await query.answer()
     
-    # Implementation for premium giveaway
-    from src.features.monetization.giveaways import giveaway_manager
-    result = await giveaway_manager.create_premium_giveaway(
-        user_id=query.from_user.id,
-        boost_peer=types.InputPeerSelf(),  # Or specific channel
-        users_count=10,
-        months=3
-    )
-    
-    if result['success']:
-        await query.edit_message_text("✅ Premium giveaway created successfully!")
-    else:
-        await query.edit_message_text(f"❌ Error: {result['error']}")
-
-async def handle_gift_sending(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle gift sending"""
-    query = update.callback_query
-    await query.answer()
-    
-    data = query.data.split('_')
-    gift_id = data[2]
-    recipient_id = data[3]
-    
-    from src.features.monetization.gifts import gift_manager
-    result = await gift_manager.send_star_gift(
-        user_id=query.from_user.id,
-        recipient_id=recipient_id,
-        gift_id=int(gift_id)
-    )
-    
-    if result['success']:
-        await query.edit_message_text("🎁 Gift sent successfully!")
-    else:
-        await query.edit_message_text(f"❌ Error sending gift: {result['error']}")
-
-async def handle_attach_menu_install(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle attachment menu installation"""
-    query = update.callback_query
-    await query.answer()
-    
-    bot_id = query.data.split('_')[2]
+    currency = query.data.split('_')[1].upper()
     user_id = query.from_user.id
+    user_data = get_user_data(user_id)
     
-    try:
-        # Check if disclaimer is needed
-        bot_info = await telegram_client.get_attach_menu_bot(bot_id)
+    balance = user_data.get('game_coins', 0)
+    ton_amount = game_coins_to_ton(balance)
+    
+    # Convert to selected currency
+    cash_amount = convert_currency(ton_amount, 'TON', currency)
+    fee = calculate_fee(cash_amount, 0.05)  # 5% fee
+    net_amount = cash_amount - fee
+    
+    # Process through OTC desk
+    result = otc_desk.process_withdrawal(user_id, currency, net_amount)
+    
+    if result['success']:
+        # Reset balance
+        update_balance(user_id, -balance)
         
-        if bot_info.get('side_menu_disclaimer_needed', False):
-            # Show TOS disclaimer
-            keyboard = [
-                [InlineKeyboardButton("✅ Accept TOS", callback_data=f"attach_accept_{bot_id}")],
-                [InlineKeyboardButton("❌ Cancel", callback_data="attach_cancel")]
-            ]
-            
-            await query.edit_message_text(
-                "📋 Terms of Service Agreement\n\n"
-                "This Mini App is not affiliated with Telegram. By installing, you agree to our:\n"
-                "• [Mini Apps TOS](https://telegram.org/tos/mini-apps)\n"
-                "• [Privacy Policy](https://telegram.org/privacy)\n\n"
-                "Do you accept these terms?",
-                parse_mode='Markdown',
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        else:
-            # Install directly
-            await install_attach_menu(user_id, bot_id)
-            
-    except Exception as e:
-        logger.error(f"Error installing attachment menu: {str(e)}")
-        await query.edit_message_text("❌ Failed to install. Please try again.")
-
-async def install_attach_menu(user_id: int, bot_id: int):
-    """Install attachment menu for user"""
-    try:
-        result = await telegram_client(
-            functions.messages.ToggleBotInAttachMenuRequest(
-                bot=types.InputUser(user_id=bot_id, access_hash=0),  # Will be filled by client
-                enabled=True
-            )
+        await query.edit_message_text(
+            f"✅ Cash withdrawal processed!\n\n"
+            f"💸 Amount: {net_amount:.2f} {currency}\n"
+            f"📋 Reference: {result['reference']}\n"
+            f"⏰ ETA: 24-48 hours\n\n"
+            f"You will receive a confirmation when processed."
         )
-        
-        if result:
-            # Update user data
-            db.users.update_one(
-                {"user_id": user_id},
-                {"$set": {"attach_menu_enabled": True}}
-            )
-            
-            return True
-        return False
-        
-    except Exception as e:
-        logger.error(f"Error in attach menu installation: {str(e)}")
-        return False
-    
-# Add sabotage callback handlers
-async def handle_sabotage_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle player joining a sabotage game"""
+    else:
+        await query.edit_message_text(
+            f"❌ Withdrawal failed!\n"
+            f"Error: {result.get('error', 'Unknown error')}\n\n"
+            f"Please try again later or contact support."
+        )
+
+async def handle_clicker_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle clicker game callbacks"""
     query = update.callback_query
     await query.answer()
     
-    game_id = query.data.split('_')[2]
+    data = query.data
     user_id = query.from_user.id
-    user_name = query.from_user.first_name
     
-    # Add player to game
-    from src.database.mongo import get_sabotage_game, update_sabotage_game
-    game_data = get_sabotage_game(game_id)
+    if data == "clicker":
+        await clicker_game(update, context)
+    elif data == "clicker_click":
+        await clicker_click(update, context)
+
+async def handle_trex_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle T-Rex game callbacks"""
+    query = update.callback_query
+    await query.answer()
     
-    if not game_data:
-        await query.edit_message_text("Game not found or already started.")
-        return
+    data = query.data
+    user_id = query.from_user.id
     
-    if user_id in game_data.get('players', {}):
-        await query.answer("You've already joined this game!")
-        return
-    
-    # Add player to game
-    game_data['players'][str(user_id)] = {
-        'name': user_name,
-        'ready': False
-    }
-    
-    update_sabotage_game(game_id, game_data)
-    
-    # Update message with current players
-    player_list = "\n".join([f"• {p['name']}" for p in game_data['players'].values()])
-    await query.edit_message_text(
-        f"🎮 Crypto Crew: Sabotage\n\n"
-        f"Players joined ({len(game_data['players'])}/6):\n{player_list}\n\n"
-        "Game starts automatically when 6 players join.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Game", callback_data=f"sabotage_join_{game_id}")],
-            [InlineKeyboardButton("Game Rules", callback_data="sabotage_rules")]
-        ])
-    )
-    
-    # Start game if we have 6 players
-    if len(game_data['players']) == 6:
-        # Initialize game
-        game = SabotageGame(game_id, game_data['chat_id'])
-        for player_id in game_data['players']:
-            await game.add_player(player_id, game_data['players'][player_id]['name'])
+    if data == "trex":
+        await trex_game(update, context)
+    elif data == "trex_start":
+        # Start T-Rex game in MiniApp
+        miniapp_url = f"https://{Config.RENDER_URL}/miniapp?game=trex"
+        keyboard = [[InlineKeyboardButton("🦖 Play T-Rex", url=miniapp_url)]]
         
-        # Update game state
-        game_data['state'] = 'tasks'
-        game_data['start_time'] = datetime.now()
-        game_data['end_time'] = datetime.now() + timedelta(minutes=15)
-        update_sabotage_game(game_id, game_data)
+        await query.edit_message_text(
+            "🦖 T-REX RUNNER\n\n"
+            "Click the button below to play in the MiniApp!\n"
+            "Your score will automatically convert to TON rewards.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+async def handle_edge_surf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle Edge Surf game callbacks"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data
+    user_id = query.from_user.id
+    
+    if data == "edge_surf":
+        await edge_surf_game(update, context)
+    elif data == "edge_surf_start":
+        # Start Edge Surf game in MiniApp
+        miniapp_url = f"https://{Config.RENDER_URL}/miniapp?game=edge_surf"
+        keyboard = [[InlineKeyboardButton("🏄 Play Edge Surf", url=miniapp_url)]]
         
-        # Notify players
-        for player_id in game_data['players']:
-            try:
-                role = "Miner" if game.players[player_id]['role'] == 'miner' else "Saboteur"
-                await context.bot.send_message(
-                    chat_id=player_id,
-                    text=f"🎮 Game starting! You are a {role}.\n\n"
-                         f"Open the miniapp to play: https://t.me/YourBotName/sabotage?game_id={game_id}"
-                )
-            except Exception as e:
-                logger.error(f"Failed to notify player {player_id}: {str(e)}")
+        await query.edit_message_text(
+            "🏄 EDGE SURF\n\n"
+            "Click the button below to play in the MiniApp!\n"
+            "Collect coins and earn TON rewards automatically.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )

@@ -138,3 +138,15 @@
 
 **## YOU ARE ALLOWED TO FOCUS ON CHANGES AND DEVELOPMENTS OF THE FILES UPLOADED...YOU CAN MAKE SUGGESTIONS ON CHANGES OF OTHER FILES IF REQUIRED ##**
 
+
+**##CryptoGamer - Play games, earn TON, and bet with Telegram Stars!##**
+
+• Free games: Trivia, Spin, Clicker, T-Rex, Edge Surf
+• Premium games with Stars betting: Sabotage, Chess, Pool, Poker, Mini Royal
+• Bet Telegram Stars against friends in competitive matches
+• Earn up to 100 TON daily + Stars betting winnings
+• Withdraw to wallet or convert to cash
+• Daily bonuses & referral program
+• Tournament betting with Stars prizes
+
+Challenge friends, bet Stars, and earn real TON rewards!
