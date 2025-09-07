@@ -73,8 +73,38 @@ GAME_DIR_MAP = {
     'tonopoly': 'tonopoly'  # Add tonopoly directory mapping
 }
 
-# Global storage for active TONopoly games
-active_tonopoly_games = {}
+# Global storage for active games across all game types
+active_games = {
+    "tonopoly": {},  # active_tonopoly_games moved here
+    "chess": {},
+    "poker": {},
+    "pool": {},
+    "sabotage": {}
+}
+
+# Keep the existing tonopoly games storage for backward compatibility
+active_tonopoly_games = active_games["tonopoly"]
+
+
+# Also add this function to provide access to active games
+def get_active_games():
+    """Get all active games across all game types"""
+    return active_games
+
+def get_active_game(game_type, game_id):
+    """Get a specific active game"""
+    return active_games.get(game_type, {}).get(game_id)
+
+def add_active_game(game_type, game_id, game_instance):
+    """Add a game to active games"""
+    if game_type not in active_games:
+        active_games[game_type] = {}
+    active_games[game_type][game_id] = game_instance
+
+def remove_active_game(game_type, game_id):
+    """Remove a game from active games"""
+    if game_type in active_games and game_id in active_games[game_type]:
+        del active_games[game_type][game_id]
 
 # Security middleware for game routes
 @games_bp.before_request
