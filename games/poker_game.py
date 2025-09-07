@@ -3,7 +3,7 @@ import time
 import logging
 from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
-from .base_game import BaseGame, va
+from .base_game import BaseGame
 from src.database.mongo import db, get_user_data, update_game_coins
 
 
