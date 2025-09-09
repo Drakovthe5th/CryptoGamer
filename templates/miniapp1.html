@@ -61,10 +61,6 @@
     <link rel="preload" href="/game-assets/spin/spin.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
     <link rel="preload" href="/game-assets/edge-surf/interface.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
     <link rel="preload" href="/game-assets/sabotage/sabotage.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
-    <link rel="preload" href="/game-assets/poker/poker.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
-    <link rel="preload" href="/game-assets/chess/chess.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
-    <link rel="preload" href="/game-assets/pool/pool.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
-    <link rel="preload" href="/game-assets/mini-royal/mini-royal.css" as="style" onload="this.onload=null;this.rel='stylesheet'" disabled>
     
     <!-- Static Paths Configuration -->
     <script src="/static/js/static_paths.js"></script>
@@ -264,170 +260,30 @@
       cursor: pointer;
     }
     
-    /* Game card styles */
-    .game-card {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 15px;
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      border: 1px solid transparent;
-    }
-    
-    .game-card:hover {
-      border-color: #ffd700;
-      box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
-      transform: translateY(-3px);
-    }
-    
-    .game-icon {
-      width: 50px;
-      height: 50px;
-      border-radius: 10px;
-      background: rgba(255, 215, 0, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      margin-right: 15px;
-      flex-shrink: 0;
-    }
-    
+    /* Sabotage game card styles */
     .game-info {
       flex: 1;
+      margin-left: 12px;
     }
-    
-    .game-name {
-      font-weight: bold;
-      margin-bottom: 5px;
-      color: #fff;
-    }
-    
-    .game-description {
-      font-size: 0.8rem;
-      color: #888;
-      margin-bottom: 8px;
-    }
-    
     .game-stats {
       display: flex;
-      gap: 12px;
-      font-size: 0.75rem;
-      color: #666;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #888;
     }
-    
     .stat {
       display: flex;
       align-items: center;
     }
-    
     .play-btn {
       background: rgba(255, 215, 0, 0.2);
       border: 1px solid #ffd700;
-      border-radius: 8px;
-      padding: 8px 16px;
-      color: #ffd700;
+      border-radius: 5px;
+      padding: 8px 12px;
+      color: white;
       cursor: pointer;
       white-space: nowrap;
-      font-weight: bold;
-      transition: all 0.3s;
-    }
-    
-    .play-btn:hover {
-      background: rgba(255, 215, 0, 0.3);
-    }
-    
-    .premium-game {
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .premium-game::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #ffd700, transparent);
-      animation: shimmer 2s infinite;
-    }
-    
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-    
-    .game-category {
-      margin: 20px 0 15px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255, 215, 0, 0.3);
-      color: #ffd700;
-      font-weight: bold;
-    }
-    
-    /* Toast notification */
-    .toast {
-      position: fixed;
-      bottom: 100px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      z-index: 1000;
-      opacity: 0;
-      transition: opacity 0.3s;
-      max-width: 80%;
-      text-align: center;
-    }
-    
-    .toast.show {
-      opacity: 1;
-    }
-    
-    /* Game container */
-    .game-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: var(--tg-theme-bg-color, #0a0a1a);
-      z-index: 1000;
-      overflow: auto;
-    }
-    
-    .game-header {
-      display: flex;
-      align-items: center;
-      padding: 15px;
-      background: rgba(20, 20, 40, 0.9);
-      border-bottom: 1px solid rgba(255, 215, 0, 0.3);
-    }
-    
-    .game-header .back-button {
-      background: none;
-      border: none;
-      color: #ffd700;
-      font-size: 1.5rem;
-      cursor: pointer;
-      margin-right: 15px;
-    }
-    
-    .game-header h3 {
-      margin: 0;
-      color: white;
-    }
-    
-    #game-frame {
-      width: 100%;
-      height: calc(100% - 60px);
-      border: none;
     }
 
   </style>
@@ -722,156 +578,103 @@
           Play games, earn TON coins, and climb the leaderboards!
         </p>
         
-        <!-- Free Games Section -->
-        <h3 class="game-category">🎯 Free Games</h3>
-        <div class="games-container">
-          <!-- Trivia Game -->
-          <div class="game-card" data-game="trivia">
+        <div class="game-grid">
+          <!-- Existing games -->
+          <div class="game-card" data-game-id="trivia">
             <div class="game-icon">❓</div>
-            <div class="game-info">
-              <h3 class="game-name">Crypto Trivia</h3>
-              <p class="game-description">Test your crypto knowledge and earn rewards</p>
-              <div class="game-stats">
-                <span class="stat">💰 Up to 500 GC</span>
-                <span class="stat">⏱️ 5 min</span>
-              </div>
-            </div>
-            <button class="play-btn" onclick="launchGame('trivia')">Play</button>
+            <div class="game-name">Crypto Trivia</div>
+            <small style="color: #888;">Test your knowledge</small>
           </div>
           
-          <!-- Spin Game -->
-          <div class="game-card" data-game="spin">
+          <div class="game-card" data-game-id="spin">
             <div class="game-icon">🎡</div>
-            <div class="game-info">
-              <h3 class="game-name">Lucky Spin</h3>
-              <p class="game-description">Spin the wheel for instant rewards</p>
-              <div class="game-stats">
-                <span class="stat">💰 Up to 1000 GC</span>
-                <span class="stat">🎯 Daily bonus</span>
-              </div>
-            </div>
-            <button class="play-btn" onclick="launchGame('spin')">Play</button>
+            <div class="game-name">Lucky Spin</div>
+            <small style="color: #888;">Spin to win big</small>
           </div>
           
-          <!-- Clicker Game -->
-          <div class="game-card" data-game="clicker">
+          <div class="game-card" data-game-id="clicker">
             <div class="game-icon">🖱️</div>
-            <div class="game-info">
-              <h3 class="game-name">TON Clicker</h3>
-              <p class="game-description">Click to earn and upgrade your income</p>
-              <div class="game-stats">
-                <span class="stat">💰 Passive income</span>
-                <span class="stat">⚡ Fast gameplay</span>
-              </div>
-            </div>
-            <button class="play-btn" onclick="launchGame('clicker')">Play</button>
+            <div class="game-name">TON Clicker</div>
+            <small style="color: #888;">Click for rewards</small>
           </div>
           
-          <!-- T-Rex Runner -->
-          <div class="game-card" data-game="trex">
+          <div class="game-card" data-game-id="trex">
             <div class="game-icon">🦖</div>
-            <div class="game-info">
-              <h3 class="game-name">T-Rex Runner</h3>
-              <p class="game-description">Classic endless runner with crypto rewards</p>
-              <div class="game-stats">
-                <span class="stat">💰 Score-based rewards</span>
-                <span class="stat">🏆 Leaderboards</span>
-              </div>
-            </div>
-            <button class="play-btn" onclick="launchGame('trex')">Play</button>
+            <div class="game-name">T-Rex Runner</div>
+            <small style="color: #888;">Endless runner</small>
           </div>
           
-          <!-- Edge Surf -->
-          <div class="game-card" data-game="edge-surf">
+          <div class="game-card" data-game-id="edge-surf">
             <div class="game-icon">🏄</div>
-            <div class="game-info">
-              <h3 class="game-name">Edge Surf</h3>
-              <p class="game-description">Surf the web and collect crypto coins</p>
-              <div class="game-stats">
-                <span class="stat">💰 Collection game</span>
-                <span class="stat">🌐 Browser-based</span>
-              </div>
-            </div>
-            <button class="play-btn" onclick="launchGame('edge-surf')">Play</button>
+            <div class="game-name">Edge Surf</div>
+            <small style="color: #888;">Surf the web</small>
           </div>
-        </div>
-        
-        <!-- Premium Games Section -->
-        <h3 class="game-category">⭐ Premium Games (Stars Betting)</h3>
-        <div class="games-container">
+          
           <!-- Sabotage Game -->
-          <div class="game-card premium-game" data-game="sabotage">
+          <div class="game-card" data-game="sabotage">
             <div class="game-icon">🕵️</div>
             <div class="game-info">
-              <h3 class="game-name">Crypto Crew: Sabotage</h3>
-              <p class="game-description">Social deduction game - Find the saboteurs!</p>
+              <h3>Crypto Crew: Sabotage</h3>
+              <p>Social deduction game - Find the saboteurs!</p>
               <div class="game-stats">
                 <span class="stat">👥 4-6 players</span>
                 <span class="stat">⏱️ 15 min</span>
                 <span class="stat">💰 Up to 8000 GC</span>
               </div>
             </div>
-            <button class="play-btn" onclick="launchPremiumGame('sabotage')">Play</button>
+            <button class="play-btn" onclick="launchGame('sabotage')">Play</button>
           </div>
 
           <!-- Chess Game -->
-          <div class="game-card premium-game" data-game="chess">
+          <div class="game-card" data-game="chess">
             <div class="game-icon">♟️</div>
             <div class="game-info">
-              <h3 class="game-name">ChessMasters</h3>
-              <p class="game-description">Strategic board game - Checkmate your opponent!</p>
+              <h3>ChessMasters</h3>
+              <p>Strategic board game - Checkmate your opponent!</p>
               <div class="game-stats">
                 <span class="stat">👥 2 players</span>
                 <span class="stat">⏱️ 20 min</span>
                 <span class="stat">💰 Up to 5000 GC</span>
               </div>
             </div>
-            <button class="play-btn" onclick="launchPremiumGame('chess')">Play</button>
+            <button class="play-btn" onclick="launchGame('chess')">Play</button>
           </div>
 
           <!-- Pool Game -->
-          <div class="game-card premium-game" data-game="pool">
+          <div class="game-card" data-game="pool">
             <div class="game-icon">🎱</div>
             <div class="game-info">
-              <h3 class="game-name">8-Ball Pool</h3>
-              <p class="game-description">Classic pool game - Sink the 8-ball to win!</p>
+              <h3>Pool Masters</h3>
+              <p>Classic billiards game - Sink the balls!</p>
               <div class="game-stats">
-                <span class="stat">👥 2 players</span>
+                <span class="stat">👥 2-4 players</span>
                 <span class="stat">⏱️ 10 min</span>
-                <span class="stat">💰 Up to 3000 GC</span>
+                <span class="stat">💰 Up to 5000 GC</span>
               </div>
             </div>
-            <button class="play-btn" onclick="launchPremiumGame('pool')">Play</button>
+            <button class="play-btn" onclick="launchGame('pool')">Play</button>
           </div>
 
           <!-- Poker Game -->
-          <div class="game-card premium-game" data-game="poker">
+          <div class="game-card" data-game="poker">
             <div class="game-icon">🃏</div>
             <div class="game-info">
-              <h3 class="game-name">Texas Hold'em Poker</h3>
-              <p class="game-description">Classic poker game - Bluff your way to victory!</p>
+              <h3>Poker Royale</h3>
+              <p>Texas Hold'em poker - Bluff your way to victory!</p>
               <div class="game-stats">
-                <span class="stat">👥 2-6 players</span>
-                <span class="stat">⏱️ 30 min</span>
+                <span class="stat">👥 2-8 players</span>
+                <span class="stat">⏱️ 15 min</span>
                 <span class="stat">💰 Up to 10000 GC</span>
               </div>
             </div>
-            <button class="play-btn" onclick="launchPremiumGame('poker')">Play</button>
+            <button class="play-btn" onclick="launchGame('poker')">Play</button>
           </div>
-
-          <!-- Mini Royal Game -->
-          <div class="game-card premium-game" data-game="mini-royal">
-            <div class="game-icon">👑</div>
-            <div class="game-info">
-              <h3 class="game-name">Mini Royal</h3>
-              <p class="game-description">Battle royale game - Be the last one standing!</p>
-              <div class="game-stats">
-                <span class="stat">👥 10 players</span>
-                <span class="stat">⏱️ 5 min</span>
-                <span class="stat">💰 Up to 15000 GC</span>
-              </div>
-            </div>
-            <button class="play-btn" onclick="launchPremiumGame('mini-royal')">Play</button>
+          
+          <!-- Premium Games -->
+          <div class="game-card premium-feature" style="opacity: 0.6; pointer-events: none;">
+            <div class="game-icon">🎲</div>
+            <div class="game-name">Premium Games</div>
+            <small style="color: #888;">Unlock with Premium</small>
           </div>
         </div>
       </div>
@@ -1054,7 +857,7 @@
         <div class="milestone">
           <div>
             <div style="font-weight: 600;">📺 Earn 100,000 GC from Ads</div>
-            <small style: #888;">Reward: 50,000 GC</small>
+            <small style="color: #888;">Reward: 50,000 GC</small>
           </div>
           <div style="color: #888;" id="ad-earnings-large">0/100,000 GC</div>
         </div>
@@ -1288,61 +1091,49 @@
         </div>
       </div>
     </section>
-
-    <!-- Game Container (initially hidden) -->
-    <div id="game-container" class="game-container hidden">
-      <div class="game-header">
-        <button class="back-button" onclick="exitGame()">← Back</button>
-        <h3 id="game-title">Game</h3>
-      </div>
-      <div id="game-frame"></div>
-    </div>
   </main>
 
-  <!-- Bottom Navigation -->
-  <nav class="bottom-nav">
-    <a href="#" class="nav-item active" data-page="home">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Home</span>
+  <!-- Navigation Bar -->
+<nav class="bottom-nav">
+    <a href="#home" class="nav-item active" data-page="home">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Home</span>
     </a>
-    <a href="#" class="nav-item" data-page="watch">
-      <span class="nav-icon">📺</span>
-      <span class="nav-label">Watch</span>
+    <a href="#watch" class="nav-item" data-page="watch">
+        <span class="nav-icon">📺</span>
+        <span class="nav-label">Watch</span>
     </a>
-    <a href="#" class="nav-item" data-page="games">
-      <span class="nav-icon">🎮</span>
-      <span class="nav-label">Games</span>
+    <a href="#wallet" class="nav-item" data-page="wallet">
+        <span class="nav-icon">💰</span>
+        <span class="nav-label">Wallet</span>
     </a>
-    <a href="#" class="nav-item" data-page="wallet">
-      <span class="nav-icon">💰</span>
-      <span class="nav-label">Wallet</span>
+    <a href="#games" class="nav-item" data-page="games">
+        <span class="nav-icon">🎮</span>
+        <span class="nav-label">Games</span>
     </a>
-    <a href="#" class="nav-item" data-page="quests">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">Quests</span>
+    <a href="#quests" class="nav-item" data-page="quests">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Quests</span>
     </a>
-    <a href="#" class="nav-item" data-page="otc">
-      <span class="nav-icon">💱</span>
-      <span class="nav-label">Trade</span>
+    <a href="#otc" class="nav-item" data-page="otc">
+        <span class="nav-icon">💱</span>
+        <span class="nav-label">Trade</span>
     </a>
-    <a href="#" class="nav-item" data-page="referrals">
-      <span class="nav-icon">👥</span>
-      <span class="nav-label">Invite</span>
+    <a href="#referrals" class="nav-item" data-page="referrals">
+        <span class="nav-icon">👥</span>
+        <span class="nav-label">Invite</span>
     </a>
-    <a href="#" class="nav-item" data-page="attach-menu">
-      <span class="nav-icon">📎</span>
-      <span class="nav-label">Mini-Apps</span>
+    <a href="#attach-menu" class="nav-item" data-page="attach-menu">
+        <span class="nav-icon">📎</span>
+        <span class="nav-label">Mini-Apps</span>
     </a>
-    <a href="#" class="nav-item" data-page="shop">
+    <a href="games/game-assets/shop" class="nav-item" data-page="shop">
       <span class="nav-icon">🛒</span>
       <span class="nav-label">Shop</span>
     </a>
-  </nav>
+</nav>
 
-  <!-- Toast Notifications -->
-  <div id="toast" class="toast"></div>
-
-  <!-- GLOBAL JS FILES (Root /static/ folder) -->
+  <!-- GLOBAL JAVASCRIPT FILES (from /static/js/) -->
   <script src="/static/js/main.js"></script>
   <script src="/static/js/websocket.js"></script>
   <script src="/static/js/api-client.js"></script>
@@ -1361,7 +1152,6 @@
     let userLimits = {};
     let pendingSuggestions = [];
     let dismissedSuggestions = [];
-    let currentBalance = 0;
 
     // Initialize the app
     document.addEventListener('DOMContentLoaded', function() {
@@ -1399,7 +1189,12 @@
         item.addEventListener('click', function(e) {
           e.preventDefault();
           const pageId = this.getAttribute('data-page');
-          showPage(pageId);
+          if (pageId === 'shop') {
+            // For shop, we'll open the external page
+            window.location.href = 'games/game-assets/shop.html';
+          } else {
+            showPage(pageId);
+          }
           
           // Update active state
           document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -1869,11 +1664,7 @@
       }
       
       if (themeSettings.text_color) {
-        document.documentElement.style.setProperty('--tg-theme-text-color', themeSettings.text)
-      }
-      
-      if (themeSettings.hint_color) {
-        document.documentElement.style.setProperty('--tg-theme-hint-color', themeSettings.hint_color);
+        document.documentElement.style.setProperty('--tg-theme-text-color', themeSettings.text_color);
       }
     }
 
@@ -1984,7 +1775,7 @@
         const response = await fetch('/api/attachment-menu/remove', {
           method: 'POST',
           headers: {
-            'Content-Type: application/json',
+            'Content-Type': 'application/json',
             'X-Telegram-InitData': window.Telegram ? Telegram.WebApp.initData : ''
           },
           body: JSON.stringify({ bot_id: botId })
@@ -2005,9 +1796,9 @@
             }
           }
         }
-    } catch (error) {
+      } catch (error) {
         console.error('Error removing bot:', error);
-    }
+      }
     }
 
     // Function to purchase an item
@@ -2228,37 +2019,7 @@
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            // Enable the game-specific CSS
-            const gameCss = document.querySelector(`link[href="/game-assets/${gameId}/${gameId}.css"]`);
-            if (gameCss) gameCss.disabled = false;
-            
-            // Load the game in the game container
-            const gameContainer = document.getElementById('game-container');
-            const gameFrame = document.getElementById('game-frame');
-            
-            // Hide all pages and show game container
-            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
-            gameContainer.classList.remove('hidden');
-            
-            // Set game title
-            document.getElementById('game-title').textContent = getGameName(gameId);
-            
-            // Load the game HTML
-            fetch(`/game-assets/${gameId}/index.html`)
-              .then(response => response.text())
-              .then(html => {
-                gameFrame.innerHTML = html;
-                
-                // Load the game JS
-                const script = document.createElement('script');
-                script.src = `/game-assets/${gameId}/${gameId}.js`;
-                document.body.appendChild(script);
-              })
-              .catch(error => {
-                console.error('Error loading game:', error);
-                showToast('Failed to load game', 'error');
-                exitGame();
-              });
+            window.location.href = result.url;
           } else {
             console.error('Failed to launch game:', result.error);
           }
@@ -2268,81 +2029,6 @@
       } catch (error) {
         console.error('Error launching game:', error);
       }
-    }
-    
-    // Function to launch premium games (with Stars requirement)
-    function launchPremiumGame(gameId) {
-      // Check if user has enough Stars
-      if (!userHasPremiumAccess()) {
-        showToast('Premium game requires Stars subscription', 'warning');
-        showPremiumPopup();
-        return;
-      }
-      
-      // Launch the game if user has premium
-      launchGame(gameId);
-    }
-    
-    // Exit game and return to main app
-    function exitGame() {
-      // Hide game container and show home page
-      document.getElementById('game-container').classList.add('hidden');
-      document.getElementById('home-page').classList.add('active');
-      
-      // Disable game-specific CSS
-      document.querySelectorAll('link[href^="/game-assets/"]').forEach(link => {
-        link.disabled = true;
-      });
-      
-      // Clean up game frame
-      document.getElementById('game-frame').innerHTML = '';
-      
-      // Remove any game-specific scripts
-      document.querySelectorAll('script[src^="/game-assets/"]').forEach(script => {
-        script.remove();
-      });
-    }
-    
-    // Helper function to get game display name
-    function getGameName(gameId) {
-      const gameNames = {
-        'trivia': 'Crypto Trivia',
-        'spin': 'Lucky Spin',
-        'clicker': 'TON Clicker',
-        'trex': 'T-Rex Runner',
-        'edge-surf': 'Edge Surf',
-        'sabotage': 'Crypto Crew: Sabotage',
-        'poker': 'Texas Hold\'em Poker',
-        'chess': 'ChessMasters',
-        'pool': '8-Ball Pool',
-        'mini-royal': 'Mini Royal'
-      };
-      
-      return gameNames[gameId] || gameId;
-    }
-    
-    // Check if user has premium access
-    function userHasPremiumAccess() {
-      // This would check the user's subscription status
-      return false; // Placeholder - implement actual check
-    }
-    
-    // Show premium subscription popup
-    function showPremiumPopup() {
-      showToast('Premium features require Stars subscription', 'info');
-      // Implement actual premium popup logic
-    }
-    
-    // Show toast notification
-    function showToast(message, type = 'info') {
-      const toast = document.getElementById('toast');
-      toast.textContent = message;
-      toast.className = `toast ${type}`;
-      toast.classList.add('show');
-      
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 3000);
     }
     
     // Function to show withdrawal form
@@ -2493,7 +2179,7 @@
           Telegram.WebApp.showPopup({
             title: 'Error',
             message: 'Please enter a valid amount',
-            buttons: [{type: 'ok'}]
+            boys: [{type: 'ok'}]
           });
         } else {
           alert('Please enter a valid amount');
@@ -2549,9 +2235,9 @@
         } else {
           console.error('Failed to process swap');
         }
-        } catch (error) {
+      } catch (error) {
         console.error('Error processing swap:', error);
-      };
+      }
     }
     
     // Function to logout
@@ -2577,7 +2263,6 @@
           localStorage.clear();
           window.location.reload();
         }
-        
       }
     }
 
