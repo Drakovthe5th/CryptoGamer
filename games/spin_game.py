@@ -1,12 +1,18 @@
+from config import config
+from src.database.mongo import get_user_data, update_user_data
+from src.utils.security import validate_session_token
 import random
 import time
 from .base_game import BaseGame
+
+TON_TO_GC_RATE = 2000  # 2000 Game Coins = 1 TON
+SPIN_COST_GC = 0.2  # 0.0001 TON * 2000 = 0.2 GC
 
 class SpinGame(BaseGame):
     def __init__(self):
         super().__init__("spin")
         self.wheel_sections = self.load_wheel_sections()
-        self.spin_cost = 0.0001  # TON per spin
+        self.spin_cost = SPIN_COST_GC
         self.last_spin_time = {}
         
     def load_wheel_sections(self):
@@ -37,6 +43,10 @@ class SpinGame(BaseGame):
         return {"status": "ready"}
     
     def handle_action(self, user_id, action, data):
+        # Add session validation
+        if not validate_session_token(user_id, data.get('token')):
+            return {"error": "Invalid session token"}
+        
         player = self.players.get(user_id)
         if not player or not player["active"]:
             return {"error": "Player not active"}
@@ -48,22 +58,26 @@ class SpinGame(BaseGame):
             return {"error": "Spin too fast. Wait 1 second between spins."}
         
         if action == "spin":
-            # Deduct spin cost in GC
-            spin_cost_gc = self.spin_cost * TON_TO_GC_RATE
-            if player["score"] < spin_cost_gc:
+            # Check user balance from database
+            user_data = get_user_data(user_id)
+            if user_data.get('game_coins', 0) < self.spin_cost_gc:
                 return {"error": "Insufficient balance"}
             
-            player["score"] -= spin_cost_gc
+            # Deduct spin cost
+            update_user_data(user_id, {'game_coins': user_data['game_coins'] - self.spin_cost_gc})
+            
             result = self.calculate_spin()
             
-            # Award winnings in GC
-            player["score"] += result["gc_value"]
+            # Award winnings
+            new_balance = user_data['game_coins'] - self.spin_cost_gc + result["gc_value"]
+            update_user_data(user_id, {'game_coins': new_balance})
+            
             player["spins"] += 1
             self.last_spin_time[user_id] = current_time
             
             return {
                 "result": result,
-                "score": player["score"],
+                "new_balance": new_balance,
                 "spins": player["spins"]
             }
         

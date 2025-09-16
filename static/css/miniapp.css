@@ -544,12 +544,33 @@ body {
     margin: 10px 0;
 }
 
+
 .wallet-status {
-    text-align: center;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-    margin: 15px 0;
+    transition: all 0.3s ease;
+}
+
+.wallet-address {
+    font-family: monospace;
+    background: rgba(255,255,255,0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin: 10px 0;
+    word-break: break-all;
+}
+
+.wallet-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.connected-badge {
+    background: #4CAF50;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    margin-left: 10px;
 }
 
 .wallet-status.hidden {

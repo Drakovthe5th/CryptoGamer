@@ -1,7 +1,7 @@
 {
-    "url": "https://your-cryptogamer-domain.com",
-    "name": "CryptoGamer - Play & Earn TON",
-    "iconUrl": "https://your-cryptogamer-domain.com/static/assets/icon-192x192.png",
-    "termsOfUseUrl": "https://your-cryptogamer-domain.com/terms",
-    "privacyPolicyUrl": "https://your-cryptogamer-domain.com/privacy"
+  "url": "https://yourdomain.com",
+  "name": "CryptoGamer",
+  "iconUrl": "https://yourdomain.com/icon.png",
+  "termsOfUseUrl": "https://yourdomain.com/terms",
+  "privacyPolicyUrl": "https://yourdomain.com/privacy"
 }

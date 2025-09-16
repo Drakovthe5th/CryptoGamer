@@ -29,6 +29,7 @@ from src.telegram.subscriptions import (
     get_user_subscriptions,
     cancel_subscription
 )
+from src.integrations.payment_processors import payment_processor
 from datetime import datetime, timedelta
 
 miniapp_bp = Blueprint('miniapp', __name__)
@@ -226,32 +227,66 @@ def security_check():
         logger.error(f"Security check error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@miniapp_bp.route('/staking/create', methods=['POST'])
+@miniapp_bp.route('/api/wallet/create-order', methods=['POST'])
 @validators.validate_json_input({
     'user_id': {'type': 'int', 'required': True},
-    'amount': {'type': 'float', 'required': True}
+    'amount': {'type': 'float', 'required': True},
+    'description': {'type': 'str', 'required': True},
+    'currency': {'type': 'str', 'required': False}
 })
-def create_staking():
+async def create_wallet_order():
+    """Create a Telegram Wallet payment order"""
     data = request.get_json()
-    user_id = data['user_id']
-    amount = data['amount']
-    
-    # Security check for abnormal activity
-    if security.is_abnormal_activity(user_id):
-        return jsonify({
-            'restricted': True,
-            'error': 'Account restricted due to suspicious activity'
-        }), 403
     
     try:
-        return jsonify({
-            'success': True,
-            'contract': "EQABC...",
-            'staked': amount
-        })
+        result = await payment_processor.create_telegram_wallet_order(
+            user_id=data['user_id'],
+            amount=data['amount'],
+            description=data['description'],
+            currency=data.get('currency', 'TON')
+        )
+        
+        if result['success']:
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
     except Exception as e:
-        logger.error(f"Staking error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Wallet order creation failed: {str(e)}")
+        return jsonify({'error': 'Order creation failed'}), 500
+    
+@miniapp_bp.route('/api/wallet/order-status/<order_id>', methods=['GET'])
+async def get_wallet_order_status(order_id):
+    """Get wallet order status"""
+    try:
+        result = await payment_processor.get_order_status(order_id)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Order status check failed: {str(e)}")
+        return jsonify({'error': 'Status check failed'}), 500
+    
+@miniapp_bp.route('/api/wallet/webhook', methods=['POST'])
+async def wallet_webhook():
+    """Handle Telegram Wallet webhook notifications"""
+    try:
+        webhook_data = await request.get_json()
+        webhook = Webhook.parse_obj(webhook_data)
+        
+        if webhook.type == "ORDER_PAID":
+            # Process successful payment
+            order_id = webhook.payload.order_id
+            await process_successful_payment(order_id)
+            
+        elif webhook.type == "ORDER_FAILED":
+            # Handle failed payment
+            order_id = webhook.payload.order_id
+            await handle_failed_payment(order_id)
+            
+        return jsonify({'status': 'ok'})
+        
+    except Exception as e:
+        logger.error(f"Webhook processing failed: {str(e)}")
+        return jsonify({'error': 'Webhook processing failed'}), 500
 
 @miniapp_bp.route('/referral/generate', methods=['GET'])
 def generate_referral():

@@ -3,11 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TON Spin Wheel</title>
+  <title>TON Spin Wheel - CryptoGamer</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/css/miniapp.css">
   <link rel="stylesheet" href="/games/static/spin/spin.css">
 </head>
-<body>
+
+<body class="miniapp-theme">
+  <div class="game-header">
+    <button class="back-button" onclick="window.history.back()">← Back</button>
+    <h2>Lucky Spin</h2>
+    <div class="header-balance">
+      <span id="header-balance">0</span> GC
+    </div>
+  </div>
+
   <div class="spin-container">
     <div class="header">
       <h1>TON Spin Wheel</h1>
@@ -66,6 +76,7 @@
         }
     }
   </script>
+  <script src="/static/js/telegram-web-events.js"></script>
   <script src="/games/static/spin/spin.js"></script>
 </body>
 </html>
